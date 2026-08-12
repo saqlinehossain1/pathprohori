@@ -147,8 +147,8 @@ You can test the application using the pre-seeded team and test user accounts:
    Create a `.env` file inside `server/` (refer to `server/.env.example`):
    ```env
    PORT=5000
-   MONGO_URI=mongodb+srv://saqlinehussain:Donottry2@cluster0.lgfmhge.mongodb.net/pathprohori?retryWrites=true&w=majority&appName=Cluster0
-   JWT_SECRET=pathprohori_super_secret_jwt_key_2026_cse471
+   MONGO_URI=mongodb+srv://<username>:<password>@cluster0.lgfmhge.mongodb.net/pathprohori?retryWrites=true&w=majority
+   JWT_SECRET=your_jwt_secret_key_here
    CLIENT_URL=http://localhost:5173
    ```
 
