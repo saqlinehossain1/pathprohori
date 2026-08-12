@@ -30,7 +30,7 @@ export const Sidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-[#EFEAEB] min-h-[calc(100vh-61px)] flex flex-col p-4 shrink-0 hidden md:flex">
+    <aside className="w-64 bg-white border-r border-[#EFEAEB] h-full flex flex-col p-4 shrink-0 hidden md:flex overflow-y-auto">
       {/* User Console Status Badge */}
       <div className="flex items-center gap-3 p-3 mb-6 bg-[#FDF7F9] rounded-2xl border border-[#F3E6EC]">
         <div className="w-10 h-10 rounded-2xl bg-[#FDE8EC] text-[#E05370] flex items-center justify-center font-bold shrink-0">

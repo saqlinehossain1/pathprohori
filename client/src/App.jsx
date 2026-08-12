@@ -13,18 +13,19 @@ import { LogJourney } from './pages/LogJourney';
 import { LiveDangerFeed } from './pages/LiveDangerFeed';
 import { IncidentDiscussion } from './pages/IncidentDiscussion';
 import { VoiceSettings } from './pages/VoiceSettings';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 export const App = () => {
   const { user } = useContext(AuthContext);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F8FA] text-[#2D2329] font-sans">
+    <div className="h-screen flex flex-col bg-[#F9F8FA] text-[#2D2329] font-sans overflow-hidden">
       {user && <Header />}
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-hidden">
         {user && <Sidebar />}
 
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-y-auto h-full">
           <Routes>
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
             <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
@@ -75,6 +76,7 @@ export const App = () => {
         </main>
       </div>
 
+      {user && <MobileBottomNav />}
       <Footer />
     </div>
   );

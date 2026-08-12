@@ -86,12 +86,12 @@ export const LiveDangerFeed = () => {
   const mapCenter = [23.8103, 90.4125];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-140px)]">
-        {/* Left Column: Live Danger Feed List (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
+    <div className="space-y-4 h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-100px)]">
+        {/* Left Column: Live Danger Feed List (7 cols) - Independently Scrollable */}
+        <div className="lg:col-span-7 space-y-5 h-full overflow-y-auto pr-2 custom-scrollbar">
           {/* Top Card: Live Coverage */}
-          <div className="bg-white p-6 rounded-3xl border border-[#EFEAEB] shadow-card flex items-center justify-between gap-4">
+          <div className="bg-white p-6 rounded-3xl border border-[#EFEAEB] shadow-card flex items-center justify-between gap-4 sticky top-0 z-20">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-[#FDF7F9] text-[#6B4355] flex items-center justify-center font-bold">
                 <MapPin className="w-6 h-6 text-[#6B4355]" />
@@ -208,8 +208,8 @@ export const LiveDangerFeed = () => {
           </div>
         </div>
 
-        {/* Right Column: Leaflet Interactive Map Split View (5 cols) */}
-        <div className="lg:col-span-5 h-[650px] lg:h-auto bg-white rounded-3xl border border-[#EFEAEB] shadow-card overflow-hidden relative flex flex-col">
+        {/* Right Column: Leaflet Interactive Map Split View (5 cols) - Fixed Independent View */}
+        <div className="lg:col-span-5 h-[450px] lg:h-full bg-white rounded-3xl border border-[#EFEAEB] shadow-card overflow-hidden relative flex flex-col">
           <MapContainer
             center={mapCenter}
             zoom={13}

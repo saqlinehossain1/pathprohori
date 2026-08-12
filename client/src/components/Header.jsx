@@ -10,16 +10,16 @@ export const Header = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#EFEAEB] px-6 py-3.5 transition-all">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#EFEAEB] px-3 sm:px-6 py-2.5 sm:py-3.5 transition-all">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group">
+        <Link to="/" className="flex items-center gap-1.5 sm:gap-2.5 group">
           <img
             src="/logo.png"
             alt="PATHPROHORI Logo"
-            className="w-9 h-9 object-contain group-hover:scale-105 transition-transform"
+            className="w-7 h-7 sm:w-9 sm:h-9 object-contain group-hover:scale-105 transition-transform"
           />
-          <span className="text-xl font-bold tracking-widest text-[#6B4355] font-sans">
+          <span className="text-sm sm:text-xl font-extrabold tracking-wider sm:tracking-widest text-[#6B4355] font-sans">
             PATHPROHORI
           </span>
         </Link>
