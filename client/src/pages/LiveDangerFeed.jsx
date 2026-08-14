@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, Component } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -10,7 +11,7 @@ import EditIncidentModal from '../components/incidents/EditIncidentModal';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Card from '../components/common/Card';
-import { ShieldAlert, Plus, MapPin, Radio, LocateFixed, Pin, Navigation, MessageSquare, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Plus, MapPin, Radio, LocateFixed, Pin, Navigation, MessageSquare, AlertTriangle, RefreshCw, Info, Lightbulb, Maximize2, Minimize2, X } from 'lucide-react';
 
 // Error Boundary for page level safety
 class FeedErrorBoundary extends Component {
@@ -149,6 +150,120 @@ const RecenterMap = ({ lat, lng }) => {
   return null;
 };
 
+// Helper component to recalculate Leaflet map tile dimensions when tab visibility or container size changes
+const MapInvalidateSize = ({ isVisible }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (map) {
+      const timer1 = setTimeout(() => {
+        try {
+          map.invalidateSize();
+        } catch (err) {
+          console.warn('[MapInvalidateSize Error]', err);
+        }
+      }, 100);
+
+      const timer2 = setTimeout(() => {
+        try {
+          map.invalidateSize();
+        } catch (err) {
+          console.warn('[MapInvalidateSize Error]', err);
+        }
+      }, 400);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [map, isVisible]);
+
+  return null;
+};
+
+// Floating Leaflet control overlay (My Location & Expand Map buttons)
+const MapControlsOverlay = ({ onRequestLocation, isLocating, onExpand, isExpanded }) => {
+  const map = useMap();
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (containerRef.current && L.DomEvent) {
+      L.DomEvent.disableClickPropagation(containerRef.current);
+      L.DomEvent.disableScrollPropagation(containerRef.current);
+    }
+  }, []);
+
+  const handleLocate = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (onRequestLocation) {
+      onRequestLocation((lat, lng) => {
+        if (map && typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+          try {
+            map.setView([lat, lng], 15, { animate: true });
+          } catch (err) {
+            console.warn('[MapControlsOverlay Error]', err);
+          }
+        }
+      });
+    }
+  };
+
+  const handleExpandToggle = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (onExpand) {
+      onExpand();
+    }
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className="leaflet-top leaflet-right !top-3 !right-3"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="leaflet-control pointer-events-auto flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleLocate}
+          disabled={isLocating}
+          title="Recenter map to my live GPS location & request permission"
+          className="bg-white/95 hover:bg-white text-[#6B4355] border border-[#E0D5DC] px-3 py-1.5 rounded-2xl shadow-md flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer backdrop-blur-xs"
+        >
+          <LocateFixed className={`w-3.5 h-3.5 text-[#6B4355] ${isLocating ? 'animate-spin' : ''}`} />
+          <span className="text-[11px] font-extrabold text-[#6B4355]">My Location</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleExpandToggle}
+          title={isExpanded ? 'Minimize Map' : 'Expand Map Fullscreen'}
+          className="bg-[#6B4355] hover:bg-[#543343] text-white border border-[#6B4355] px-3 py-1.5 rounded-2xl shadow-md flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+        >
+          {isExpanded ? (
+            <>
+              <Minimize2 className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-[11px] font-extrabold">Minimize</span>
+            </>
+          ) : (
+            <>
+              <Maximize2 className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-[11px] font-extrabold">Expand</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const LiveDangerFeedContent = () => {
   const {
     incidents = [],
@@ -163,11 +278,24 @@ const LiveDangerFeedContent = () => {
     deleteIncident,
     userLocation,
     isLocationLoading,
+    requestLocation,
   } = useIncidents();
 
   const [showReportModal, setShowReportModal] = useState(false);
   const [editingIncident, setEditingIncident] = useState(null);
   const [selectedCoords, setSelectedCoords] = useState(null);
+  const [mobileTab, setMobileTab] = useState('feed'); // 'feed' | 'map'
+  const [isExpandedMap, setIsExpandedMap] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isExpandedMap) {
+        setIsExpandedMap(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpandedMap]);
 
   const defaultLat = typeof userLocation?.lat === 'number' && !isNaN(userLocation.lat) ? userLocation.lat : 23.8103;
   const defaultLng = typeof userLocation?.lng === 'number' && !isNaN(userLocation.lng) ? userLocation.lng : 90.4125;
@@ -201,16 +329,16 @@ const LiveDangerFeedContent = () => {
   }
 
   return (
-    <div className="space-y-6 h-full">
+    <div className="space-y-4 sm:space-y-6 h-full pb-16 lg:pb-0">
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#6B4355] tracking-tight flex items-center gap-2">
-            <ShieldAlert className="w-8 h-8 text-[#6B4355]" />
-            Live Danger Feed & Heatmap
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#6B4355] tracking-tight flex items-center gap-2">
+            <ShieldAlert className="w-6 h-6 sm:w-8 sm:h-8 text-[#6B4355] shrink-0" />
+            <span>Live Danger Feed & Heatmap</span>
           </h1>
-          <p className="text-xs text-[#8C7A87] font-medium mt-1">
-            PATHPROHORI Hyperlocal Community Danger Feed. Real-time crowdsourced safety warnings & manual map pin reports.
+          <p className="text-[11px] sm:text-xs text-[#8C7A87] font-medium mt-1 leading-snug">
+            PATHPROHORI Hyperlocal Community Danger Feed. Real-time crowdsourced safety warnings & map pin reports.
           </p>
         </div>
 
@@ -220,17 +348,48 @@ const LiveDangerFeedContent = () => {
             setShowReportModal(true);
           }}
           size="md"
-          className="font-extrabold"
+          className="font-extrabold hidden sm:inline-flex shrink-0"
         >
           <Plus className="w-4 h-4 mr-2" />
           Report Street Hazard
         </Button>
       </div>
 
+      {/* Mobile Segmented View Switcher (Feed List vs Interactive Map) */}
+      <div className="flex items-center p-1 bg-white border border-[#E0D5DC] rounded-2xl shadow-xs lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab('feed')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+            mobileTab === 'feed'
+              ? 'bg-[#6B4355] text-white shadow-sm'
+              : 'text-[#8C7A87] hover:text-[#6B4355]'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5" />
+          <span>Feed List ({incidents.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileTab('map')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+            mobileTab === 'map'
+              ? 'bg-[#6B4355] text-white shadow-sm'
+              : 'text-[#8C7A87] hover:text-[#6B4355]'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Safety Map ({incidents.length} Pins)</span>
+        </button>
+      </div>
+
       {/* Main Grid: Feed List (Left 7 Cols) + Interactive Heatmap (Right 5 Cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px] lg:h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[450px] lg:h-[calc(100vh-200px)]">
         {/* Left Column: Filter & Incident Feed List */}
-        <div className="lg:col-span-7 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+        <div className={`lg:col-span-7 space-y-4 overflow-y-auto pr-0 lg:pr-2 custom-scrollbar ${
+          mobileTab === 'feed' ? 'block' : 'hidden lg:block'
+        }`}>
           <IncidentFilterBar
             searchQuery={searchQuery || ''}
             onSearchChange={setSearchQuery}
@@ -238,7 +397,7 @@ const LiveDangerFeedContent = () => {
             onFilterChange={setActiveFilter}
           />
 
-          <div className="space-y-4">
+          <div className="space-y-4 pb-32 lg:pb-6">
             {incidents.length === 0 ? (
               <Card className="text-center py-12">
                 <Radio className="w-10 h-10 text-[#8C7A87] mx-auto mb-2 opacity-50" />
@@ -262,9 +421,11 @@ const LiveDangerFeedContent = () => {
         </div>
 
         {/* Right Column: Interactive Leaflet Danger Map */}
-        <div className="lg:col-span-5 hidden lg:block h-full">
+        <div className={`lg:col-span-5 h-[calc(100vh-280px)] min-h-[420px] lg:h-full ${
+          mobileTab === 'map' ? 'block' : 'hidden lg:block'
+        }`}>
           <Card className="p-1.5 h-full flex flex-col overflow-hidden relative border-[#E0D5DC]">
-            <div className="px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-[#EFEAEF] flex items-center justify-between gap-2 overflow-hidden">
+            <div className="px-3.5 py-2.5 bg-white/90 backdrop-blur-sm border-b border-[#EFEAEF] flex items-center justify-between gap-2 overflow-hidden">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
                 <span className="text-xs font-extrabold text-[#2D2329] tracking-tight whitespace-nowrap">
@@ -272,7 +433,7 @@ const LiveDangerFeedContent = () => {
                 </span>
               </div>
 
-              <span className="px-3 py-1 rounded-full bg-[#F9F8FA] border border-[#E0D5DC] text-[11px] font-extrabold text-[#6B4355] whitespace-nowrap flex-shrink-0">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#F9F8FA] border border-[#E0D5DC] text-[10px] sm:text-[11px] font-extrabold text-[#6B4355] whitespace-nowrap flex-shrink-0">
                 {incidents.length} Active Pins
               </span>
             </div>
@@ -299,6 +460,8 @@ const LiveDangerFeedContent = () => {
                   />
                   <MapClickHandler onMapClick={handleMapPinDrop} />
                   <RecenterMap lat={defaultLat} lng={defaultLng} />
+                  <MapInvalidateSize isVisible={mobileTab === 'map'} />
+                  <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(true)} isExpanded={false} />
 
                   {/* User Live GPS Marker */}
                   <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon()}>
@@ -410,8 +573,54 @@ const LiveDangerFeedContent = () => {
                 </MapContainer>
               )}
             </div>
+
+            {/* Map Pin Icon Legend Footer */}
+            <div className="px-3.5 py-2 bg-[#F9F8FA] border-t border-[#EFEAEF] flex flex-wrap items-center justify-between gap-2 text-[10px] font-extrabold text-[#6B4355] rounded-b-2xl">
+              <span className="text-[#8C7A87] uppercase tracking-wider text-[9px] font-black flex items-center gap-1">
+                <Info className="w-3 h-3 text-[#6B4355]" /> Pin Legend:
+              </span>
+
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 text-rose-700">
+                  <div className="w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-xs">
+                    <ShieldAlert className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <span>High Alert (Severe)</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 text-amber-700">
+                  <div className="w-3.5 h-3.5 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                    <AlertTriangle className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <span>Med Severity (Caution)</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 text-purple-700">
+                  <div className="w-3.5 h-3.5 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                    <Lightbulb className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <span>Low Severity (Notice)</span>
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
+      </div>
+
+      {/* Floating Action Button for Mobile Users */}
+      <div className="fixed bottom-20 right-4 lg:hidden z-40">
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedCoords(null);
+            setShowReportModal(true);
+          }}
+          className="p-3.5 bg-[#6B4355] text-white rounded-full shadow-lg hover:bg-[#543343] active:scale-95 transition-all flex items-center gap-2 font-extrabold text-xs border-2 border-white"
+          title="Report Street Hazard"
+        >
+          <Plus className="w-5 h-5 text-white" />
+          <span className="pr-1">Report Hazard</span>
+        </button>
       </div>
 
       {/* New Incident Report Modal */}
@@ -433,6 +642,177 @@ const LiveDangerFeedContent = () => {
         onSubmit={updateIncident}
         incident={editingIncident}
       />
+
+      {/* Fullscreen Map Modal via React Portal to blur complete page */}
+      {isExpandedMap &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md p-2 sm:p-6 flex items-center justify-center animate-in fade-in duration-300">
+            <div className="w-full h-full max-w-7xl max-h-[96vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-[#E0D5DC] animate-in zoom-in-95 duration-300 relative">
+              {/* Header Bar */}
+              <div className="px-4 py-3 bg-white border-b border-[#EFEAEF] flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
+                  <h3 className="text-sm sm:text-base font-extrabold text-[#2D2329] tracking-tight truncate">
+                    Live Safety Map (Expanded View)
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-[10px] sm:text-[11px] font-extrabold text-rose-700 whitespace-nowrap hidden sm:inline-block">
+                    {incidents.length} Active Pins
+                  </span>
+                </div>
+
+                {/* Quick Legend Pills in Header */}
+                <div className="flex items-center gap-2 text-[10px] font-extrabold">
+                  <span className="px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3 text-rose-600" /> High Alert
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-amber-600" /> Med Severity
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 flex items-center gap-1">
+                    <Lightbulb className="w-3 h-3 text-purple-600" /> Low Severity
+                  </span>
+                </div>
+              </div>
+
+              {/* Expanded Map Canvas */}
+              <div className="flex-1 w-full relative z-10">
+                <MapContainer
+                  key={`leaflet-expanded-map-${defaultLat.toFixed(3)}-${defaultLng.toFixed(3)}`}
+                  center={[defaultLat, defaultLng]}
+                  zoom={14}
+                  scrollWheelZoom={true}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapClickHandler onMapClick={handleMapPinDrop} />
+                  <RecenterMap lat={defaultLat} lng={defaultLng} />
+                  <MapInvalidateSize isVisible={isExpandedMap} />
+                  <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(false)} isExpanded={true} />
+
+                  {/* User Live GPS Marker */}
+                  <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon()}>
+                    <Popup className="custom-leaflet-popup">
+                      <div className="p-3 space-y-1 text-xs font-extrabold text-[#2D2329]">
+                        <div className="flex items-center gap-1.5 text-blue-700 font-extrabold border-b border-blue-100 pb-1.5">
+                          <LocateFixed className="w-4 h-4 text-blue-600" />
+                          <span>Your Live GPS Position</span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 font-semibold pt-1">
+                          [{defaultLat.toFixed(4)}, {defaultLng.toFixed(4)}]
+                        </p>
+                      </div>
+                    </Popup>
+                  </Marker>
+
+                  {/* Manually Selected Spot Marker */}
+                  {selectedCoords && typeof selectedCoords.lat === 'number' && typeof selectedCoords.lng === 'number' && (
+                    <Marker position={[selectedCoords.lat, selectedCoords.lng]} icon={createSelectedSpotIcon()}>
+                      <Popup className="custom-leaflet-popup">
+                        <div className="p-3 space-y-1 text-xs font-extrabold text-[#2D2329]">
+                          <div className="flex items-center gap-1.5 text-amber-700 font-extrabold border-b border-amber-100 pb-1.5">
+                            <Pin className="w-4 h-4 text-amber-600" />
+                            <span>Selected Area for Report</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 font-semibold pt-1">
+                            [{selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}]
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+
+                  {/* Render active incident pins */}
+                  {incidents.map((inc) => {
+                    if (!inc || !inc._id) return null;
+                    const coords = inc.location?.coordinates;
+                    if (!coords || !Array.isArray(coords) || coords.length < 2) return null;
+                    const lat = coords[1];
+                    const lng = coords[0];
+                    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return null;
+
+                    const liveDistText = calculateLiveDistanceText(lat, lng);
+                    const sevStr = String(inc.severity || 'Med Severity');
+                    const isHighSev = sevStr.includes('High');
+                    const isMedSev = sevStr.includes('Med');
+
+                    return (
+                      <Marker
+                        key={inc._id}
+                        position={[lat, lng]}
+                        icon={createCustomIcon(sevStr, inc.title)}
+                      >
+                        <Popup className="custom-leaflet-popup">
+                          <div className="p-3.5 space-y-2 text-[#2D2329]">
+                            <div className="flex items-center justify-between gap-2 border-b border-[#F0EBF0] pb-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                                isHighSev
+                                  ? 'bg-rose-500/15 text-rose-700 border border-rose-500/30'
+                                  : isMedSev
+                                  ? 'bg-amber-500/15 text-amber-700 border border-amber-500/30'
+                                  : 'bg-indigo-500/15 text-indigo-700 border border-indigo-500/30'
+                              }`}>
+                                {sevStr}
+                              </span>
+
+                              {inc.isVerified && (
+                                <span className="text-[10px] font-extrabold text-sky-600 flex items-center gap-0.5">
+                                  ✓ Verified
+                                </span>
+                              )}
+                            </div>
+
+                            <div>
+                              <h4 className="font-extrabold text-xs text-[#2D2329] leading-tight">
+                                {inc.title}
+                              </h4>
+                              <p className="text-[10px] text-[#8C7A87] font-bold mt-1 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-[#6B4355]" />
+                                {inc.locationName}
+                              </p>
+                            </div>
+
+                            <div className="p-2 rounded-xl bg-rose-50/80 border border-rose-100 flex items-center justify-between text-[10px] font-extrabold text-rose-700">
+                              <span className="flex items-center gap-1">
+                                <Navigation className="w-3 h-3 text-rose-600" />
+                                {liveDistText} away from your live GPS
+                              </span>
+                            </div>
+
+                            {inc.description && (
+                              <p className="text-[11px] text-[#4A3D46] font-medium line-clamp-2 leading-relaxed">
+                                {inc.description}
+                              </p>
+                            )}
+
+                            <Link
+                              to={`/incident/${inc._id}`}
+                              className="popup-btn flex items-center justify-center gap-1.5 w-full py-2 bg-[#6B4355] text-white rounded-xl text-[11px] font-extrabold text-center hover:bg-[#543343] transition-all shadow-sm mt-2 cursor-pointer border border-[#6B4355]"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-amber-300" />
+                              <span className="text-white font-extrabold">Open Discussion ({inc.comments?.length || 0})</span>
+                            </Link>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
+                </MapContainer>
+              </div>
+
+              {/* Map Legend Footer inside Modal */}
+              <div className="px-4 py-2.5 bg-[#F9F8FA] border-t border-[#EFEAEF] flex flex-wrap items-center justify-between gap-2 text-[10px] font-extrabold text-[#6B4355]">
+                <span className="text-[#8C7A87] uppercase tracking-wider text-[9px] font-black flex items-center gap-1">
+                  <Info className="w-3 h-3 text-[#6B4355]" /> Interactive Danger Map • Tap anywhere on map to drop hazard report pin
+                </span>
+                <span className="text-[10px] text-gray-500 font-bold">Press ESC to exit fullscreen</span>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

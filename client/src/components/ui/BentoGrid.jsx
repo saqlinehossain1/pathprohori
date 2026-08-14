@@ -6,7 +6,7 @@ export const BentoGrid = ({ children, className }) => {
   return (
     <div
       className={cn(
-        'grid w-full auto-rows-[16.5rem] grid-cols-3 gap-6',
+        'grid w-full auto-rows-[17.5rem] grid-cols-3 gap-6',
         className
       )}
     >
@@ -35,17 +35,17 @@ export const BentoCard = ({
       className
     )}
   >
-    <div className="w-full relative z-0">{background}</div>
+    <div className="w-full relative z-0 flex-shrink-0">{background}</div>
 
-    <div className="pointer-events-none z-10 flex transform-gpu flex-col gap-1 p-5 transition-all duration-300 group-hover:-translate-y-1">
-      {Icon && <Icon className="h-7 w-7 origin-left transform-gpu text-[#6B4355] transition-all duration-300 ease-in-out group-hover:scale-110" />}
-      <h3 className="text-lg font-extrabold text-[#2D2329] mt-1">{name}</h3>
+    <div className="pointer-events-none z-10 flex transform-gpu flex-col gap-1 px-5 pt-3 pb-12 transition-all duration-300 group-hover:-translate-y-1">
+      {Icon && <Icon className="h-6 w-6 origin-left transform-gpu text-[#6B4355] transition-all duration-300 ease-in-out group-hover:scale-110" />}
+      <h3 className="text-base font-extrabold text-[#2D2329] mt-0.5">{name}</h3>
       <p className="max-w-lg text-xs font-medium text-[#8C7A87] leading-relaxed line-clamp-2">{description}</p>
     </div>
 
     <div
       className={cn(
-        'pointer-events-none absolute bottom-0 flex w-full translate-y-10 transform-gpu flex-row items-center p-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100'
+        'pointer-events-none absolute bottom-0 flex w-full translate-y-4 transform-gpu flex-row items-center px-5 py-3.5 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100'
       )}
     >
       {href && cta && (

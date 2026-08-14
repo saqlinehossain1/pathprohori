@@ -27,29 +27,39 @@ export const useIncidents = () => {
   const [isLocationLoading, setIsLocationLoading] = useState(true);
 
   // Fetch live phone GPS coordinates
-  useEffect(() => {
+  const requestLocation = useCallback((onSuccess) => {
     if ('geolocation' in navigator) {
       setIsLocationLoading(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setUserLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setUserLocation({ lat, lng });
           setIsLocationLoading(false);
+          if (onSuccess) onSuccess(lat, lng);
         },
         (err) => {
           console.warn('[GPS Geolocation] Defaulting to Dhaka center:', err.message);
-          setUserLocation({ lat: 23.8103, lng: 90.4125 });
+          const fallbackLat = 23.8103;
+          const fallbackLng = 90.4125;
+          setUserLocation({ lat: fallbackLat, lng: fallbackLng });
           setIsLocationLoading(false);
+          if (onSuccess) onSuccess(fallbackLat, fallbackLng);
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
-      setUserLocation({ lat: 23.8103, lng: 90.4125 });
+      const fallbackLat = 23.8103;
+      const fallbackLng = 90.4125;
+      setUserLocation({ lat: fallbackLat, lng: fallbackLng });
       setIsLocationLoading(false);
+      if (onSuccess) onSuccess(fallbackLat, fallbackLng);
     }
   }, []);
+
+  useEffect(() => {
+    requestLocation();
+  }, [requestLocation]);
 
   const fetchIncidents = useCallback(async () => {
     try {
@@ -154,8 +164,13 @@ export const useIncidents = () => {
     return matchesSearch;
   });
 
+  // Sort incidents serially by distance (nearest hazards first)
+  const sortedIncidents = [...filteredIncidents].sort(
+    (a, b) => (a.distanceKm || 0) - (b.distanceKm || 0)
+  );
+
   return {
-    incidents: filteredIncidents,
+    incidents: sortedIncidents,
     rawIncidents: incidents,
     loading,
     error,
@@ -165,6 +180,7 @@ export const useIncidents = () => {
     setActiveFilter,
     userLocation,
     isLocationLoading,
+    requestLocation,
     refreshIncidents: fetchIncidents,
     handleVote,
     handleUpvote,

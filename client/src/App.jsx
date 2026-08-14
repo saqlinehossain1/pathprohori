@@ -26,7 +26,7 @@ export const App = () => {
       <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-hidden min-h-0">
         {user && <Sidebar />}
 
-        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-12 overflow-y-auto min-h-0">
+        <main className="flex-1 p-4 md:p-6 pb-28 md:pb-12 overflow-y-auto min-h-0">
           <Routes>
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
             <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />

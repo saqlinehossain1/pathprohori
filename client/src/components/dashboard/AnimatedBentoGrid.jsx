@@ -21,7 +21,7 @@ export const AnimatedBentoGrid = () => {
       cta: 'Explore Danger Feed',
       className: 'col-span-3 lg:col-span-2',
       background: (
-        <div className="w-full bg-[#FDF7F9] p-3 flex flex-col gap-2 border-b border-[#E0D5DC]/60">
+        <div className="w-full bg-[#FDF7F9] px-4 pt-3.5 pb-2 flex flex-col gap-2 border-b border-[#E0D5DC]/60 min-h-[5.5rem]">
           <div className="flex items-center justify-between z-10">
             <span className="text-[11px] font-extrabold text-[#6B4355] flex items-center gap-1.5 bg-white px-2.5 py-0.5 rounded-full border border-[#E0D5DC] shadow-xs">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -32,7 +32,7 @@ export const AnimatedBentoGrid = () => {
             </span>
           </div>
 
-          <div className="w-full z-10">
+          <div className="w-full z-10 mt-0.5">
             <Marquee pauseOnHover className="[--duration:22s]">
               {marqueeHazardItems.map((item, idx) => (
                 <div
@@ -65,7 +65,7 @@ export const AnimatedBentoGrid = () => {
       cta: 'View Log Journey',
       className: 'col-span-3 lg:col-span-1',
       background: (
-        <div className="w-full bg-[#F0FDF4] p-3 flex flex-col justify-between border-b border-emerald-100 min-h-[5.5rem]">
+        <div className="w-full bg-[#F0FDF4] px-4 pt-3.5 pb-2 flex flex-col justify-between border-b border-emerald-100 min-h-[5.5rem]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-xs flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -74,12 +74,12 @@ export const AnimatedBentoGrid = () => {
           </div>
 
           {/* EKG / Heartbeat Animated Graphic */}
-          <div className="flex items-center justify-center gap-1.5 h-10 opacity-90 mt-1">
+          <div className="flex items-center justify-center gap-1.5 h-9 opacity-90 mt-1 py-1">
             <div className="w-1.5 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
             <div className="w-1.5 h-6 bg-emerald-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
-            <div className="w-1.5 h-10 bg-emerald-600 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+            <div className="w-1.5 h-8 bg-emerald-600 rounded-full animate-pulse [animation-delay:0.4s]"></div>
             <div className="w-1.5 h-4 bg-emerald-500 rounded-full animate-pulse [animation-delay:0.1s]"></div>
-            <div className="w-1.5 h-8 bg-emerald-500 rounded-full animate-pulse [animation-delay:0.3s]"></div>
+            <div className="w-1.5 h-7 bg-emerald-500 rounded-full animate-pulse [animation-delay:0.3s]"></div>
           </div>
         </div>
       ),
@@ -93,7 +93,7 @@ export const AnimatedBentoGrid = () => {
       cta: 'Setup Voice Controls',
       className: 'col-span-3 lg:col-span-1',
       background: (
-        <div className="w-full bg-sky-50 p-3 flex flex-col justify-between border-b border-sky-100 min-h-[5.5rem]">
+        <div className="w-full bg-sky-50 px-4 pt-3.5 pb-2 flex flex-col justify-between border-b border-sky-100 min-h-[5.5rem] overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black text-sky-800 bg-white px-2.5 py-0.5 rounded-full border border-sky-200 shadow-xs">
               Phrase: "Lavender Moonlight"
@@ -101,12 +101,12 @@ export const AnimatedBentoGrid = () => {
           </div>
 
           {/* Animated Sound Wave Bars */}
-          <div className="flex items-center justify-center gap-2 h-10 mt-1">
-            <div className="w-1.5 h-4 bg-sky-500 rounded-full animate-bounce"></div>
-            <div className="w-1.5 h-8 bg-sky-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-            <div className="w-1.5 h-5 bg-sky-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-            <div className="w-1.5 h-10 bg-indigo-600 rounded-full animate-bounce [animation-delay:0.1s]"></div>
-            <div className="w-1.5 h-4 bg-sky-500 rounded-full animate-bounce [animation-delay:0.3s]"></div>
+          <div className="flex items-center justify-center gap-2 h-9 mt-1 py-1">
+            <div className="w-1.5 h-4 bg-sky-500 rounded-full animate-pulse"></div>
+            <div className="w-1.5 h-8 bg-sky-600 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+            <div className="w-1.5 h-5 bg-sky-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
+            <div className="w-1.5 h-9 bg-indigo-600 rounded-full animate-pulse [animation-delay:0.1s]"></div>
+            <div className="w-1.5 h-4 bg-sky-500 rounded-full animate-pulse [animation-delay:0.3s]"></div>
           </div>
         </div>
       ),
@@ -120,7 +120,7 @@ export const AnimatedBentoGrid = () => {
       cta: 'Privacy Settings',
       className: 'col-span-3 lg:col-span-2',
       background: (
-        <div className="w-full bg-[#FDF7F9] p-3 flex flex-col gap-2 border-b border-[#E0D5DC]/60">
+        <div className="w-full bg-[#FDF7F9] px-4 pt-3.5 pb-2 flex flex-col gap-2 border-b border-[#E0D5DC]/60 min-h-[5.5rem]">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold text-[#6B4355] bg-white px-2.5 py-0.5 rounded-full border border-[#E0D5DC] shadow-xs flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-[#6B4355]" />
