@@ -1,300 +1,367 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import API from '../services/api';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import {
-  ArrowLeft,
-  ThumbsUp,
-  MessageSquare,
-  Share2,
-  Image,
-  MapPin,
-  Clock,
-  Send,
-  Users,
-  CheckCircle,
-} from 'lucide-react';
+import incidentApi from '../api/incidentApi';
+import Card from '../components/common/Card';
+import Badge from '../components/common/Badge';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import CommentList from '../components/discussion/CommentList';
+import NewCommentForm from '../components/discussion/NewCommentForm';
+import EditIncidentModal from '../components/incidents/EditIncidentModal';
+import { ArrowLeft, MapPin, ThumbsUp, ThumbsDown, MessageSquare, CheckCircle2, Navigation, Trash2, Edit3, User } from 'lucide-react';
 
 export const IncidentDiscussion = () => {
   const { id } = useParams();
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [commentText, setCommentText] = useState('');
-  const [upvotesCount, setUpvotesCount] = useState(0);
-  const [upvoted, setUpvoted] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [userLocation, setUserLocation] = useState({ lat: 23.8103, lng: 90.4125 });
 
+  // Get live phone GPS position for real-time distance calculation
   useEffect(() => {
-    const fetchIncident = async () => {
-      try {
-        const { data } = await API.get(`/incidents/${id || 'seed'}`);
-        setIncident(data);
-        setUpvotesCount(data.upvotes?.length || 10);
-      } catch (err) {
-        console.error('Failed to load incident discussion:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchIncident();
-  }, [id]);
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        (err) => console.warn('[GPS Geolocation] Defaulting to Dhaka center:', err.message),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  }, []);
 
-  const handleUpvote = async () => {
-    if (!incident) return;
+  const fetchIncident = async () => {
     try {
-      const { data } = await API.post(`/incidents/${incident._id}/upvote`);
-      setUpvotesCount(data.upvotesCount);
-      setUpvoted(data.upvotedByUser);
+      setLoading(true);
+      const data = await incidentApi.getIncidentById(id);
+      setIncident(data);
     } catch (err) {
-      console.error('Failed to upvote report:', err);
+      console.error('Failed to load incident thread:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
+  useEffect(() => {
+    if (id) fetchIncident();
+  }, [id]);
 
+  const handleVoteIncident = async (voteType) => {
+    if (!incident) return;
     try {
-      const { data } = await API.post(`/incidents/${incident._id}/comments`, {
-        text: commentText,
-      });
-      setIncident({ ...incident, comments: data });
-      setCommentText('');
+      const updated = await incidentApi.voteIncident(incident._id, voteType);
+      setIncident(updated);
     } catch (err) {
-      console.error('Failed to add comment:', err);
+      console.error('Failed to vote on report:', err);
+    }
+  };
+
+  const handleUpdateIncident = async (incidentId, updateData) => {
+    try {
+      const updated = await incidentApi.updateIncident(incidentId, updateData);
+      setIncident(updated);
+    } catch (err) {
+      console.error('Failed to edit incident:', err);
+    }
+  };
+
+  const handleDeleteIncident = async () => {
+    if (!incident) return;
+    if (window.confirm('Delete this hazard report and its Cloudinary photo asset?')) {
+      try {
+        await incidentApi.deleteIncident(incident._id);
+        navigate('/live-danger-feed');
+      } catch (err) {
+        console.error('Failed to delete incident:', err);
+      }
+    }
+  };
+
+  const handleAddComment = async (commentData) => {
+    if (!incident) return;
+    try {
+      setSubmittingComment(true);
+      const updatedIncident = await incidentApi.addComment(incident._id, commentData);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to post comment:', err);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleUpdateComment = async (commentId, commentData) => {
+    if (!incident) return;
+    try {
+      const updatedIncident = await incidentApi.updateComment(incident._id, commentId, commentData);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to edit comment:', err);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!incident) return;
+    try {
+      const updatedIncident = await incidentApi.deleteComment(incident._id, commentId);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to delete comment:', err);
+    }
+  };
+
+  const handleVoteComment = async (commentId, voteType) => {
+    if (!incident) return;
+    try {
+      const updatedIncident = await incidentApi.voteComment(incident._id, commentId, voteType);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to vote comment:', err);
+    }
+  };
+
+  const handleReplyComment = async (commentId, text) => {
+    if (!incident) return;
+    try {
+      const updatedIncident = await incidentApi.addCommentReply(incident._id, commentId, text);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to reply to comment:', err);
+    }
+  };
+
+  const handleUpdateReply = async (commentId, replyId, text) => {
+    if (!incident) return;
+    try {
+      const updatedIncident = await incidentApi.updateCommentReply(incident._id, commentId, replyId, text);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to edit reply:', err);
+    }
+  };
+
+  const handleDeleteReply = async (commentId, replyId) => {
+    if (!incident) return;
+    try {
+      const updatedIncident = await incidentApi.deleteCommentReply(incident._id, commentId, replyId);
+      setIncident(updatedIncident);
+    } catch (err) {
+      console.error('Failed to delete reply:', err);
     }
   };
 
   if (loading) {
+    return <LoadingSpinner label="Loading Discussion Thread..." />;
+  }
+
+  if (!incident) {
     return (
-      <div className="p-8 text-center text-xs font-semibold text-[#6B4355]">
-        Loading Community Discussion Thread...
-      </div>
+      <Card className="text-center py-12">
+        <p className="text-sm font-bold text-[#6B4355]">Incident not found.</p>
+        <Link to="/live-danger-feed" className="text-xs text-[#6B4355] underline mt-2 block">
+          Return to Danger Feed
+        </Link>
+      </Card>
     );
   }
 
-  const mainIncident = incident || {
-    title: 'Street Light Outage & Suspicious Activity',
-    description:
-      'Reported near Green Valley Park east entrance. Entire block lighting is offline. Multiple users have reported a group of individuals lingering in the shadows near bike racks. Please avoid this path until patrol arrives.',
-    locationName: 'Green Valley Park East Entrance',
-    severity: 'High Alert',
-    comments: [
-      {
-        authorName: 'Sarah Mitchell',
-        authorRole: 'Verified Resident',
-        text: 'I just drove past. The street lights are indeed all off from the park entrance down to the 4th street intersection. I saw two police cruisers just arriving at the scene now. Stay safe everyone!',
-        likes: 12,
-      },
-      {
-        authorName: 'David Chen',
-        authorRole: 'Commuter',
-        text: 'Be careful with the potholes near the dark stretch too, very hard to see them without the overhead lights.',
-        imageUrl:
-          'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=600&q=80',
-        likes: 6,
-      },
-      {
-        authorName: 'Elena Rodriguez',
-        authorRole: 'Local Guardian',
-        text: 'Has anyone heard if the utility company has been notified about the lights?',
-        likes: 3,
-      },
-    ],
+  // Calculate live dynamic distance from user GPS to incident coordinates
+  const calculateLiveDistanceText = () => {
+    const coords = incident.location?.coordinates;
+    if (!coords || coords.length < 2 || !userLocation.lat || !userLocation.lng) return '0.8 km';
+    const incLng = coords[0];
+    const incLat = coords[1];
+
+    const R = 6371; // Radius of earth in km
+    const dLat = ((incLat - userLocation.lat) * Math.PI) / 180;
+    const dLon = ((incLng - userLocation.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((userLocation.lat * Math.PI) / 180) *
+        Math.cos((incLat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const dist = R * c;
+    return dist < 1 ? `${Math.round(dist * 1000)} m` : `${(Math.round(dist * 10) / 10).toFixed(1)} km`;
   };
+
+  const userIdStr = user?._id?.toString() || user?.id?.toString() || '';
+  const reportedByObj = (incident.reportedBy && typeof incident.reportedBy === 'object') ? incident.reportedBy : null;
+  const reportedByStr = typeof incident.reportedBy === 'string' ? incident.reportedBy : reportedByObj?._id ? reportedByObj._id.toString() : '';
+
+  const isOwner = Boolean(userIdStr && reportedByStr && userIdStr === reportedByStr);
+  const isAdminOrOperator = ['admin', 'operator'].includes(user?.role);
+  const canManage = isOwner || isAdminOrOperator;
+
+  // Real-time instant avatar & name resolution for incident reporter
+  const reporterAvatar = (isOwner ? user?.avatarUrl : null) || reportedByObj?.avatarUrl || '';
+  const reporterName = (isOwner ? user?.name : null) || reportedByObj?.name || 'Commuter';
+
+  const upvoteList = Array.isArray(incident.upvotes) ? incident.upvotes : [];
+  const downvoteList = Array.isArray(incident.downvotes) ? incident.downvotes : [];
+
+  const isUpvoted = upvoteList.some((uId) => (typeof uId === 'string' ? uId : uId._id || uId) === userIdStr);
+  const isDownvoted = downvoteList.some((uId) => (typeof uId === 'string' ? uId : uId._id || uId) === userIdStr);
+
+  const realDistanceText = calculateLiveDistanceText();
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Back Button */}
-      <Link
-        to="/live-danger-feed"
-        className="inline-flex items-center gap-2 text-xs font-bold text-[#6B4355] hover:underline"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Incident Details
-      </Link>
+      {/* Back Button & Author Actions */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <Link
+          to="/live-danger-feed"
+          className="inline-flex items-center gap-2 text-xs font-extrabold text-[#6B4355] hover:underline"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Live Danger Feed
+        </Link>
 
-      {/* Main Top Header Incident Card matching Figma Screen 1 */}
-      <div className="bg-white p-8 rounded-3xl border border-[#EFEAEB] shadow-card flex flex-col md:flex-row items-start justify-between gap-6">
-        <div className="space-y-3 flex-1">
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 bg-[#FDE8EC] text-[#D93856] font-extrabold text-[10px] rounded-full uppercase tracking-wider">
-              {mainIncident.severity || 'HIGH ALERT'}
-            </span>
-            <span className="text-xs text-[#8C8289] font-medium flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              Reported 12 mins ago
-            </span>
-          </div>
-
-          <h1 className="text-2xl font-extrabold text-[#2D2329]">
-            {mainIncident.title}
-          </h1>
-
-          <p className="text-xs text-[#6E656B] font-medium leading-relaxed">
-            {mainIncident.description}
-          </p>
-
-          <div className="flex items-center gap-4 pt-2">
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2">
-                <div className="w-6 h-6 rounded-full bg-[#6B4355] text-white text-[10px] flex items-center justify-center font-bold ring-2 ring-white">
-                  S
-                </div>
-                <div className="w-6 h-6 rounded-full bg-[#E05370] text-white text-[10px] flex items-center justify-center font-bold ring-2 ring-white">
-                  D
-                </div>
-                <div className="w-6 h-6 rounded-full bg-[#AA7492] text-white text-[10px] flex items-center justify-center font-bold ring-2 ring-white">
-                  E
-                </div>
-              </div>
-              <span className="text-xs text-[#8C8289] font-medium">
-                42 neighbors are discussing this
-              </span>
-            </div>
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-2xl text-xs font-extrabold transition-all shadow-xs"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Incident Report</span>
+            </button>
 
             <button
-              onClick={handleUpvote}
-              className={`ml-auto px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-                upvoted
-                  ? 'bg-[#6B4355] text-white'
-                  : 'bg-[#FDF7F9] text-[#6B4355] border border-[#F3E6EC] hover:bg-[#F4ECEF]'
+              type="button"
+              onClick={handleDeleteIncident}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-2xl text-xs font-extrabold transition-all"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Incident Report</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Main Incident Overview Hero Card */}
+      <Card className="space-y-4 border-[#E0D5DC]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-black text-[#2D2329]">{incident.title}</h1>
+              <Badge variant={incident.severity === 'High Alert' ? 'highAlert' : 'medSeverity'}>
+                {incident.severity}
+              </Badge>
+              {incident.isVerified && (
+                <Badge variant="verified">
+                  <CheckCircle2 className="w-3 h-3 text-sky-600" />
+                  Community Verified
+                </Badge>
+              )}
+            </div>
+
+            {/* Real GPS Live Distance & Author Info Banner */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <p className="text-xs font-extrabold text-[#6B4355] flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#6B4355]" />
+                {incident.locationName}
+              </p>
+              <span className="px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-extrabold flex items-center gap-1.5 shadow-xs">
+                <Navigation className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                {realDistanceText} away from your live GPS position
+              </span>
+
+              <span className="flex items-center gap-2 font-extrabold text-[#6B4355] bg-[#F9F8FA] px-3 py-1 rounded-full border border-[#E0D5DC] text-[11px] shadow-xs">
+                {reporterAvatar ? (
+                  <img src={reporterAvatar} alt={reporterName} className="w-5 h-5 rounded-full object-cover border border-[#6B4355]/30 shadow-xs" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-[#6B4355] text-white font-black text-[10px] flex items-center justify-center shadow-xs">
+                    {reporterName ? reporterName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
+                <span>Posted by {reporterName}</span>
+              </span>
+
+              {incident.isEdited && (
+                <span className="text-[10px] text-gray-400 font-normal italic opacity-70 ml-1">(edited)</span>
+              )}
+            </div>
+          </div>
+
+          {/* Icon-Only Exclusive Upvote / Downvote Pills */}
+          <div className="inline-flex items-center bg-[#F9F8FA] border border-[#E0D5DC] rounded-2xl p-1 gap-1 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleVoteIncident('up')}
+              title="Confirm / Upvote"
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold transition-all ${
+                isUpvoted ? 'bg-[#6B4355] text-white shadow-xs' : 'text-[#6B4355] hover:bg-[#6B4355]/10'
               }`}
             >
-              <ThumbsUp className="w-3.5 h-3.5" />
-              {upvotesCount} Upvotes
+              <ThumbsUp className={`w-4 h-4 ${isUpvoted ? 'fill-white' : ''}`} />
+              <span>{upvoteList.length}</span>
             </button>
-          </div>
-        </div>
 
-        {/* Thumbnail Map Snapshot preview on right */}
-        <div className="w-full md:w-48 h-36 rounded-2xl overflow-hidden bg-[#F4F1F3] border border-[#EFEAEB] shrink-0">
-          <img
-            src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=400&q=80"
-            alt="Incident Location Map"
-            className="w-full h-full object-cover"
-          />
-        </div>
-      </div>
+            <div className="w-[1px] h-4 bg-[#E0D5DC]"></div>
 
-      {/* Community Discussion Section matching Figma Screen 1 */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-extrabold text-[#2D2329]">
-            Community Discussion
-          </h3>
-          <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-[#EFEAEB] text-xs">
-            <button className="px-3 py-1 bg-[#6B4355] text-white font-bold rounded-full">
-              Newest
-            </button>
-            <button className="px-3 py-1 text-[#6E656B] font-semibold hover:text-[#6B4355]">
-              Top
-            </button>
-            <button className="px-3 py-1 text-[#6E656B] font-semibold hover:text-[#6B4355]">
-              Verified
-            </button>
-          </div>
-        </div>
-
-        {/* Share Update Post Form */}
-        <div className="bg-white p-6 rounded-3xl border border-[#EFEAEB] shadow-card space-y-4">
-          <form onSubmit={handleAddComment} className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#6B4355] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                {user ? user.name.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <textarea
-                rows={2}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Share a safety update or ask a question..."
-                className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] p-3 rounded-2xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white resize-none font-medium transition-all"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-3 text-[#8C8289]">
-                <button type="button" className="p-2 hover:bg-[#F9F6F7] rounded-full text-[#6B4355]">
-                  <Image className="w-4 h-4" />
-                </button>
-                <button type="button" className="p-2 hover:bg-[#F9F6F7] rounded-full text-[#6B4355]">
-                  <MapPin className="w-4 h-4" />
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-[#6B4355] hover:bg-[#5C3A48] text-white text-xs font-bold rounded-full shadow-md transition-all active:scale-95 flex items-center gap-1.5"
-              >
-                Post Update
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Comment Thread Items */}
-        <div className="space-y-4">
-          {mainIncident.comments?.map((comment, index) => (
-            <div
-              key={index}
-              className="bg-white p-6 rounded-3xl border border-[#EFEAEB] shadow-card space-y-3"
+            <button
+              type="button"
+              onClick={() => handleVoteIncident('down')}
+              title="Downvote / Dispute"
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold transition-all ${
+                isDownvoted ? 'bg-rose-600 text-white shadow-xs' : 'text-[#8C7A87] hover:bg-rose-50 hover:text-rose-600'
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#FDE8EC] text-[#6B4355] font-bold text-xs flex items-center justify-center">
-                    {comment.authorName ? comment.authorName.charAt(0) : 'C'}
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-extrabold text-[#2D2329] flex items-center gap-2">
-                      {comment.authorName}
-                      {comment.authorRole === 'Verified Resident' && (
-                        <span className="px-2 py-0.5 bg-[#F3E8FF] text-[#7E22CE] text-[10px] font-bold rounded-full uppercase">
-                          VERIFIED RESIDENT
-                        </span>
-                      )}
-                    </h5>
-                    <span className="text-[11px] text-[#8C8289] font-medium">
-                      5m ago
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-[#6E656B] font-medium leading-relaxed pl-12">
-                {comment.text}
-              </p>
-
-              {comment.imageUrl && (
-                <div className="pl-12 pt-2">
-                  <img
-                    src={comment.imageUrl}
-                    alt="Comment Preview"
-                    className="max-h-48 rounded-2xl object-cover border border-[#EFEAEB]"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center gap-6 pl-12 pt-2 text-xs font-bold text-[#8C8289]">
-                <button className="flex items-center gap-1.5 hover:text-[#6B4355]">
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                  {comment.likes || 12}
-                </button>
-                <button className="hover:text-[#6B4355]">Reply</button>
-                <button className="hover:text-[#6B4355]">Share</button>
-              </div>
-            </div>
-          ))}
+              <ThumbsDown className={`w-4 h-4 ${isDownvoted ? 'fill-white' : ''}`} />
+              <span>{downvoteList.length}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Load older comments button */}
-        <div className="text-center pt-4">
-          <button className="px-6 py-2.5 bg-white text-[#6B4355] border border-[#EFEAEB] hover:bg-[#F9F6F7] text-xs font-bold rounded-full transition-colors">
-            Load older comments
-          </button>
-        </div>
+        <p className="text-sm text-[#4A3D46] font-medium leading-relaxed">
+          {incident.description}
+        </p>
+
+        {/* Full Image Display without Crop */}
+        {incident.imageUrl && (
+          <div className="rounded-3xl overflow-hidden bg-[#F9F8FA] border border-[#E0D5DC] flex items-center justify-center max-h-96 p-1">
+            <img src={incident.imageUrl} alt={incident.title} className="w-full max-h-96 object-contain rounded-2xl" />
+          </div>
+        )}
+      </Card>
+
+      {/* Community Comments Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-extrabold text-[#2D2329] flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-[#6B4355]" />
+          Community Discussion ({incident.comments?.length || 0})
+        </h3>
+
+        <NewCommentForm onSubmit={handleAddComment} loading={submittingComment} />
+
+        <CommentList
+          comments={incident.comments}
+          incidentId={incident._id}
+          onVoteComment={handleVoteComment}
+          onReplyComment={handleReplyComment}
+          onUpdateComment={handleUpdateComment}
+          onDeleteComment={handleDeleteComment}
+          onUpdateReply={handleUpdateReply}
+          onDeleteReply={handleDeleteReply}
+        />
       </div>
+
+      {/* Edit Incident Modal */}
+      <EditIncidentModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSubmit={handleUpdateIncident}
+        incident={incident}
+      />
     </div>
   );
 };
+
+export default IncidentDiscussion;

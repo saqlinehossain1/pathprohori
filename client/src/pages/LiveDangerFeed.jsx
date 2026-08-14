@@ -1,380 +1,446 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, Component } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import API from '../services/api';
-import {
-  ShieldAlert,
-  MapPin,
-  Clock,
-  CheckCircle,
-  Plus,
-  ArrowRight,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { useIncidents } from '../hooks/useIncidents';
+import IncidentCard from '../components/incidents/IncidentCard';
+import IncidentFilterBar from '../components/incidents/IncidentFilterBar';
+import NewIncidentModal from '../components/incidents/NewIncidentModal';
+import EditIncidentModal from '../components/incidents/EditIncidentModal';
+import Button from '../components/common/Button';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import Card from '../components/common/Card';
+import { ShieldAlert, Plus, MapPin, Radio, LocateFixed, Pin, Navigation, MessageSquare, AlertTriangle, RefreshCw } from 'lucide-react';
 
-// Custom Map Pin Icons
-const createCustomIcon = (severity) => {
-  const color = severity.includes('High')
-    ? '#D93856'
-    : severity.includes('Med')
-    ? '#D97706'
-    : '#DB2777';
+// Error Boundary for page level safety
+class FeedErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('[LiveDangerFeed ErrorBoundary]', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-white border border-[#E0D5DC] rounded-3xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-card">
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-black text-[#2D2329]">Live Danger Feed Encountered an Issue</h2>
+          <p className="text-xs text-[#8C7A87] font-medium leading-relaxed">
+            {this.state.error?.message || 'An error occurred while loading the live heatmap map interface.'}
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="px-5 py-2.5 bg-[#6B4355] text-white font-extrabold text-xs rounded-2xl hover:bg-[#543343] transition-all flex items-center justify-center gap-2 mx-auto shadow-xs"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Reload Danger Feed Page</span>
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Custom Colored Map Pin Icons for Different Hazard Types / Severities
+const createCustomIcon = (severity = '', title = '') => {
+  const sevStr = String(severity || '');
+  const isHigh = sevStr.includes('High');
+  const isMed = sevStr.includes('Med');
+
+  const bgGradient = isHigh
+    ? 'linear-gradient(135deg, #EF4444, #DC2626)'
+    : isMed
+    ? 'linear-gradient(135deg, #F59E0B, #D97706)'
+    : 'linear-gradient(135deg, #8B5CF6, #6D28D9)';
+
+  const ringAnimation = isHigh
+    ? `<div style="position: absolute; inset: -4px; border-radius: 50%; background: rgba(239, 68, 68, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>`
+    : '';
+
+  const svgIcon = isHigh
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+    : isMed
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>`;
 
   return L.divIcon({
-    className: 'custom-pin',
-    html: `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-            <div style="width: 8px; height: 8px; background-color: white; border-radius: 50%;"></div>
+    className: 'custom-hazard-pin',
+    html: `<div style="position: relative; width: 32px; height: 32px;">
+            ${ringAnimation}
+            <div style="position: relative; width: 32px; height: 32px; background: ${bgGradient}; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
+              ${svgIcon}
+            </div>
           </div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
   });
 };
 
-export const LiveDangerFeed = () => {
-  const [incidents, setIncidents] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('Newest First');
-  const [showReportModal, setShowReportModal] = useState(false);
-
-  const [newIncident, setNewIncident] = useState({
-    title: '',
-    description: '',
-    locationName: '',
-    severity: 'Med Severity',
+// Pulsing Blue Icon for User's Live GPS Location
+const createUserLocationIcon = () => {
+  return L.divIcon({
+    className: 'user-location-pin',
+    html: `<div style="position: relative; width: 26px; height: 26px;">
+            <div style="position: absolute; width: 26px; height: 26px; background-color: rgba(37, 99, 235, 0.35); border-radius: 50%; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background-color: #2563EB; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.4); flex; align-items: center; justify-content: center;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+          </div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   });
+};
+
+// Custom Orange Icon for Manually Selected Map Spot Pin
+const createSelectedSpotIcon = () => {
+  return L.divIcon({
+    className: 'selected-spot-pin',
+    html: `<div style="background-color: #F59E0B; width: 32px; height: 32px; border-radius: 50%; border: 3.5px solid white; box-shadow: 0 4px 12px rgba(245,158,11,0.6); display: flex; align-items: center; justify-content: center; animation: bounce 1s infinite;">
+            <div style="width: 10px; height: 10px; background-color: white; border-radius: 50%;"></div>
+          </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
+
+// Map click listener to drop new hazard pins
+const MapClickHandler = ({ onMapClick }) => {
+  useMapEvents({
+    click(e) {
+      if (e && e.latlng) {
+        onMapClick(e.latlng);
+      }
+    },
+  });
+  return null;
+};
+
+// Helper component to smoothly re-center Leaflet map view when primitive lat/lng changes
+const RecenterMap = ({ lat, lng }) => {
+  const map = useMap();
+  const hasCentered = useRef(false);
 
   useEffect(() => {
-    const fetchIncidents = async () => {
+    if (map && typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng) && !hasCentered.current) {
       try {
-        const { data } = await API.get('/incidents');
-        setIncidents(data);
+        map.setView([lat, lng], 14, { animate: true });
+        hasCentered.current = true;
       } catch (err) {
-        console.error('Failed to load incidents:', err);
+        console.warn('[RecenterMap View Error]', err);
       }
-    };
-    fetchIncidents();
-  }, []);
+    }
+  }, [lat, lng, map]);
 
-  const handleReportSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const { data } = await API.post('/incidents', newIncident);
-      setIncidents([data, ...incidents]);
-      setShowReportModal(false);
-      setNewIncident({
-        title: '',
-        description: '',
-        locationName: '',
-        severity: 'Med Severity',
-      });
-    } catch (err) {
-      console.error('Failed to post incident:', err);
+  return null;
+};
+
+const LiveDangerFeedContent = () => {
+  const {
+    incidents = [],
+    loading,
+    searchQuery,
+    setSearchQuery,
+    activeFilter,
+    setActiveFilter,
+    handleVote,
+    createIncident,
+    updateIncident,
+    deleteIncident,
+    userLocation,
+    isLocationLoading,
+  } = useIncidents();
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [editingIncident, setEditingIncident] = useState(null);
+  const [selectedCoords, setSelectedCoords] = useState(null);
+
+  const defaultLat = typeof userLocation?.lat === 'number' && !isNaN(userLocation.lat) ? userLocation.lat : 23.8103;
+  const defaultLng = typeof userLocation?.lng === 'number' && !isNaN(userLocation.lng) ? userLocation.lng : 90.4125;
+
+  // Calculate live dynamic distance from user GPS to any hazard coordinates
+  const calculateLiveDistanceText = (incLat, incLng) => {
+    if (!userLocation?.lat || !userLocation?.lng || typeof incLat !== 'number' || typeof incLng !== 'number') return '0.8 km';
+    const R = 6371; // Radius of earth in km
+    const dLat = ((incLat - userLocation.lat) * Math.PI) / 180;
+    const dLon = ((incLng - userLocation.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((userLocation.lat * Math.PI) / 180) *
+        Math.cos((incLat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const dist = R * c;
+    return dist < 1 ? `${Math.round(dist * 1000)} m` : `${(Math.round(dist * 10) / 10).toFixed(1)} km`;
+  };
+
+  const handleMapPinDrop = (latlng) => {
+    if (latlng && latlng.lat && latlng.lng) {
+      setSelectedCoords({ lat: latlng.lat, lng: latlng.lng });
+      setShowReportModal(true);
     }
   };
 
-  const getSeverityBadgeClass = (severity) => {
-    if (severity.includes('High')) {
-      return 'bg-[#FDE8EC] text-[#D93856] border-[#F9C5D1]';
-    }
-    if (severity.includes('Med')) {
-      return 'bg-[#FFF3E0] text-[#D97706] border-[#FFE0B2]';
-    }
-    return 'bg-[#FDF2F8] text-[#DB2777] border-[#FBCFE8]';
-  };
-
-  // Center on Dhaka coordinates
-  const mapCenter = [23.8103, 90.4125];
+  if (loading && incidents.length === 0) {
+    return <LoadingSpinner label="Loading Live Danger Feed & Community Hazards..." />;
+  }
 
   return (
-    <div className="space-y-4 h-full">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-100px)]">
-        {/* Left Column: Live Danger Feed List (7 cols) - Independently Scrollable */}
-        <div className="lg:col-span-7 space-y-5 h-full overflow-y-auto pr-2 custom-scrollbar">
-          {/* Top Card: Live Coverage */}
-          <div className="bg-white p-6 rounded-3xl border border-[#EFEAEB] shadow-card flex items-center justify-between gap-4 sticky top-0 z-20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#FDF7F9] text-[#6B4355] flex items-center justify-center font-bold">
-                <MapPin className="w-6 h-6 text-[#6B4355]" />
-              </div>
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#8C8289]">
-                  ● LIVE COVERAGE
-                </span>
-                <h3 className="text-xl font-extrabold text-[#2D2329]">
-                  Dhaka Metropolitan Area
-                </h3>
-                <p className="text-xs text-[#8C8289] font-medium mt-0.5">
-                  Showing hazards & incidents within 15km of your current position.
-                </p>
-              </div>
-            </div>
+    <div className="space-y-6 h-full">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[#6B4355] tracking-tight flex items-center gap-2">
+            <ShieldAlert className="w-8 h-8 text-[#6B4355]" />
+            Live Danger Feed & Heatmap
+          </h1>
+          <p className="text-xs text-[#8C7A87] font-medium mt-1">
+            PATHPROHORI Hyperlocal Community Danger Feed. Real-time crowdsourced safety warnings & manual map pin reports.
+          </p>
+        </div>
 
-            <button
-              onClick={() => setShowReportModal(true)}
-              className="px-5 py-3 bg-[#6B4355] hover:bg-[#5C3A48] text-white font-bold text-xs rounded-2xl shadow-md transition-all shrink-0 flex items-center gap-1.5 active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              Report Incident
-            </button>
-          </div>
+        <Button
+          onClick={() => {
+            setSelectedCoords(null);
+            setShowReportModal(true);
+          }}
+          size="md"
+          className="font-extrabold"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Report Street Hazard
+        </Button>
+      </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <button className="px-4 py-2 bg-white text-[#6E656B] text-xs font-bold rounded-full border border-[#EFEAEB] flex items-center gap-1.5">
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              Filters
-            </button>
+      {/* Main Grid: Feed List (Left 7 Cols) + Interactive Heatmap (Right 5 Cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[500px] lg:h-[calc(100vh-200px)]">
+        {/* Left Column: Filter & Incident Feed List */}
+        <div className="lg:col-span-7 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+          <IncidentFilterBar
+            searchQuery={searchQuery || ''}
+            onSearchChange={setSearchQuery}
+            activeFilter={activeFilter || 'All'}
+            onFilterChange={setActiveFilter}
+          />
 
-            {['Newest First', 'Nearest', 'High Severity'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-4 py-2 text-xs font-bold rounded-full transition-all ${
-                  activeFilter === filter
-                    ? 'bg-[#FDE8EC] text-[#6B4355] border border-[#F9C5D1]'
-                    : 'bg-white text-[#6E656B] border border-[#EFEAEB] hover:bg-[#F9F6F7]'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
-
-          {/* Incidents Feed List */}
           <div className="space-y-4">
-            {incidents.map((item) => (
-              <div
-                key={item._id}
-                className="bg-white p-6 rounded-3xl border border-[#EFEAEB] shadow-card hover:shadow-lg transition-all space-y-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#FDE8EC] text-[#E05370] flex items-center justify-center font-bold shrink-0">
-                      <ShieldAlert className="w-5 h-5 text-[#E05370]" />
-                    </div>
-                    <div>
-                      <h4 className="text-base font-extrabold text-[#2D2329]">
-                        {item.title}
-                      </h4>
-                      <div className="flex items-center gap-3 text-xs text-[#8C8289] font-medium mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {item.distanceKm || 1.2}km
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          12 mins ago
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`px-3 py-1 text-[11px] font-extrabold rounded-full border ${getSeverityBadgeClass(
-                      item.severity
-                    )}`}
-                  >
-                    {item.severity}
-                  </span>
-                </div>
-
-                <p className="text-xs text-[#6E656B] font-medium leading-relaxed">
-                  {item.description}
+            {incidents.length === 0 ? (
+              <Card className="text-center py-12">
+                <Radio className="w-10 h-10 text-[#8C7A87] mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-bold text-[#6B4355]">No matching incidents found.</p>
+                <p className="text-xs text-[#8C7A87] mt-1">
+                  Try adjusting your search query or safety filters.
                 </p>
-
-                <div className="flex items-center justify-between pt-3 border-t border-[#F4EFF2] text-xs">
-                  {item.isVerified ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F3E8FF] text-[#7E22CE] font-bold rounded-full text-[11px]">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      Community Verified
-                    </span>
-                  ) : (
-                    <span className="text-[#8C8289] text-[11px] font-semibold">
-                      Unverified Report
-                    </span>
-                  )}
-
-                  <Link
-                    to={`/incident/${item._id}`}
-                    className="font-bold text-[#6B4355] hover:underline flex items-center gap-1 text-xs"
-                  >
-                    View Details
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))}
+              </Card>
+            ) : (
+              incidents.map((incident) => (
+                <IncidentCard
+                  key={incident._id}
+                  incident={incident}
+                  onVote={handleVote}
+                  onEdit={(inc) => setEditingIncident(inc)}
+                  onDelete={deleteIncident}
+                />
+              ))
+            )}
           </div>
         </div>
 
-        {/* Right Column: Leaflet Interactive Map Split View (5 cols) - Fixed Independent View */}
-        <div className="lg:col-span-5 h-[450px] lg:h-full bg-white rounded-3xl border border-[#EFEAEB] shadow-card overflow-hidden relative flex flex-col">
-          <MapContainer
-            center={mapCenter}
-            zoom={13}
-            scrollWheelZoom={false}
-            className="w-full h-full"
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+        {/* Right Column: Interactive Leaflet Danger Map */}
+        <div className="lg:col-span-5 hidden lg:block h-full">
+          <Card className="p-1.5 h-full flex flex-col overflow-hidden relative border-[#E0D5DC]">
+            <div className="px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-[#EFEAEF] flex items-center justify-between gap-2 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
+                <span className="text-xs font-extrabold text-[#2D2329] tracking-tight whitespace-nowrap">
+                  Live Safety Map
+                </span>
+              </div>
 
-            {incidents.map((item) => (
-              <Marker
-                key={item._id}
-                position={[
-                  item.location?.coordinates?.[1] || 23.8103,
-                  item.location?.coordinates?.[0] || 90.4125,
-                ]}
-                icon={createCustomIcon(item.severity)}
-              >
-                <Popup>
-                  <div className="p-1 space-y-1">
-                    <h5 className="font-extrabold text-xs text-[#2D2329]">
-                      {item.title}
-                    </h5>
-                    <p className="text-[11px] text-[#6E656B]">
-                      {item.locationName}
-                    </p>
-                    <span className="inline-block text-[10px] font-bold text-[#6B4355]">
-                      {item.severity}
-                    </span>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-
-          {/* Bottom Overlay Legend matching Figma Screen 3 */}
-          <div className="absolute bottom-4 left-4 right-4 z-20 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-[#EFEAEB] shadow-lg flex items-center justify-between">
-            <div>
-              <h5 className="text-xs font-extrabold text-[#2D2329]">
-                Severity Legend
-              </h5>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-semibold">
-              <span className="flex items-center gap-1 text-xs">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D93856]"></span>
-                High
-              </span>
-              <span className="flex items-center gap-1 text-xs">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]"></span>
-                Medium
-              </span>
-              <span className="flex items-center gap-1 text-xs">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#DB2777]"></span>
-                Low
+              <span className="px-3 py-1 rounded-full bg-[#F9F8FA] border border-[#E0D5DC] text-[11px] font-extrabold text-[#6B4355] whitespace-nowrap flex-shrink-0">
+                {incidents.length} Active Pins
               </span>
             </div>
-          </div>
+
+            <div className="flex-1 w-full rounded-2xl overflow-hidden relative z-10">
+              {isLocationLoading ? (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[#F9F8FA] p-8 text-center space-y-3">
+                  <LoadingSpinner label="Fetching your real-time GPS location..." />
+                  <p className="text-xs font-semibold text-[#8C7A87]">
+                    Please allow location permission in your browser to center map on your position.
+                  </p>
+                </div>
+              ) : (
+                <MapContainer
+                  key={`leaflet-map-${defaultLat.toFixed(3)}-${defaultLng.toFixed(3)}`}
+                  center={[defaultLat, defaultLng]}
+                  zoom={14}
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapClickHandler onMapClick={handleMapPinDrop} />
+                  <RecenterMap lat={defaultLat} lng={defaultLng} />
+
+                  {/* User Live GPS Marker */}
+                  <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon()}>
+                    <Popup className="custom-leaflet-popup">
+                      <div className="p-3 space-y-1 text-xs font-extrabold text-[#2D2329]">
+                        <div className="flex items-center gap-1.5 text-blue-700 font-extrabold border-b border-blue-100 pb-1.5">
+                          <LocateFixed className="w-4 h-4 text-blue-600" />
+                          <span>Your Live GPS Position</span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 font-semibold pt-1">
+                          [{defaultLat.toFixed(4)}, {defaultLng.toFixed(4)}]
+                        </p>
+                      </div>
+                    </Popup>
+                  </Marker>
+
+                  {/* Manually Selected Spot Marker */}
+                  {selectedCoords && typeof selectedCoords.lat === 'number' && typeof selectedCoords.lng === 'number' && (
+                    <Marker position={[selectedCoords.lat, selectedCoords.lng]} icon={createSelectedSpotIcon()}>
+                      <Popup className="custom-leaflet-popup">
+                        <div className="p-3 space-y-1 text-xs font-extrabold text-[#2D2329]">
+                          <div className="flex items-center gap-1.5 text-amber-700 font-extrabold border-b border-amber-100 pb-1.5">
+                            <Pin className="w-4 h-4 text-amber-600" />
+                            <span>Selected Area for Report</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 font-semibold pt-1">
+                            [{selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}]
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
+
+                  {/* Render active incident pins with distinct colors & glassmorphic popups */}
+                  {incidents.map((inc) => {
+                    if (!inc || !inc._id) return null;
+                    const coords = inc.location?.coordinates;
+                    if (!coords || !Array.isArray(coords) || coords.length < 2) return null;
+                    const lat = coords[1];
+                    const lng = coords[0];
+                    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return null;
+
+                    const liveDistText = calculateLiveDistanceText(lat, lng);
+                    const sevStr = String(inc.severity || 'Med Severity');
+                    const isHighSev = sevStr.includes('High');
+                    const isMedSev = sevStr.includes('Med');
+
+                    return (
+                      <Marker
+                        key={inc._id}
+                        position={[lat, lng]}
+                        icon={createCustomIcon(sevStr, inc.title)}
+                      >
+                        <Popup className="custom-leaflet-popup">
+                          <div className="p-3.5 space-y-2 text-[#2D2329]">
+                            <div className="flex items-center justify-between gap-2 border-b border-[#F0EBF0] pb-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                                isHighSev
+                                  ? 'bg-rose-500/15 text-rose-700 border border-rose-500/30'
+                                  : isMedSev
+                                  ? 'bg-amber-500/15 text-amber-700 border border-amber-500/30'
+                                  : 'bg-indigo-500/15 text-indigo-700 border border-indigo-500/30'
+                              }`}>
+                                {sevStr}
+                              </span>
+
+                              {inc.isVerified && (
+                                <span className="text-[10px] font-extrabold text-sky-600 flex items-center gap-0.5">
+                                  ✓ Verified
+                                </span>
+                              )}
+                            </div>
+
+                            <div>
+                              <h4 className="font-extrabold text-xs text-[#2D2329] leading-tight">
+                                {inc.title}
+                              </h4>
+                              <p className="text-[10px] text-[#8C7A87] font-bold mt-1 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-[#6B4355]" />
+                                {inc.locationName}
+                              </p>
+                            </div>
+
+                            <div className="p-2 rounded-xl bg-rose-50/80 border border-rose-100 flex items-center justify-between text-[10px] font-extrabold text-rose-700">
+                              <span className="flex items-center gap-1">
+                                <Navigation className="w-3 h-3 text-rose-600" />
+                                {liveDistText} away from your live GPS
+                              </span>
+                            </div>
+
+                            {inc.description && (
+                              <p className="text-[11px] text-[#4A3D46] font-medium line-clamp-2 leading-relaxed">
+                                {inc.description}
+                              </p>
+                            )}
+
+                            <Link
+                              to={`/incident/${inc._id}`}
+                              className="popup-btn flex items-center justify-center gap-1.5 w-full py-2 bg-[#6B4355] text-white rounded-xl text-[11px] font-extrabold text-center hover:bg-[#543343] transition-all shadow-sm mt-2 cursor-pointer border border-[#6B4355]"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-amber-300" />
+                              <span className="text-white font-extrabold">Open Discussion ({inc.comments?.length || 0})</span>
+                            </Link>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
+                </MapContainer>
+              )}
+            </div>
+          </Card>
         </div>
       </div>
 
-      {/* Modal for Reporting New Incident */}
-      {showReportModal && (
-        <div className="fixed inset-0 z-50 bg-[#2D2329]/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 border border-[#EFEAEB] shadow-2xl space-y-4">
-            <h3 className="text-lg font-extrabold text-[#2D2329]">
-              Report Community Hazard / Crime
-            </h3>
+      {/* New Incident Report Modal */}
+      <NewIncidentModal
+        isOpen={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setSelectedCoords(null);
+        }}
+        onSubmit={createIncident}
+        selectedCoords={selectedCoords}
+        userLocation={userLocation}
+      />
 
-            <form onSubmit={handleReportSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#8C8289] mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newIncident.title}
-                  onChange={(e) =>
-                    setNewIncident({ ...newIncident, title: e.target.value })
-                  }
-                  placeholder="e.g. Broken Street Light & Lingering Group"
-                  className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#8C8289] mb-1">
-                  Location Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newIncident.locationName}
-                  onChange={(e) =>
-                    setNewIncident({
-                      ...newIncident,
-                      locationName: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. Mohakhali Bus Stand"
-                  className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#8C8289] mb-1">
-                  Severity Level
-                </label>
-                <select
-                  value={newIncident.severity}
-                  onChange={(e) =>
-                    setNewIncident({
-                      ...newIncident,
-                      severity: e.target.value,
-                    })
-                  }
-                  className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355]"
-                >
-                  <option value="High Alert">High Alert</option>
-                  <option value="High Severity">High Severity</option>
-                  <option value="Med Severity">Med Severity</option>
-                  <option value="Low Severity">Low Severity</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#8C8289] mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={newIncident.description}
-                  onChange={(e) =>
-                    setNewIncident({
-                      ...newIncident,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Provide clear details to help commuters..."
-                  className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(false)}
-                  className="px-5 py-2.5 text-xs font-bold text-[#6E656B] hover:bg-[#F9F6F7] rounded-full"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-[#6B4355] hover:bg-[#5C3A48] text-white text-xs font-bold rounded-full shadow-md"
-                >
-                  Submit Report
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Edit Incident Modal */}
+      <EditIncidentModal
+        isOpen={Boolean(editingIncident)}
+        onClose={() => setEditingIncident(null)}
+        onSubmit={updateIncident}
+        incident={editingIncident}
+      />
     </div>
   );
 };
+
+export const LiveDangerFeed = () => (
+  <FeedErrorBoundary>
+    <LiveDangerFeedContent />
+  </FeedErrorBoundary>
+);
+
+export default LiveDangerFeed;

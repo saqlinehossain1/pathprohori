@@ -47,9 +47,11 @@ export const Register = () => {
 
       <div className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl p-8 border border-[#EFEAEB] shadow-card relative z-10">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-[#FDE8EC] text-[#6B4355] flex items-center justify-center mb-3 shadow-sm transform hover:scale-105 transition-transform">
-            <ShieldCheck className="w-8 h-8 text-[#6B4355]" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="PATHPROHORI Logo"
+            className="w-16 h-16 object-contain mb-2 drop-shadow-md transform hover:scale-105 transition-transform"
+          />
           <h2 className="text-2xl font-extrabold text-[#2D2329]">Create Account</h2>
           <p className="text-xs font-semibold text-[#8C8289] mt-1">
             Join the PATHPROHORI Commuter Protection Network

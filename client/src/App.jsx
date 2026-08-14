@@ -1,10 +1,11 @@
 import React, { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext } from './context/AuthContext';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { Footer } from './components/Footer';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
+import { Footer } from './components/layout/Footer';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
 
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -13,19 +14,19 @@ import { LogJourney } from './pages/LogJourney';
 import { LiveDangerFeed } from './pages/LiveDangerFeed';
 import { IncidentDiscussion } from './pages/IncidentDiscussion';
 import { VoiceSettings } from './pages/VoiceSettings';
-import { MobileBottomNav } from './components/MobileBottomNav';
+import { ProfileSettings } from './pages/ProfileSettings';
 
 export const App = () => {
   const { user } = useContext(AuthContext);
 
   return (
-    <div className="h-screen flex flex-col bg-[#F9F8FA] text-[#2D2329] font-sans overflow-hidden">
+    <div className="h-screen flex flex-col bg-app-texture text-[#2D2329] font-sans overflow-hidden">
       {user && <Header />}
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-hidden">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-hidden min-h-0">
         {user && <Sidebar />}
 
-        <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6 overflow-y-auto h-full">
+        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-12 overflow-y-auto min-h-0">
           <Routes>
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
             <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
@@ -67,6 +68,14 @@ export const App = () => {
               element={
                 <ProtectedRoute>
                   <VoiceSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfileSettings />
                 </ProtectedRoute>
               }
             />

@@ -1,5 +1,30 @@
 import mongoose from 'mongoose';
 
+const replySchema = new mongoose.Schema(
+  {
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    authorName: String,
+    authorAvatar: String,
+    text: {
+      type: String,
+      required: true,
+    },
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
 const commentSchema = new mongoose.Schema(
   {
     author: {
@@ -9,15 +34,29 @@ const commentSchema = new mongoose.Schema(
     },
     authorName: String,
     authorRole: String,
+    authorAvatar: String,
     text: {
       type: String,
       required: true,
     },
     imageUrl: String,
-    likes: {
-      type: Number,
-      default: 0,
+    isEdited: {
+      type: Boolean,
+      default: false,
     },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    dislikes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    replies: [replySchema],
     createdAt: {
       type: Date,
       default: Date.now,
@@ -60,7 +99,17 @@ const incidentSchema = new mongoose.Schema(
       type: Number,
       default: 1.2,
     },
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
     upvotes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    downvotes: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

@@ -4,11 +4,14 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
+import { seedDemoUsers, seedInitialIncidents } from './config/seedData.js';
 import authRoutes from './routes/authRoutes.js';
 import tripRoutes from './routes/tripRoutes.js';
 import incidentRoutes from './routes/incidentRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 import { startHeartbeatMonitor } from './services/heartbeatService.js';
 import { startPrivacyCron } from './services/privacyCron.js';
+import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 
 dotenv.config();
 
@@ -23,17 +26,22 @@ const io = new Server(server, {
   },
 });
 
-// Middleware
+// Middlewares with larger payload limit for base64 Cloudinary image uploads
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
-// Database Connection
-connectDB();
+// Database Connection & Initial Seeding
+connectDB().then(async () => {
+  await seedDemoUsers();
+  await seedInitialIncidents();
+});
 
 // API Endpoints
 app.use('/api/auth', authRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/incidents', incidentRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -42,6 +50,10 @@ app.get('/api/health', (req, res) => {
     time: new Date(),
   });
 });
+
+// Error Handling Middlewares
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Real-Time Socket.io Connection Handlers
 io.on('connection', (socket) => {
@@ -55,7 +67,6 @@ io.on('connection', (socket) => {
 
   // Client heartbeat ping event
   socket.on('CLIENT_HEARTBEAT_PING', (data) => {
-    // Forward ping to room if needed
     io.to(`trip_${data.tripId}`).emit('HEARTBEAT_RECEIVED', {
       tripId: data.tripId,
       timestamp: new Date(),
@@ -86,6 +97,6 @@ server.on('error', (error) => {
 server.listen(PORT, () => {
   console.log(`==================================================`);
   console.log(`  PATHPROHORI Server Running on Port ${PORT}      `);
-  console.log(`  MERN Stack Infrastructure & Common Workflows    `);
+  console.log(`  MERN Stack Infrastructure & Enterprise MVC      `);
   console.log(`==================================================`);
 });
