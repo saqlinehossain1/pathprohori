@@ -197,7 +197,7 @@ export const CommentItem = ({
           <div className="flex items-center gap-2 flex-wrap">
             <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-xl text-xs font-bold transition-all shadow-xs">
               <Upload className="w-3.5 h-3.5" />
-              <span>{uploadingEditCommentImage ? 'Uploading...' : 'Attach / Change Photo'}</span>
+              <span>{uploadingEditCommentImage ? 'Uploading...' : 'Photo'}</span>
               <input
                 type="file"
                 accept="image/*"

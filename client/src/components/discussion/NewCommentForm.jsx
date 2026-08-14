@@ -81,7 +81,7 @@ export const NewCommentForm = ({ onSubmit, loading }) => {
         <div className="flex items-center gap-3">
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-xl text-xs font-extrabold transition-all shadow-xs">
             <Upload className="w-3.5 h-3.5" />
-            <span>{uploadingImage ? 'Uploading photo...' : 'Attach Photo'}</span>
+            <span>{uploadingImage ? 'Uploading...' : 'Photo'}</span>
             <input
               type="file"
               accept="image/*"
