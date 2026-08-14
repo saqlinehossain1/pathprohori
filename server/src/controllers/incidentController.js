@@ -143,55 +143,112 @@ export const deleteIncident = async (req, res, next) => {
   }
 };
 
+// ===========================vote incident (upvote)==============================
 // @desc    Vote on incident (Exclusive Upvote / Downvote)
 // @route   POST /api/incidents/:id/vote
+// @desc    Vote on incident (Exclusive Upvote / Downvote)
+// @route   POST /api/incidents/:id/vote
+// @desc    Vote on incident
+// @route   POST /api/incidents/:id/vote
+// @access  Private
 export const voteIncident = async (req, res, next) => {
   try {
-    const { voteType } = req.body; // 'up' or 'down'
-    const incident = await Incident.findById(req.params.id);
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
+    const { voteType } = req.body;
+    const incidentId = req.params.id;
+    const userId = req.user._id;
+
+    if (!['up', 'down'].includes(voteType)) {
+      return res.status(400).json({
+        message: 'Invalid vote type. Use "up" or "down".',
+      });
     }
 
-    const userIdStr = req.user._id.toString();
+    const incident = await Incident.findById(incidentId);
 
-    // Sanitize vote arrays
-    incident.upvotes = (incident.upvotes || []).filter(
-      (id) => id && mongoose.Types.ObjectId.isValid(id.toString())
-    );
-    incident.downvotes = (incident.downvotes || []).filter(
-      (id) => id && mongoose.Types.ObjectId.isValid(id.toString())
+    if (!incident) {
+      return res.status(404).json({
+        message: 'Incident not found',
+      });
+    }
+
+    const userIdStr = userId.toString();
+
+    const upvotes = incident.upvotes || [];
+    const downvotes = incident.downvotes || [];
+
+    const alreadyUpvoted = upvotes.some(
+      (id) => id.toString() === userIdStr
     );
 
-    const upIndex = incident.upvotes.findIndex((id) => id.toString() === userIdStr);
-    const downIndex = incident.downvotes.findIndex((id) => id.toString() === userIdStr);
+    const alreadyDownvoted = downvotes.some(
+      (id) => id.toString() === userIdStr
+    );
+
+    let update;
 
     if (voteType === 'up') {
-      if (upIndex > -1) {
-        // Toggle off upvote
-        incident.upvotes.splice(upIndex, 1);
+      if (alreadyUpvoted) {
+        update = {
+          $pull: {
+            upvotes: userId,
+          },
+        };
       } else {
-        // Add upvote & remove downvote if present
-        incident.upvotes.push(req.user._id);
-        if (downIndex > -1) incident.downvotes.splice(downIndex, 1);
+        // Add upvote and remove downvote
+        update = {
+          $addToSet: {
+            upvotes: userId,
+          },
+          $pull: {
+            downvotes: userId,
+          },
+        };
       }
-    } else if (voteType === 'down') {
-      if (downIndex > -1) {
-        // Toggle off downvote
-        incident.downvotes.splice(downIndex, 1);
+    } else {
+      if (alreadyDownvoted) {
+        update = {
+          $pull: {
+            downvotes: userId,
+          },
+        };
       } else {
-        // Add downvote & remove upvote if present
-        incident.downvotes.push(req.user._id);
-        if (upIndex > -1) incident.upvotes.splice(upIndex, 1);
+        update = {
+          $addToSet: {
+            downvotes: userId,
+          },
+          $pull: {
+            upvotes: userId,
+          },
+        };
       }
     }
 
-    // Auto-mark Community Verified if upvotes >= 5
-    incident.isVerified = incident.upvotes.length >= 5;
+    const updatedIncident = await Incident.findByIdAndUpdate(
+      incidentId,
+      update,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
-    await incident.save();
-    const populated = await fetchPopulatedIncident(incident._id);
-    res.json(populated);
+    if (!updatedIncident) {
+      return res.status(404).json({
+        message: 'Incident not found',
+      });
+    }
+
+    const isVerified = updatedIncident.upvotes.length >= 10;
+
+    await Incident.findByIdAndUpdate(incidentId, {
+      $set: {
+        isVerified,
+      },
+    });
+
+    const populated = await fetchPopulatedIncident(incidentId);
+
+    return res.json(populated);
   } catch (error) {
     console.error('[Vote Incident Error]', error);
     next(error);

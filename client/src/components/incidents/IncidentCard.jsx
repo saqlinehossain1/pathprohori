@@ -32,18 +32,18 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
 
   const isUpvoted = Boolean(
     userIdStr &&
-      upvoteList.some((id) => {
-        const raw = typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
-        return raw === userIdStr;
-      })
+    upvoteList.some((id) => {
+      const raw = typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
+      return raw === userIdStr;
+    })
   );
 
   const isDownvoted = Boolean(
     userIdStr &&
-      downvoteList.some((id) => {
-        const raw = typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
-        return raw === userIdStr;
-      })
+    downvoteList.some((id) => {
+      const raw = typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
+      return raw === userIdStr;
+    })
   );
 
   const upvotesCount = upvoteList.length;
@@ -69,7 +69,7 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
             <Badge variant={getBadgeVariant(incident.severity)}>
               {incident.severity}
             </Badge>
-            {incident.isVerified && (
+            {incident.upvotes?.length >= 10 && (
               <Badge variant="verified">
                 <CheckCircle2 className="w-3 h-3 text-sky-600" />
                 Community Verified
@@ -165,11 +165,10 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
               if (onVote) onVote(incident._id, 'up');
             }}
             title="Confirm / Upvote Hazard Report"
-            className={`p-2 rounded-xl flex items-center gap-1.5 transition-all ${
-              isUpvoted
-                ? 'bg-[#6B4355] text-white shadow-sm'
-                : 'text-[#6B4355] hover:bg-[#6B4355]/10'
-            }`}
+            className={`p-2 rounded-xl flex items-center gap-1.5 transition-all ${isUpvoted
+              ? 'bg-[#6B4355] text-white shadow-sm'
+              : 'text-[#6B4355] hover:bg-[#6B4355]/10'
+              }`}
           >
             <ThumbsUp className={`w-4 h-4 ${isUpvoted ? 'text-white fill-white' : 'text-[#6B4355]'}`} />
             <span className="text-xs font-extrabold">{upvotesCount}</span>
@@ -184,11 +183,10 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
               if (onVote) onVote(incident._id, 'down');
             }}
             title="Downvote / Dispute Report"
-            className={`p-2 rounded-xl flex items-center gap-1.5 transition-all ${
-              isDownvoted
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-[#8C7A87] hover:bg-rose-50 hover:text-rose-600'
-            }`}
+            className={`p-2 rounded-xl flex items-center gap-1.5 transition-all ${isDownvoted
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'text-[#8C7A87] hover:bg-rose-50 hover:text-rose-600'
+              }`}
           >
             <ThumbsDown className={`w-4 h-4 ${isDownvoted ? 'text-white fill-white' : 'text-[#8C7A87]'}`} />
             <span className="text-xs font-extrabold">{downvotesCount}</span>
