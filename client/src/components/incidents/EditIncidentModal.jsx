@@ -106,7 +106,7 @@ export const EditIncidentModal = ({ isOpen, onClose, onSubmit, incident }) => {
 
         <div className="space-y-1.5">
           <label className="block text-xs font-bold text-[#6B4355] uppercase tracking-wider">
-            Detailed Description
+            Detailed Description <span className="text-[10px] font-normal text-[#8C7A87]">(Optional)</span>
           </label>
           <textarea
             rows="3"
@@ -114,7 +114,6 @@ export const EditIncidentModal = ({ isOpen, onClose, onSubmit, incident }) => {
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="w-full px-4 py-3 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs text-[#2D2329] focus:outline-none focus:ring-2 focus:ring-[#6B4355]"
-            required
           ></textarea>
         </div>
 
