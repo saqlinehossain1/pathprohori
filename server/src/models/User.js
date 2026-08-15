@@ -39,10 +39,18 @@ const userSchema = new mongoose.Schema(
     },
     guardians: [
       {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
         name: String,
         phone: String,
         email: String,
-        relationship: String,
+        avatarUrl: String,
+        relationship: {
+          type: String,
+          default: 'Guardian',
+        },
       },
     ],
     avatarUrl: {

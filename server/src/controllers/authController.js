@@ -45,6 +45,35 @@ export const registerUser = async (req, res, next) => {
   }
 };
 
+// Helper to populate user and dynamically merge live guardian user profile data (latest name, phone, email, avatar)
+export const getUserWithLiveGuardians = async (userId) => {
+  const user = await User.findById(userId)
+    .select('-password')
+    .populate('guardians.user', 'name email phone avatarUrl role gender');
+
+  if (!user) return null;
+
+  const userObj = user.toObject();
+  if (Array.isArray(userObj.guardians)) {
+    userObj.guardians = userObj.guardians.map((g) => {
+      if (g.user && typeof g.user === 'object') {
+        return {
+          _id: g._id,
+          user: g.user._id,
+          name: g.user.name || g.name,
+          email: g.user.email || g.email,
+          phone: g.user.phone !== undefined && g.user.phone !== '' ? g.user.phone : g.phone,
+          avatarUrl: g.user.avatarUrl !== undefined && g.user.avatarUrl !== '' ? g.user.avatarUrl : g.avatarUrl,
+          relationship: g.relationship || 'Guardian',
+        };
+      }
+      return g;
+    });
+  }
+
+  return userObj;
+};
+
 // @desc    Authenticate user & get token
 // @route   POST /api/auth/login
 export const loginUser = async (req, res, next) => {
@@ -53,17 +82,9 @@ export const loginUser = async (req, res, next) => {
 
     const user = await User.findOne({ email });
     if (user && (await user.matchPassword(password))) {
+      const fullProfile = await getUserWithLiveGuardians(user._id);
       res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        gender: user.gender || 'female',
-        emergencyPhrase: user.emergencyPhrase,
-        duressPin: user.duressPin,
-        guardians: user.guardians,
-        avatarUrl: user.avatarUrl,
+        ...fullProfile,
         token: generateToken(user._id),
       });
     } else {
@@ -76,8 +97,42 @@ export const loginUser = async (req, res, next) => {
 
 // @desc    Get current user profile
 // @route   GET /api/auth/me
-export const getProfile = async (req, res) => {
-  res.json(req.user);
+export const getProfile = async (req, res, next) => {
+  try {
+    const fullProfile = await getUserWithLiveGuardians(req.user._id);
+    res.json(fullProfile || req.user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Search registered platform users by name, email, or phone
+// @route   GET /api/auth/search-users?q=query
+export const searchUsers = async (req, res, next) => {
+  try {
+    const query = req.query.q || '';
+    if (!query || query.trim().length < 2) {
+      return res.json([]);
+    }
+
+    const searchRegex = new RegExp(query.trim(), 'i');
+
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+      role: { $in: ['commuter', 'guardian'] },
+      $or: [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex },
+      ],
+    })
+      .select('_id name email phone role avatarUrl gender')
+      .limit(10);
+
+    res.json(users);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // @desc    Update user profile & voice settings
@@ -87,7 +142,7 @@ export const updateProfile = async (req, res, next) => {
     const user = await User.findById(req.user._id);
     if (user) {
       user.name = req.body.name || user.name;
-      user.phone = req.body.phone || user.phone;
+      user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
       if (req.body.gender) user.gender = req.body.gender;
       user.emergencyPhrase = req.body.emergencyPhrase || user.emergencyPhrase;
       user.duressPin = req.body.duressPin || user.duressPin;
@@ -95,23 +150,16 @@ export const updateProfile = async (req, res, next) => {
         user.avatarUrl = req.body.avatarUrl;
       }
 
-      if (req.body.guardians) {
+      if (Array.isArray(req.body.guardians)) {
+        if (req.body.guardians.length > 3) {
+          return res.status(400).json({ message: 'You can link a maximum of 3 emergency guardians.' });
+        }
         user.guardians = req.body.guardians;
       }
 
-      const updatedUser = await user.save();
-      res.json({
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
-        phone: updatedUser.phone,
-        gender: updatedUser.gender,
-        emergencyPhrase: updatedUser.emergencyPhrase,
-        duressPin: updatedUser.duressPin,
-        guardians: updatedUser.guardians,
-        avatarUrl: updatedUser.avatarUrl,
-      });
+      await user.save();
+      const fullProfile = await getUserWithLiveGuardians(user._id);
+      res.json(fullProfile);
     } else {
       res.status(404).json({ message: 'User not found' });
     }

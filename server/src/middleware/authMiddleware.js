@@ -11,7 +11,9 @@ export const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-      req.user = await User.findById(decoded.id).select('-password');
+      req.user = await User.findById(decoded.id)
+        .select('-password')
+        .populate('guardians.user', 'name email phone avatarUrl role gender');
       if (!req.user) {
         return res.status(401).json({ message: 'User no longer exists' });
       }

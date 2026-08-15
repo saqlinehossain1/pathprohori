@@ -20,6 +20,11 @@ export const authApi = {
     const { data } = await API.put('/auth/profile', profileData);
     return data;
   },
+
+  searchUsers: async (query) => {
+    const { data } = await API.get(`/auth/search-users?q=${encodeURIComponent(query)}`);
+    return data;
+  },
 };
 
 export default authApi;
