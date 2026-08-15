@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, Component } from 'react';
+import React, { useState, useEffect, useRef, useContext, Component } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { AuthContext } from '../context/AuthContext';
 import { useIncidents } from '../hooks/useIncidents';
 import IncidentCard from '../components/incidents/IncidentCard';
 import IncidentFilterBar from '../components/incidents/IncidentFilterBar';
@@ -92,18 +93,35 @@ const createCustomIcon = (severity = '', title = '') => {
   });
 };
 
-// Pulsing Blue Icon for User's Live GPS Location
-const createUserLocationIcon = () => {
+// Dynamic Gender & Profile Avatar Marker Icon for User's Live GPS Location
+const createUserLocationIcon = (gender = 'female', avatarUrl = '') => {
+  const g = String(gender || 'female').toLowerCase();
+
+  // Color theme tailored by gender identification
+  const borderColor = g === 'female' ? '#EC4899' : g === 'male' ? '#2563EB' : '#8B5CF6';
+  const pulseColor = g === 'female' ? 'rgba(236, 72, 153, 0.45)' : g === 'male' ? 'rgba(37, 99, 235, 0.45)' : 'rgba(139, 92, 246, 0.45)';
+  const bgColor = g === 'female' ? '#FDF2F8' : g === 'male' ? '#EFF6FF' : '#F5F3FF';
+  const iconColor = g === 'female' ? '#DB2777' : g === 'male' ? '#1D4ED8' : '#7C3AED';
+
+  // Vector profile icons for Female / Male / Neutral gender identification
+  const femaleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5c0 2.22-1.45 4.1-3.5 4.75V15h2a1 1 0 0 1 0 2h-2v4a1 1 0 0 1-2 0v-4H9.5a1 1 0 0 1 0-2h2v-3.25C9.45 11.1 8 9.22 8 7a5 5 0 0 1 5-5z"/></svg>`;
+  const maleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="m21 3-6.75 6.75"/><circle cx="10" cy="14" r="6"/></svg>`;
+  const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
+  const profileContent = avatarUrl
+    ? `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />`
+    : (g === 'female' ? femaleSvg : g === 'male' ? maleSvg : defaultSvg);
+
   return L.divIcon({
     className: 'user-location-pin',
-    html: `<div style="position: relative; width: 26px; height: 26px;">
-            <div style="position: absolute; width: 26px; height: 26px; background-color: rgba(37, 99, 235, 0.35); border-radius: 50%; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-            <div style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background-color: #2563EB; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 8px rgba(0,0,0,0.4); flex; align-items: center; justify-content: center;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="10"/></svg>
+    html: `<div style="position: relative; width: 36px; height: 36px;">
+            <div style="position: absolute; inset: -5px; border-radius: 50%; background-color: ${pulseColor}; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: relative; width: 36px; height: 36px; background-color: ${bgColor}; border: 3px solid ${borderColor}; border-radius: 50%; box-shadow: 0 4px 14px rgba(0,0,0,0.38); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              ${profileContent}
             </div>
           </div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
   });
 };
 
@@ -265,6 +283,7 @@ const MapControlsOverlay = ({ onRequestLocation, isLocating, onExpand, isExpande
 };
 
 const LiveDangerFeedContent = () => {
+  const { user } = useContext(AuthContext);
   const {
     incidents = [],
     loading,
@@ -464,7 +483,7 @@ const LiveDangerFeedContent = () => {
                   <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(true)} isExpanded={false} />
 
                   {/* User Live GPS Marker */}
-                  <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon()}>
+                  <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon(user?.gender, user?.avatarUrl)}>
                     <Popup className="custom-leaflet-popup">
                       <div className="p-3 space-y-1 text-xs font-extrabold text-[#2D2329]">
                         <div className="flex items-center gap-1.5 text-blue-700 font-extrabold border-b border-blue-100 pb-1.5">
@@ -693,7 +712,7 @@ const LiveDangerFeedContent = () => {
                   <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(false)} isExpanded={true} />
 
                   {/* User Live GPS Marker */}
-                  <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon()}>
+                  <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon(user?.gender, user?.avatarUrl)}>
                     <Popup className="custom-leaflet-popup">
                       <div className="p-3 space-y-1 text-xs font-extrabold text-[#2D2329]">
                         <div className="flex items-center gap-1.5 text-blue-700 font-extrabold border-b border-blue-100 pb-1.5">

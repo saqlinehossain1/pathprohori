@@ -12,6 +12,7 @@ export const Register = () => {
     email: '',
     password: '',
     phone: '',
+    gender: 'female',
     role: 'commuter',
     emergencyPhrase: 'Lavender Moonlight',
   });
@@ -116,6 +117,22 @@ export const Register = () => {
                 className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] font-medium pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+              Gender Identification
+            </label>
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all font-semibold"
+            >
+              <option value="female">Female ♀</option>
+              <option value="male">Male ♂</option>
+              <option value="other">Other / Prefer not to say ⚧</option>
+            </select>
           </div>
 
           <div>

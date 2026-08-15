@@ -11,7 +11,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 export const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, role, phone, emergencyPhrase, avatarUrl } = req.body;
+    const { name, email, password, role, phone, gender, emergencyPhrase, avatarUrl } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -24,6 +24,7 @@ export const registerUser = async (req, res, next) => {
       password,
       role: role || 'commuter',
       phone: phone || '',
+      gender: gender || 'female',
       emergencyPhrase: emergencyPhrase || 'Lavender Moonlight',
       avatarUrl: avatarUrl || '',
     });
@@ -34,6 +35,7 @@ export const registerUser = async (req, res, next) => {
       email: user.email,
       role: user.role,
       phone: user.phone,
+      gender: user.gender,
       emergencyPhrase: user.emergencyPhrase,
       avatarUrl: user.avatarUrl,
       token: generateToken(user._id),
@@ -57,6 +59,7 @@ export const loginUser = async (req, res, next) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        gender: user.gender || 'female',
         emergencyPhrase: user.emergencyPhrase,
         duressPin: user.duressPin,
         guardians: user.guardians,
@@ -85,6 +88,7 @@ export const updateProfile = async (req, res, next) => {
     if (user) {
       user.name = req.body.name || user.name;
       user.phone = req.body.phone || user.phone;
+      if (req.body.gender) user.gender = req.body.gender;
       user.emergencyPhrase = req.body.emergencyPhrase || user.emergencyPhrase;
       user.duressPin = req.body.duressPin || user.duressPin;
       if (typeof req.body.avatarUrl === 'string') {
@@ -102,6 +106,7 @@ export const updateProfile = async (req, res, next) => {
         email: updatedUser.email,
         role: updatedUser.role,
         phone: updatedUser.phone,
+        gender: updatedUser.gender,
         emergencyPhrase: updatedUser.emergencyPhrase,
         duressPin: updatedUser.duressPin,
         guardians: updatedUser.guardians,
