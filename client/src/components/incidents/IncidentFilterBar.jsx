@@ -7,7 +7,7 @@ export const IncidentFilterBar = ({
   activeFilter,
   onFilterChange,
 }) => {
-  const filterTabs = ['All', '5km Radius', '20km Radius', 'Verified', 'High Alert'];
+  const filterTabs = ['All', 'My Reports', '5km Radius', '20km Radius', 'Verified', 'High Alert'];
 
   return (
     <div className="bg-white p-3.5 sm:p-4 rounded-3xl shadow-card border border-[#EFEAEF] space-y-3 sm:space-y-4">

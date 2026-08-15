@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import incidentApi from '../api/incidentApi';
+import { AuthContext } from '../context/AuthContext';
 
 // Haversine distance formula calculation in kilometers
 const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
@@ -18,6 +19,8 @@ const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
 };
 
 export const useIncidents = () => {
+  const auth = useContext(AuthContext);
+  const currentUser = auth?.user;
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -157,6 +160,11 @@ export const useIncidents = () => {
       description.includes(query) ||
       locationName.includes(query);
 
+    if (activeFilter === 'My Reports' || activeFilter === 'My Posts') {
+      const currentUserId = currentUser?._id;
+      const reportedById = typeof item.reportedBy === 'object' ? item.reportedBy?._id : item.reportedBy;
+      return matchesSearch && Boolean(currentUserId && reportedById && String(reportedById) === String(currentUserId));
+    }
     if (activeFilter === 'Verified') return matchesSearch && Boolean(item.isVerified);
     if (activeFilter === 'High Alert') return matchesSearch && item.severity === 'High Alert';
     if (activeFilter === '5km Radius') return matchesSearch && item.distanceKm <= 5;
