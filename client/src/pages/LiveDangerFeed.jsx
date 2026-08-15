@@ -343,8 +343,8 @@ const LiveDangerFeedContent = () => {
     }
   };
 
-  if (loading && incidents.length === 0) {
-    return <LoadingSpinner label="Loading Live Danger Feed & Community Hazards..." />;
+  if ((loading || isLocationLoading) && incidents.length === 0) {
+    return <LoadingSpinner label="Fetching your real-time GPS location & nearby danger feed..." />;
   }
 
   return (
@@ -417,7 +417,14 @@ const LiveDangerFeedContent = () => {
           />
 
           <div className="space-y-4 pb-32 lg:pb-6">
-            {incidents.length === 0 ? (
+            {isLocationLoading ? (
+              <Card className="text-center py-16 space-y-3 border-[#E0D5DC] shadow-xs">
+                <LoadingSpinner label="Fetching real-time GPS & calculating hazard distances..." />
+                <p className="text-xs font-semibold text-[#8C7A87]">
+                  Please wait while we determine your exact location to sort dangers by proximity.
+                </p>
+              </Card>
+            ) : incidents.length === 0 ? (
               <Card className="text-center py-12">
                 <Radio className="w-10 h-10 text-[#8C7A87] mx-auto mb-2 opacity-50" />
                 <p className="text-sm font-bold text-[#6B4355]">No matching incidents found.</p>
