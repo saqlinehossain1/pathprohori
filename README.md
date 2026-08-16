@@ -17,12 +17,12 @@ If a traveler encounters a threat, loses internet connection, or faces an emerge
 
 ## 👥 Project Team (Group No. 4 - Lab Section 1)
 
-| SL | Student ID | Name | Role Assignment |
-| :-: | :--- | :--- | :--- |
-| 1 | **23101243** | **Md Saqline Hossain** | Lead Developer & System Analyst |
-| 2 | **23101017** | **Badrunnaher Pantho** | Developer & UI/UX Specialist |
-| 3 | **22201850** | **Mehedi Hasan Shovon** | Backend Developer & QA Specialist |
-| 4 | **22201680** | **Jamshedul Alam Khan Hridoy** | System Architect & Security Lead |
+| SL | Student ID | Name |
+| :-: | :--- | :--- |
+| 1 | **23101243** | **Md Saqline Hossain** |
+| 2 | **23101017** | **Badrunnaher Pantho** |
+| 3 | **22201850** | **Mehedi Hasan Shovon** |
+| 4 | **22201680** | **Jamshedul Alam Khan Hridoy** |
 
 ---
 

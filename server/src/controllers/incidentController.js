@@ -15,7 +15,6 @@ const fetchPopulatedIncident = async (id) => {
 // @route   GET /api/incidents
 export const getIncidents = async (req, res, next) => {
   try {
-    await seedInitialIncidents();
     const incidents = await Incident.find()
       .populate('reportedBy', 'name avatarUrl role')
       .populate('comments.author', 'name avatarUrl role')

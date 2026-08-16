@@ -33,8 +33,12 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
 // Database Connection & Initial Seeding
 connectDB().then(async () => {
-  await seedDemoUsers();
-  await seedInitialIncidents();
+  const seedEnabled = process.env.SEED_DB === 'true';
+  if (seedEnabled) {
+    await seedDemoUsers();
+    await seedInitialIncidents();
+    console.log('[Database Seed] Completed');
+  }
 });
 
 // API Endpoints
