@@ -5,7 +5,7 @@ import DuressPinModal from '../components/voice/DuressPinModal';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
-import { Lock, Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react';
+import { Lock, Eye, EyeOff, KeyRound, ShieldCheck, Mic } from 'lucide-react';
 
 export const VoiceSettings = () => {
   const {
@@ -20,6 +20,7 @@ export const VoiceSettings = () => {
     savingPhrase,
     saveSettings,
     startListening,
+    stopListening,
   } = useVoice();
 
   const [showPhrase, setShowPhrase] = useState(false);
@@ -37,27 +38,33 @@ export const VoiceSettings = () => {
   };
 
   const handleDuressDeactivate = (isSilentDuress) => {
+    stopListening();
+    setKeywordMatched(false);
     if (isSilentDuress) {
       alert('SILENT DURESS PIN ACTIVATED: Sending stealth emergency alert to police control room.');
     } else {
       alert('Alarm test disarmed successfully with primary PIN.');
     }
-    setKeywordMatched(false);
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Clean Text Page Header */}
       <div>
-        <h1 className="text-3xl font-extrabold text-[#6B4355] tracking-tight">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
+          <Mic className="w-3.5 h-3.5 text-rose-600" />
+          <span className="font-display">Hands-Free Emergency System</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
           Voice Trigger & Duress Settings
         </h1>
-        <p className="text-xs text-[#8C7A87] font-medium mt-1">
-          Module 2 Hands-Free Emergency Voice Activation & Silent Duress Deactivation PIN.
+        <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+          Configure secret emergency voice phrase & practice silent duress PIN disarm.
         </p>
       </div>
 
       {statusMessage && (
-        <div className="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-2xl">
+        <div className="p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-2xl shadow-xs">
           {statusMessage}
         </div>
       )}
@@ -72,19 +79,20 @@ export const VoiceSettings = () => {
             keywordMatched={keywordMatched}
             phrase={emergencyPhraseInput}
             onStartListen={startListening}
+            onStopListen={stopListening}
             onResetMatch={() => setShowDuressModal(true)}
           />
 
           {/* Secret Phrase Configuration Form */}
-          <Card className="space-y-4">
-            <div className="flex items-center gap-2 text-[#6B4355] font-extrabold text-sm border-b border-[#F0EBF0] pb-3">
-              <Lock className="w-4 h-4" />
+          <Card className="space-y-4 shadow-card border-slate-200/80">
+            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm border-b border-slate-100 pb-3 font-display">
+              <Lock className="w-4 h-4 text-rose-600" />
               <span>Configure Emergency Phrase & Duress PIN</span>
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-[#6B4355] uppercase tracking-wider">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-display">
                   Secret Emergency Voice Phrase
                 </label>
                 <div className="relative">
@@ -92,13 +100,13 @@ export const VoiceSettings = () => {
                     type={showPhrase ? 'text' : 'password'}
                     value={emergencyPhraseInput}
                     onChange={(e) => setEmergencyPhraseInput(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs font-bold text-[#2D2329] focus:outline-none focus:ring-2 focus:ring-[#6B4355] pr-10"
+                    className="w-full px-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 focus:bg-white transition-all pr-10"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPhrase(!showPhrase)}
-                    className="absolute right-3 top-3 text-[#8C7A87] hover:text-[#2D2329]"
+                    className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-700 cursor-pointer"
                   >
                     {showPhrase ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -114,7 +122,7 @@ export const VoiceSettings = () => {
                 onChange={(e) => setDuressPinInput(e.target.value)}
               />
 
-              <Button type="submit" loading={savingPhrase} className="w-full py-3 font-extrabold">
+              <Button type="submit" loading={savingPhrase} className="w-full py-3.5 font-extrabold shadow-md shadow-rose-950/20">
                 Save Emergency Settings
               </Button>
             </form>
@@ -123,12 +131,12 @@ export const VoiceSettings = () => {
 
         {/* Right Column: Instructions */}
         <div className="space-y-6">
-          <Card className="bg-gradient-to-br from-[#FDF7F9] to-white space-y-3 border-[#E0D5DC]">
-            <div className="flex items-center gap-2 text-[#6B4355] font-extrabold text-sm">
+          <Card className="bg-gradient-to-br from-slate-50 to-white space-y-3 border-slate-200/80 shadow-card">
+            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm font-display">
               <ShieldCheck className="w-5 h-5 text-sky-600" />
               <span>Duress Protocol Safety</span>
             </div>
-            <p className="text-xs text-[#4A3D46] font-medium leading-relaxed">
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
               If forced by an attacker to disarm an active emergency alarm, enter your <strong>Silent Duress PIN</strong>. The UI will appear to disarm, but a stealth dispatch signal will be sent to guardians & police operators.
             </p>
           </Card>

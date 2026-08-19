@@ -40,6 +40,14 @@ const tripSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    startCoords: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
+    destinationCoords: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
     photoUrl: {
       type: String,
       default: '',
@@ -56,6 +64,9 @@ const tripSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
     },
+    expiresAt: {
+      type: Date,
+    },
     safeTripPurged: {
       type: Boolean,
       default: false,
@@ -63,5 +74,8 @@ const tripSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// TTL Index: Automatically purge safe completed trips after 48 hours (when expiresAt passes)
+tripSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const Trip = mongoose.model('Trip', tripSchema);

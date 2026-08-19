@@ -12,6 +12,8 @@ export const createTrip = async (req, res, next) => {
       estimatedTimeMinutes,
       startingLocation,
       destination,
+      startCoords,
+      destinationCoords,
       driverDescription,
       journeyNotes,
       photoUrl,
@@ -25,6 +27,8 @@ export const createTrip = async (req, res, next) => {
       estimatedTimeMinutes: estimatedTimeMinutes || 30,
       startingLocation: startingLocation || 'Current GPS Location',
       destination,
+      startCoords: startCoords && startCoords.lat && startCoords.lng ? startCoords : undefined,
+      destinationCoords: destinationCoords && destinationCoords.lat && destinationCoords.lng ? destinationCoords : undefined,
       driverDescription,
       journeyNotes,
       photoUrl,
@@ -78,6 +82,7 @@ export const sendHeartbeat = async (req, res, next) => {
           coordinates: [req.body.longitude, req.body.latitude],
         },
         batteryLevel: req.body.batteryLevel || 100,
+        expiresAt: trip.expiresAt || undefined,
       });
     }
 
@@ -96,14 +101,19 @@ export const completeTrip = async (req, res, next) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
+    const now = new Date();
+    // Calculate 48 Hours TTL expiration timestamp from now
+    const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
     trip.status = 'COMPLETED';
-    trip.completedAt = new Date();
+    trip.completedAt = now;
+    trip.expiresAt = expiresAt;
     await trip.save();
 
-    // Mark location logs as completed safe trip
+    // Mark location logs as completed safe trip and apply 48-hour expiration TTL
     await LocationLog.updateMany(
       { trip: trip._id },
-      { isSafeTripCompleted: true }
+      { isSafeTripCompleted: true, expiresAt: expiresAt }
     );
 
     res.json({ message: 'Trip completed safely', trip });
@@ -125,6 +135,23 @@ export const triggerPanic = async (req, res, next) => {
     await trip.save();
 
     res.json({ message: 'CRITICAL EMERGENCY ALARM TRIGGERED', trip });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get user's safe journey history (available within 48-hour privacy window)
+// @route   GET /api/trips/history
+export const getUserTripHistory = async (req, res, next) => {
+  try {
+    const history = await Trip.find({
+      user: req.user._id,
+      status: 'COMPLETED',
+    })
+      .sort({ completedAt: -1 })
+      .limit(30);
+
+    res.json(history);
   } catch (error) {
     next(error);
   }

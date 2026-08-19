@@ -117,7 +117,7 @@ export const CommentItem = ({
   };
 
   return (
-    <div className="bg-white border border-[#E0D5DC] rounded-3xl p-4 space-y-3 shadow-xs relative">
+    <div className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-4 space-y-3 shadow-card relative">
       {/* Author Header Bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -125,29 +125,29 @@ export const CommentItem = ({
             <img
               src={commentAvatar}
               alt={commentAuthorName}
-              className="w-9 h-9 rounded-full object-cover border border-[#6B4355]/30 shadow-xs"
+              className="w-9 h-9 rounded-full object-cover border border-slate-800 shadow-xs"
             />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-[#6B4355] text-white font-black text-xs flex items-center justify-center shadow-xs">
+            <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs font-display">
               {commentAuthorName ? commentAuthorName.charAt(0).toUpperCase() : 'U'}
             </div>
           )}
 
           <div>
-            <span className="text-xs font-extrabold text-[#2D2329] block leading-tight">
+            <span className="text-xs font-extrabold text-slate-900 block leading-tight font-display">
               {commentAuthorName}
             </span>
-            <span className="text-[10px] font-bold text-[#8C7A87]">
+            <span className="text-[10px] font-bold text-slate-500">
               {commentAuthorRole}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold text-[#8C7A87]">
+          <span className="text-[10px] font-semibold text-slate-400">
             {comment.createdAt ? new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
             {comment.isEdited && (
-              <span className="text-[10px] text-gray-400 font-normal italic opacity-70 ml-1.5">(edited)</span>
+              <span className="text-[10px] text-slate-400 font-normal italic opacity-70 ml-1.5">(edited)</span>
             )}
           </span>
 
@@ -161,7 +161,7 @@ export const CommentItem = ({
                   setIsEditingComment(!isEditingComment);
                 }}
                 title="Edit comment"
-                className="p-1 text-[#6B4355] hover:bg-[#6B4355]/10 rounded-lg transition-all"
+                className="p-1 text-slate-600 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
@@ -174,7 +174,7 @@ export const CommentItem = ({
                   }
                 }}
                 title="Delete comment & Cloudinary photo"
-                className="p-1 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                className="p-1 text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -190,12 +190,12 @@ export const CommentItem = ({
             rows="2"
             value={editCommentText}
             onChange={(e) => setEditCommentText(e.target.value)}
-            className="w-full p-2.5 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs font-medium text-[#2D2329]"
+            className="w-full p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
           />
 
           {/* Attached Image Edit & Remove Bar */}
           <div className="flex items-center gap-2 flex-wrap">
-            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-xl text-xs font-bold transition-all shadow-xs">
+            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-900 hover:text-white border border-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs">
               <Upload className="w-3.5 h-3.5" />
               <span>{uploadingEditCommentImage ? 'Uploading...' : 'Photo'}</span>
               <input
@@ -216,7 +216,7 @@ export const CommentItem = ({
                   }
                   setEditCommentImageUrl('');
                 }}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold transition-all"
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Remove Photo</span>
@@ -225,7 +225,7 @@ export const CommentItem = ({
           </div>
 
           {editCommentImageUrl && (
-            <div className="rounded-xl overflow-hidden max-h-48 border border-[#E0D5DC] p-1 bg-[#F9F8FA]">
+            <div className="rounded-xl overflow-hidden max-h-48 border border-slate-200 p-1 bg-slate-50">
               <img src={editCommentImageUrl} alt="Comment proof edit" className="w-full max-h-48 object-contain rounded-lg" />
             </div>
           )}
@@ -234,14 +234,14 @@ export const CommentItem = ({
             <button
               type="button"
               onClick={() => setIsEditingComment(false)}
-              className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200"
+              className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSaveCommentEdit}
-              className="px-4 py-1.5 bg-[#6B4355] text-white rounded-xl text-xs font-bold hover:bg-[#543343] transition-all"
+              className="px-4 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer"
             >
               Save Edit
             </button>
@@ -249,13 +249,13 @@ export const CommentItem = ({
         </div>
       ) : (
         <>
-          <p className="text-xs text-[#2D2329] font-medium leading-relaxed">
+          <p className="text-xs text-slate-700 font-medium leading-relaxed">
             {comment.text}
           </p>
 
           {/* Comment Full Image Attachment */}
           {comment.imageUrl && (
-            <div className="rounded-2xl overflow-hidden bg-[#F9F8FA] border border-[#E0D5DC] max-h-80 p-1 flex items-center justify-center">
+            <div className="rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 max-h-80 p-1 flex items-center justify-center">
               <img src={comment.imageUrl} alt="Comment proof" className="w-full max-h-80 object-contain rounded-xl" />
             </div>
           )}
@@ -263,28 +263,28 @@ export const CommentItem = ({
       )}
 
       {/* Comment Actions: Icon-only Like / Dislike + Reply Trigger */}
-      <div className="flex items-center justify-between border-t border-[#F0EBF0] pt-2 text-xs">
-        <div className="inline-flex items-center bg-[#F9F8FA] border border-[#E0D5DC] rounded-xl p-0.5 gap-1">
+      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+        <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-xl p-0.5 gap-1 shadow-xs">
           <button
             type="button"
             onClick={() => onVoteComment && onVoteComment(comment._id, 'like')}
             title="Like comment"
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all ${
-              isLiked ? 'bg-[#6B4355] text-white' : 'text-[#6B4355] hover:bg-[#6B4355]/10'
+            className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+              isLiked ? 'bg-slate-900 text-white shadow-xs ring-2 ring-rose-500/30' : 'text-slate-700 hover:bg-slate-200'
             }`}
           >
             <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-white' : ''}`} />
             <span className="text-[11px] font-extrabold">{likesCount}</span>
           </button>
 
-          <div className="w-[1px] h-3 bg-[#E0D5DC]"></div>
+          <div className="w-[1px] h-3 bg-slate-200"></div>
 
           <button
             type="button"
             onClick={() => onVoteComment && onVoteComment(comment._id, 'dislike')}
             title="Dislike comment"
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all ${
-              isDisliked ? 'bg-rose-600 text-white' : 'text-[#8C7A87] hover:bg-rose-50 hover:text-rose-600'
+            className={`px-2 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+              isDisliked ? 'bg-rose-600 text-white' : 'text-slate-500 hover:bg-rose-50 hover:text-rose-600'
             }`}
           >
             <ThumbsDown className={`w-3.5 h-3.5 ${isDisliked ? 'fill-white' : ''}`} />
@@ -295,28 +295,28 @@ export const CommentItem = ({
         <button
           type="button"
           onClick={() => setShowReplyForm(!showReplyForm)}
-          className="text-xs font-bold text-[#6B4355] flex items-center gap-1 hover:underline px-2 py-1 rounded-lg hover:bg-[#F9F8FA]"
+          className="text-xs font-bold text-slate-800 flex items-center gap-1 hover:underline px-2 py-1 rounded-lg hover:bg-slate-100 cursor-pointer font-display"
         >
-          <MessageSquare className="w-3.5 h-3.5" />
+          <MessageSquare className="w-3.5 h-3.5 text-rose-600" />
           <span>Reply ({comment.replies?.length || 0})</span>
         </button>
       </div>
 
       {/* Inline Reply Form */}
       {showReplyForm && (
-        <form onSubmit={handleReplySubmit} className="mt-3 flex items-center gap-2 pt-2 border-t border-[#F0EBF0]">
+        <form onSubmit={handleReplySubmit} className="mt-3 flex items-center gap-2 pt-2 border-t border-slate-100">
           <input
             type="text"
             placeholder="Write a reply..."
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs font-medium text-[#2D2329]"
+            className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
             required
           />
           <button
             type="submit"
             disabled={submittingReply}
-            className="px-3 py-2 bg-[#6B4355] text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-[#543343] transition-all"
+            className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-slate-800 transition-all cursor-pointer"
           >
             <Send className="w-3 h-3" />
             <span>Reply</span>
@@ -326,7 +326,7 @@ export const CommentItem = ({
 
       {/* Nested Replies List */}
       {comment.replies && comment.replies.length > 0 && (
-        <div className="pl-4 border-l-2 border-[#6B4355]/20 space-y-2 mt-3 pt-1">
+        <div className="pl-4 border-l-2 border-slate-200 space-y-2 mt-3 pt-1">
           {comment.replies.map((reply, rIdx) => {
             const replyAuthorObj = (reply?.author && typeof reply.author === 'object') ? reply.author : null;
             const replyAuthorStr = typeof reply.author === 'string' ? reply.author : replyAuthorObj?._id ? replyAuthorObj._id.toString() : reply.author ? reply.author.toString() : '';
@@ -339,25 +339,25 @@ export const CommentItem = ({
             const replyAuthorName = replyAuthorObj?.name || reply.authorName || (isReplyAuthor ? user?.name : 'Commuter');
 
             return (
-              <div key={reply._id || rIdx} className="bg-[#F9F8FA] p-2.5 rounded-2xl border border-[#E0D5DC] text-xs space-y-1">
+              <div key={reply._id || rIdx} className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 text-xs space-y-1">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CornerDownRight className="w-3 h-3 text-[#6B4355]" />
+                    <CornerDownRight className="w-3 h-3 text-rose-600" />
                     {replyAvatar ? (
-                      <img src={replyAvatar} alt={replyAuthorName} className="w-5 h-5 rounded-full object-cover border border-[#6B4355]/30 shadow-xs" />
+                      <img src={replyAvatar} alt={replyAuthorName} className="w-5 h-5 rounded-full object-cover border border-slate-300 shadow-xs" />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-[#6B4355] text-white font-black text-[10px] flex items-center justify-center shadow-xs">
+                      <div className="w-5 h-5 rounded-full bg-slate-900 text-white font-black text-[10px] flex items-center justify-center shadow-xs font-display">
                         {replyAuthorName ? replyAuthorName.charAt(0).toUpperCase() : 'R'}
                       </div>
                     )}
-                    <span className="font-extrabold text-[#2D2329] text-[11px]">{replyAuthorName}</span>
+                    <span className="font-extrabold text-slate-900 text-[11px] font-display">{replyAuthorName}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] text-[#8C7A87]">
+                    <span className="text-[9px] text-slate-400">
                       {reply.createdAt ? new Date(reply.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                       {reply.isEdited && (
-                        <span className="text-[9px] text-gray-400 font-normal italic opacity-70 ml-1">(edited)</span>
+                        <span className="text-[9px] text-slate-400 font-normal italic opacity-70 ml-1">(edited)</span>
                       )}
                     </span>
 
@@ -370,7 +370,7 @@ export const CommentItem = ({
                             setEditingReplyId(isEditingThisReply ? null : reply._id);
                           }}
                           title="Edit reply"
-                          className="p-0.5 text-[#6B4355] hover:bg-white rounded transition-all"
+                          className="p-0.5 text-slate-600 hover:bg-white rounded transition-all cursor-pointer"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -382,7 +382,7 @@ export const CommentItem = ({
                             }
                           }}
                           title="Delete reply"
-                          className="p-0.5 text-rose-500 hover:bg-rose-50 rounded transition-all"
+                          className="p-0.5 text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -397,18 +397,18 @@ export const CommentItem = ({
                       type="text"
                       value={editReplyText}
                       onChange={(e) => setEditReplyText(e.target.value)}
-                      className="flex-1 px-2 py-1 rounded-lg bg-white border border-[#E0D5DC] text-[11px]"
+                      className="flex-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-[11px]"
                     />
                     <button
                       type="button"
                       onClick={() => handleSaveReplyEdit(reply._id)}
-                      className="p-1 bg-[#6B4355] text-white rounded"
+                      className="p-1 bg-slate-900 text-white rounded cursor-pointer"
                     >
                       <Check className="w-3 h-3" />
                     </button>
                   </div>
                 ) : (
-                  <p className="text-[#4A3D46] font-medium text-[11px] pl-5">{reply.text}</p>
+                  <p className="text-slate-600 font-medium text-[11px] pl-5">{reply.text}</p>
                 )}
               </div>
             );

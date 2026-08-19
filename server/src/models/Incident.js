@@ -124,11 +124,21 @@ const incidentSchema = new mongoose.Schema(
       ref: 'User',
     },
     imageUrl: String,
+    durationSelected: {
+      type: String,
+      default: '24 Hours (1 Day)',
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24 hours (1 Day)
+    },
     comments: [commentSchema],
   },
   { timestamps: true }
 );
 
 incidentSchema.index({ location: '2dsphere' });
+incidentSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const Incident = mongoose.model('Incident', incidentSchema);

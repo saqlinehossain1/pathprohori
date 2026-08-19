@@ -3,7 +3,7 @@ import React from 'react';
 export const Card = ({ children, className = '', ...props }) => {
   return (
     <div
-      className={`bg-white rounded-3xl p-6 shadow-card border border-[#EFEAEF] transition-all hover:shadow-hover ${className}`}
+      className={`bg-white/95 backdrop-blur-xl rounded-3xl p-6 shadow-card hover:shadow-glass border border-[#EFEAEF] transition-all duration-300 ${className}`}
       {...props}
     >
       {children}
@@ -12,3 +12,4 @@ export const Card = ({ children, className = '', ...props }) => {
 };
 
 export default Card;
+

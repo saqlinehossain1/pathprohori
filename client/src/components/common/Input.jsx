@@ -4,19 +4,20 @@ export const Input = ({ label, error, className = '', ...props }) => {
   return (
     <div className="space-y-1.5 w-full">
       {label && (
-        <label className="block text-xs font-bold text-[#6B4355] uppercase tracking-wider">
+        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-display">
           {label}
         </label>
       )}
       <input
-        className={`w-full px-4 py-3 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-sm text-[#2D2329] focus:outline-none focus:ring-2 focus:ring-[#6B4355] focus:border-transparent transition-all placeholder-[#9A8B95] ${
-          error ? 'border-red-500 ring-1 ring-red-500' : ''
+        className={`w-full px-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 focus:bg-white transition-all duration-200 placeholder:text-slate-400 font-medium ${
+          error ? 'border-rose-500 ring-2 ring-rose-500/20' : ''
         } ${className}`}
         {...props}
       />
-      {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+      {error && <p className="text-xs text-rose-600 font-semibold mt-1">{error}</p>}
     </div>
   );
 };
 
 export default Input;
+

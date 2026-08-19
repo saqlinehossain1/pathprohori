@@ -43,10 +43,14 @@ const locationLogSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    expiresAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
 
 locationLogSchema.index({ location: '2dsphere' });
+locationLogSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const LocationLog = mongoose.model('LocationLog', locationLogSchema);

@@ -25,6 +25,11 @@ export const tripApi = {
     const { data } = await API.post(`/trips/${tripId}/trigger-panic`);
     return data;
   },
+
+  getTripHistory: async () => {
+    const { data } = await API.get('/trips/history');
+    return data;
+  },
 };
 
 export default tripApi;

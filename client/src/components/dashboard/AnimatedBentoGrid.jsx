@@ -21,13 +21,13 @@ export const AnimatedBentoGrid = () => {
       cta: 'Explore Danger Feed',
       className: 'col-span-3 lg:col-span-2',
       background: (
-        <div className="w-full bg-[#FDF7F9] px-4 pt-3.5 pb-2 flex flex-col gap-2 border-b border-[#E0D5DC]/60 min-h-[5.5rem]">
+        <div className="w-full bg-slate-50 px-4 pt-3.5 pb-2 flex flex-col gap-2 border-b border-slate-200/80 min-h-[5.5rem]">
           <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-extrabold text-[#6B4355] flex items-center gap-1.5 bg-white px-2.5 py-0.5 rounded-full border border-[#E0D5DC] shadow-xs">
+            <span className="text-[11px] font-extrabold text-slate-900 flex items-center gap-1.5 bg-white px-2.5 py-0.5 rounded-full border border-slate-200 shadow-xs font-display">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               Community Heatmap Live
             </span>
-            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 font-display">
               Active Radius: 5km
             </span>
           </div>
@@ -37,7 +37,7 @@ export const AnimatedBentoGrid = () => {
               {marqueeHazardItems.map((item, idx) => (
                 <div
                   key={idx}
-                  className="px-3 py-1.5 bg-white border border-[#E0D5DC] rounded-xl text-[11px] font-extrabold text-[#6B4355] shadow-xs flex items-center gap-2 whitespace-nowrap"
+                  className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[11px] font-extrabold text-slate-900 shadow-xs flex items-center gap-2 whitespace-nowrap font-display"
                 >
                   <span
                     className={`w-2 h-2 rounded-full ${
@@ -67,7 +67,7 @@ export const AnimatedBentoGrid = () => {
       background: (
         <div className="w-full bg-[#F0FDF4] px-4 pt-3.5 pb-2 flex flex-col justify-between border-b border-emerald-100 min-h-[5.5rem]">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-xs flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-xs flex items-center gap-1.5 font-display">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               15s Active Ping Loop
             </span>
@@ -95,7 +95,7 @@ export const AnimatedBentoGrid = () => {
       background: (
         <div className="w-full bg-sky-50 px-4 pt-3.5 pb-2 flex flex-col justify-between border-b border-sky-100 min-h-[5.5rem] overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-sky-800 bg-white px-2.5 py-0.5 rounded-full border border-sky-200 shadow-xs">
+            <span className="text-[10px] font-black text-sky-800 bg-white px-2.5 py-0.5 rounded-full border border-sky-200 shadow-xs font-display">
               Phrase: "Lavender Moonlight"
             </span>
           </div>
@@ -120,30 +120,30 @@ export const AnimatedBentoGrid = () => {
       cta: 'Privacy Settings',
       className: 'col-span-3 lg:col-span-2',
       background: (
-        <div className="w-full bg-[#FDF7F9] px-4 pt-3.5 pb-2 flex flex-col gap-2 border-b border-[#E0D5DC]/60 min-h-[5.5rem]">
+        <div className="w-full bg-slate-50 px-4 pt-3.5 pb-2 flex flex-col gap-2 border-b border-slate-200/80 min-h-[5.5rem]">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-[#6B4355] bg-white px-2.5 py-0.5 rounded-full border border-[#E0D5DC] shadow-xs flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-[#6B4355]" />
+            <span className="text-[11px] font-extrabold text-slate-900 bg-white px-2.5 py-0.5 rounded-full border border-slate-200 shadow-xs flex items-center gap-1.5 font-display">
+              <Lock className="w-3.5 h-3.5 text-rose-600" />
               Zero Permanent Storage
             </span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-display">
               Module 3 Auto-Purge Active
             </span>
           </div>
 
-          <div className="flex items-center justify-around p-2 bg-white border border-[#E0D5DC] rounded-xl text-xs font-extrabold text-[#6B4355] shadow-xs">
+          <div className="flex items-center justify-around p-2 bg-white border border-slate-200 rounded-xl text-xs font-extrabold text-slate-900 shadow-xs font-display">
             <div className="text-center">
-              <span className="text-[9px] text-gray-500 block">Step 1</span>
+              <span className="text-[9px] text-slate-400 block font-sans font-normal">Step 1</span>
               <span>GPS Broadcast</span>
             </div>
             <span>→</span>
             <div className="text-center">
-              <span className="text-[9px] text-gray-500 block">Step 2</span>
+              <span className="text-[9px] text-slate-400 block font-sans font-normal">Step 2</span>
               <span>48-hr Holding</span>
             </div>
             <span>→</span>
             <div className="text-center text-rose-600">
-              <span className="text-[9px] text-rose-500 block">Step 3</span>
+              <span className="text-[9px] text-rose-500 block font-sans font-normal">Step 3</span>
               <span>Auto Deletion</span>
             </div>
           </div>
@@ -155,8 +155,8 @@ export const AnimatedBentoGrid = () => {
   return (
     <div className="space-y-4 py-4">
       <div>
-        <h3 className="text-lg font-extrabold text-[#2D2329]">Safety Ecosystem Architecture</h3>
-        <p className="text-xs text-[#8C7A87] font-medium">
+        <h3 className="text-lg font-extrabold text-slate-900 font-display">Safety Ecosystem Architecture</h3>
+        <p className="text-xs text-slate-500 font-medium">
           Interactive overview of PATHPROHORI core safety modules.
         </p>
       </div>

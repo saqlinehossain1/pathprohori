@@ -44,7 +44,28 @@ export const getIncidentById = async (req, res, next) => {
 // @route   POST /api/incidents
 export const createIncident = async (req, res, next) => {
   try {
-    const { title, description, locationName, longitude, latitude, severity, imageUrl } = req.body;
+    const {
+      title,
+      description,
+      locationName,
+      longitude,
+      latitude,
+      severity,
+      imageUrl,
+      durationHours,
+      durationSelected,
+    } = req.body;
+
+    // Calculate expiration: if 'Don't Know' / unscheduled / invalid, default to 24 hours (1 Day)
+    let hours = parseInt(durationHours, 10);
+    if (isNaN(hours) || hours <= 0) {
+      hours = 24; // Default 1 Day (24 hours)
+    }
+    if (hours > 168) {
+      hours = 168; // Max 1 Week (168 hours)
+    }
+
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
     const newIncident = await Incident.create({
       title,
@@ -57,6 +78,8 @@ export const createIncident = async (req, res, next) => {
       severity: severity || 'Med Severity',
       reportedBy: req.user._id,
       imageUrl,
+      durationSelected: durationSelected || `${hours} Hours`,
+      expiresAt,
     });
 
     const populated = await fetchPopulatedIncident(newIncident._id);

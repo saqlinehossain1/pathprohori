@@ -5,7 +5,7 @@ import Modal from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import uploadApi from '../../api/uploadApi';
-import { AlertCircle, MapPin, Upload, Image, CheckCircle, Crosshair } from 'lucide-react';
+import { AlertCircle, MapPin, Upload, Image, CheckCircle, Crosshair, Clock } from 'lucide-react';
 
 const createPickerSpotIcon = () => {
   return L.divIcon({
@@ -38,6 +38,8 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
     description: '',
     locationName: '',
     severity: 'High Alert',
+    durationHours: 24,
+    durationSelected: "Don't Know / Unsure (Default: 24 Hours)",
     imageUrl: '',
     latitude: defaultLat,
     longitude: defaultLng,
@@ -104,6 +106,8 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
         description: '',
         locationName: '',
         severity: 'High Alert',
+        durationHours: 24,
+        durationSelected: "Don't Know / Unsure (Default: 24 Hours)",
         imageUrl: '',
         latitude: defaultLat,
         longitude: defaultLng,
@@ -161,9 +165,9 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
           <button
             type="button"
             onClick={() => setShowMapPicker(true)}
-            className="w-full py-3 bg-gradient-to-r from-[#6B4355] to-[#543343] hover:from-[#583645] hover:to-[#442735] text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-md shadow-slate-950/10 transition-all active:scale-95 cursor-pointer font-display"
           >
-            <Crosshair className="w-4 h-4 text-amber-400" />
+            <Crosshair className="w-4 h-4 text-rose-400" />
             <span>Select Particular Area Directly from Map</span>
           </button>
 
@@ -184,13 +188,13 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
           />
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-[#6B4355] uppercase tracking-wider">
+            <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider font-display">
               Severity Level
             </label>
             <select
               value={formData.severity}
               onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs font-semibold text-[#2D2329] focus:outline-none focus:ring-2 focus:ring-[#6B4355]"
+              className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
             >
               <option value="High Alert">High Alert (Immediate Danger)</option>
               <option value="Med Severity">Medium Severity (Caution Needed)</option>
@@ -198,27 +202,59 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
             </select>
           </div>
 
+          {/* Report Duration / Auto-Expiration Time Select */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-[#6B4355] uppercase tracking-wider">
-              Detailed Description <span className="text-[10px] font-normal text-[#8C7A87]">(Optional)</span>
+            <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider font-display flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-rose-600" />
+                Active Duration (Auto-Expiration)
+              </span>
+              <span className="text-[10px] text-rose-600 font-bold lowercase">auto-deletes DB & Cloudinary image</span>
+            </label>
+            <select
+              value={formData.durationHours}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                const selectedText = e.target.options[e.target.selectedIndex].text;
+                setFormData({ ...formData, durationHours: val, durationSelected: selectedText });
+              }}
+              className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            >
+              <option value={24}>Don't Know / Unsure (Default: 24 Hours / 1 Day)</option>
+              <option value={1}>1 Hour (Temporary Obstacle)</option>
+              <option value={6}>6 Hours (Short Duration)</option>
+              <option value={12}>12 Hours (Half Day)</option>
+              <option value={24}>24 Hours (1 Day)</option>
+              <option value={48}>2 Days (48 Hours)</option>
+              <option value={72}>3 Days (72 Hours)</option>
+              <option value={168}>7 Days (1 Week Max)</option>
+            </select>
+            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+              If unsure, leave as default. The report record and uploaded Cloudinary photo will auto-delete after 24 hours.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider font-display">
+              Detailed Description <span className="text-[10px] font-normal text-slate-500">(Optional)</span>
             </label>
             <textarea
               rows="3"
               placeholder="Describe what you observed..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs text-[#2D2329] focus:outline-none focus:ring-2 focus:ring-[#6B4355]"
+              className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 font-medium"
             ></textarea>
           </div>
 
           {/* Cloudinary Image Upload Section */}
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#6B4355] uppercase tracking-wider">
+            <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider font-display">
               Incident Photo (Cloudinary Direct Upload)
             </label>
             
             <div className="flex items-center gap-3">
-              <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-2xl text-xs font-bold transition-all shadow-sm">
+              <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-rose-950/20">
                 <Upload className="w-4 h-4" />
                 <span>{uploadingImage ? 'Uploading to Cloudinary...' : 'Upload Image File'}</span>
                 <input
@@ -244,13 +280,13 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
             />
 
             {formData.imageUrl && (
-              <div className="rounded-2xl overflow-hidden max-h-32 border border-[#E0D5DC] mt-2">
+              <div className="rounded-2xl overflow-hidden max-h-32 border border-slate-200 mt-2">
                 <img src={formData.imageUrl} alt="Incident Upload Preview" className="w-full h-full object-cover" />
               </div>
             )}
           </div>
 
-          <Button type="submit" loading={loading} className="w-full py-3 mt-2 font-bold">
+          <Button type="submit" loading={loading} className="w-full py-3.5 mt-2 font-extrabold shadow-md shadow-rose-950/20">
             <AlertCircle className="w-4 h-4 mr-2" />
             Broadcast Hazard to Danger Feed
           </Button>
@@ -260,11 +296,11 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
       {/* Interactive Map Picker Modal Centered at User's Real GPS Position */}
       <Modal isOpen={showMapPicker} onClose={() => setShowMapPicker(false)} title="Select Particular Hazard Location on Map">
         <div className="space-y-3">
-          <p className="text-xs text-[#8C7A87] font-semibold">
+          <p className="text-xs text-slate-500 font-semibold">
             Click anywhere on the interactive map below to select the exact spot near your location for this hazard report:
           </p>
 
-          <div className="h-72 w-full rounded-2xl overflow-hidden border border-[#E0D5DC] relative">
+          <div className="h-72 w-full rounded-2xl overflow-hidden border border-slate-200 relative">
             <MapContainer
               key={`${tempPickerCoords.lat}-${tempPickerCoords.lng}`}
               center={[tempPickerCoords.lat, tempPickerCoords.lng]}
@@ -272,15 +308,15 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
               />
               <MapPickerClickHandler onSelect={(coords) => setTempPickerCoords(coords)} />
               <Marker position={[tempPickerCoords.lat, tempPickerCoords.lng]} icon={createPickerSpotIcon()} />
             </MapContainer>
           </div>
 
-          <div className="p-3 bg-[#F9F8FA] border border-[#E0D5DC] rounded-xl text-xs font-bold text-[#6B4355] text-center">
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center font-display">
             Selected Pin Coordinates: [{tempPickerCoords.lat.toFixed(5)}, {tempPickerCoords.lng.toFixed(5)}]
           </div>
 
@@ -298,7 +334,7 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
               }
               setShowMapPicker(false);
             }}
-            className="w-full py-3 font-extrabold"
+            className="w-full py-3.5 font-extrabold shadow-md shadow-rose-950/20"
           >
             <CheckCircle className="w-4 h-4 mr-2" />
             Confirm Selected Location Pin

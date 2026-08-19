@@ -1,9 +1,56 @@
 import cron from 'node-cron';
 import { LocationLog } from '../models/LocationLog.js';
 import { Trip } from '../models/Trip.js';
+import { Incident } from '../models/Incident.js';
+import { deleteCloudinaryImage } from '../config/cloudinary.js';
+
+// Auto-Purge Expired Incidents & Delete Associated Cloudinary Images
+export const purgeExpiredIncidents = async () => {
+  try {
+    const now = new Date();
+    // Find incidents where expiresAt date is in the past
+    const expiredIncidents = await Incident.find({
+      expiresAt: { $lte: now },
+    });
+
+    if (expiredIncidents.length > 0) {
+      console.log(`[Incident Expiration Purge] Found ${expiredIncidents.length} expired report(s) to auto-delete...`);
+
+      for (const incident of expiredIncidents) {
+        // Delete main Cloudinary report photo if present
+        if (incident.imageUrl) {
+          await deleteCloudinaryImage(incident.imageUrl);
+        }
+
+        // Delete any comment photos if present
+        if (Array.isArray(incident.comments)) {
+          for (const comment of incident.comments) {
+            if (comment.imageUrl) {
+              await deleteCloudinaryImage(comment.imageUrl);
+            }
+          }
+        }
+
+        // Permanently delete incident from MongoDB database
+        await Incident.findByIdAndDelete(incident._id);
+        console.log(`[Incident Expiration Purge] Purged incident '${incident.title}' (ID: ${incident._id}) and associated Cloudinary assets.`);
+      }
+    }
+  } catch (error) {
+    console.error('[Incident Expiration Purge Error]', error.message);
+  }
+};
 
 export const startPrivacyCron = () => {
-  // Scheduled job runs daily at Midnight (00:00)
+  // 1. Run Expired Incident & Cloudinary Purge once immediately on startup
+  purgeExpiredIncidents();
+
+  // 2. Schedule Expired Incident Purge every 5 minutes
+  cron.schedule('*/5 * * * *', async () => {
+    await purgeExpiredIncidents();
+  });
+
+  // 3. Scheduled 48-Hour Historical Trip Coordinate Purge (Runs daily at Midnight 00:00)
   cron.schedule('0 0 * * *', async () => {
     try {
       console.log('[Privacy Data Eraser] Running 48-Hour Historical Coordinate Purge Routine...');
@@ -42,5 +89,5 @@ export const startPrivacyCron = () => {
     }
   });
 
-  console.log('[Cron Job] 48-Hour Privacy Data Eraser initialized (runs daily at 00:00)');
+  console.log('[Cron Job] Privacy Data Eraser & Incident Cloudinary Purge initialized.');
 };

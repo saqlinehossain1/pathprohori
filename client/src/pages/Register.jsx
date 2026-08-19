@@ -41,7 +41,7 @@ export const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#F9F8FA] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#FAF4F8] relative overflow-hidden">
       {/* Background Gradient Orbs */}
       <div className="absolute top-1/4 -right-20 w-96 h-96 bg-[#FDE8EC] rounded-full blur-3xl opacity-60 animate-pulse"></div>
       <div className="absolute bottom-1/4 -left-20 w-96 h-96 bg-[#EAD9E3] rounded-full blur-3xl opacity-50 animate-pulse"></div>
@@ -67,11 +67,11 @@ export const Register = () => {
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 font-display mb-1">
               Full Name
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8289]" />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 name="name"
@@ -79,17 +79,17 @@ export const Register = () => {
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="Md Saqline Hossain"
-                className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] font-medium pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all"
+                className="w-full bg-slate-50 text-sm text-slate-900 font-medium pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/20 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 font-display mb-1">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8289]" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="email"
                 name="email"
@@ -97,37 +97,37 @@ export const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="saqline@bracu.ac.bd"
-                className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] font-medium pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all"
+                className="w-full bg-slate-50 text-sm text-slate-900 font-medium pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/20 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 font-display mb-1">
               Phone Number
             </label>
             <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8289]" />
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder="+880 1700-000000"
-                className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] font-medium pl-10 pr-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all"
+                className="w-full bg-slate-50 text-sm text-slate-900 font-medium pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/20 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 font-display mb-1">
               Gender Identification
             </label>
             <select
               name="gender"
               value={formData.gender}
               onChange={handleChange}
-              className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all font-semibold"
+              className="w-full bg-slate-50 text-sm text-slate-900 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500 focus:bg-white transition-all font-semibold"
             >
               <option value="female">Female ♀</option>
               <option value="male">Male ♂</option>
@@ -136,14 +136,14 @@ export const Register = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 font-display mb-1">
               Register Role
             </label>
             <select
               name="role"
               value={formData.role}
               onChange={handleChange}
-              className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] px-4 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all font-semibold"
+              className="w-full bg-slate-50 text-sm text-slate-900 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500 focus:bg-white transition-all font-semibold"
             >
               <option value="commuter">Commuter (Passenger)</option>
               <option value="guardian">Guardian (Emergency Contact)</option>
@@ -151,11 +151,11 @@ export const Register = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6B4355] mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 font-display mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8289]" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="password"
@@ -164,12 +164,12 @@ export const Register = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full bg-[#F4F1F3] text-sm text-[#2D2329] font-medium pl-10 pr-12 py-2.5 rounded-xl border border-transparent focus:outline-none focus:border-[#6B4355] focus:bg-white transition-all"
+                className="w-full bg-slate-50 text-sm text-slate-900 font-medium pl-10 pr-12 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/20 transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8C8289] hover:text-[#6B4355]"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -179,16 +179,16 @@ export const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 bg-[#6B4355] hover:bg-[#5C3A48] text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99] disabled:opacity-50"
+            className="w-full mt-2 py-3.5 bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 hover:from-rose-500 hover:to-rose-700 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-950/20 active:scale-[0.99] disabled:opacity-50 cursor-pointer btn-shiny-effect group"
           >
             {loading ? 'Registering...' : 'Create Account'}
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4 transition-transform duration-300 ease-in-out group-hover:translate-x-1" />
           </button>
         </form>
 
-        <div className="mt-5 text-center text-xs font-medium text-[#8C8289]">
+        <div className="mt-5 text-center text-xs font-medium text-slate-500 font-display">
           Already have an account?{' '}
-          <Link to="/login" className="font-bold text-[#6B4355] hover:underline">
+          <Link to="/login" className="font-extrabold text-rose-600 hover:underline">
             Sign In Here
           </Link>
         </div>

@@ -154,7 +154,17 @@ export const updateProfile = async (req, res, next) => {
         if (req.body.guardians.length > 3) {
           return res.status(400).json({ message: 'You can link a maximum of 3 emergency guardians.' });
         }
-        user.guardians = req.body.guardians;
+        user.guardians = req.body.guardians.map((g) => {
+          const targetUserId = g.user && typeof g.user === 'object' ? g.user._id : (g.user || g._id);
+          return {
+            user: targetUserId,
+            name: g.name || '',
+            phone: g.phone || '',
+            email: g.email || '',
+            avatarUrl: g.avatarUrl || '',
+            relationship: g.relationship || 'Guardian',
+          };
+        });
       }
 
       await user.save();

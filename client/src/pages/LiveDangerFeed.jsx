@@ -45,7 +45,7 @@ class FeedErrorBoundary extends Component {
               this.setState({ hasError: false, error: null });
               window.location.reload();
             }}
-            className="px-5 py-2.5 bg-[#6B4355] text-white font-extrabold text-xs rounded-2xl hover:bg-[#543343] transition-all flex items-center justify-center gap-2 mx-auto shadow-xs"
+            className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-700 text-white font-extrabold text-xs rounded-2xl transition-all flex items-center justify-center gap-2 mx-auto shadow-md shadow-rose-950/20 cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Reload Danger Feed Page</span>
@@ -201,7 +201,7 @@ const MapInvalidateSize = ({ isVisible }) => {
 };
 
 // Floating Leaflet control overlay (My Location & Expand Map buttons)
-const MapControlsOverlay = ({ onRequestLocation, isLocating, onExpand, isExpanded }) => {
+const MapControlsOverlay = ({ onRequestLocation, isLocating, onExpand, isExpanded, selectedCoords, onReportHere }) => {
   const map = useMap();
   const containerRef = useRef(null);
 
@@ -241,44 +241,61 @@ const MapControlsOverlay = ({ onRequestLocation, isLocating, onExpand, isExpande
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="leaflet-top leaflet-right !top-3 !right-3"
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <div className="leaflet-control pointer-events-auto flex items-center gap-2">
+    <>
+      {/* Map Location Recenter & Expand Overlay Controls - Placed Top Right to avoid Leaflet zoom button collision */}
+      <div ref={containerRef} className="absolute top-3 right-3 z-[400] pointer-events-auto flex items-center gap-2">
         <button
           type="button"
           onClick={handleLocate}
           disabled={isLocating}
           title="Recenter map to my live GPS location & request permission"
-          className="bg-white/95 hover:bg-white text-[#6B4355] border border-[#E0D5DC] px-3 py-1.5 rounded-2xl shadow-md flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer backdrop-blur-xs"
+          className="bg-white/95 hover:bg-white text-slate-900 border border-slate-200/90 px-3.5 py-1.5 rounded-2xl shadow-lg flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer backdrop-blur-md"
         >
-          <LocateFixed className={`w-3.5 h-3.5 text-[#6B4355] ${isLocating ? 'animate-spin' : ''}`} />
-          <span className="text-[11px] font-extrabold text-[#6B4355]">My Location</span>
+          <LocateFixed className={`w-3.5 h-3.5 text-rose-600 ${isLocating ? 'animate-spin' : ''}`} />
+          <span className="text-[11px] font-extrabold text-slate-900 font-display">My Location</span>
         </button>
 
         <button
           type="button"
           onClick={handleExpandToggle}
           title={isExpanded ? 'Minimize Map' : 'Expand Map Fullscreen'}
-          className="bg-[#6B4355] hover:bg-[#543343] text-white border border-[#6B4355] px-3 py-1.5 rounded-2xl shadow-md flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+          className="bg-slate-900/90 hover:bg-slate-900 text-white border border-slate-800 px-3.5 py-1.5 rounded-2xl shadow-lg flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer backdrop-blur-md font-display"
         >
           {isExpanded ? (
             <>
-              <Minimize2 className="w-3.5 h-3.5 text-amber-300" />
+              <Minimize2 className="w-3.5 h-3.5 text-rose-400" />
               <span className="text-[11px] font-extrabold">Minimize</span>
             </>
           ) : (
             <>
-              <Maximize2 className="w-3.5 h-3.5 text-amber-300" />
-              <span className="text-[11px] font-extrabold">Expand</span>
+              <Maximize2 className="w-3.5 h-3.5 text-rose-400" />
+              <span className="text-[11px] font-extrabold">Fullscreen Map</span>
             </>
           )}
         </button>
       </div>
-    </div>
+
+      {/* Selected Location Banner Notification - Placed Bottom Left */}
+      {selectedCoords && (
+        <div className="absolute bottom-4 left-4 z-[400] pointer-events-auto bg-slate-900/95 text-white p-3 rounded-2xl border border-slate-800 shadow-2xl flex items-center justify-between gap-3 text-xs max-w-sm backdrop-blur-md font-display">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+            <span className="truncate">
+              Spot Selected: [{selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}]
+            </span>
+          </div>
+
+          <button
+            onClick={() => {
+              if (onReportHere) onReportHere();
+            }}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[11px] font-black shrink-0 transition-all cursor-pointer shadow-sm"
+          >
+            Report Here
+          </button>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -349,15 +366,19 @@ const LiveDangerFeedContent = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 h-full pb-16 lg:pb-0">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+      {/* Clean Text Page Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#6B4355] tracking-tight flex items-center gap-2">
-            <ShieldAlert className="w-6 h-6 sm:w-8 sm:h-8 text-[#6B4355] shrink-0" />
-            <span>Live Danger Feed & Heatmap</span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-extrabold uppercase tracking-wider font-display">
+              Community Hazard Monitoring
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
+            Live Danger Feed & Heatmap
           </h1>
-          <p className="text-[11px] sm:text-xs text-[#8C7A87] font-medium mt-1 leading-snug">
-            PATHPROHORI Hyperlocal Community Danger Feed. Real-time crowdsourced safety warnings & map pin reports.
+          <p className="text-xs text-slate-500 font-medium mt-1">
+            PATHPROHORI Hyperlocal Danger Feed • Real-time safety warnings & map pin reports
           </p>
         </div>
 
@@ -366,23 +387,23 @@ const LiveDangerFeedContent = () => {
             setSelectedCoords(null);
             setShowReportModal(true);
           }}
-          size="md"
-          className="font-extrabold hidden sm:inline-flex shrink-0"
+          size="sm"
+          className="font-extrabold hidden sm:inline-flex shrink-0 shadow-sm text-xs py-2.5 px-4"
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-4 h-4 mr-1.5" />
           Report Street Hazard
         </Button>
       </div>
 
       {/* Mobile Segmented View Switcher (Feed List vs Interactive Map) */}
-      <div className="flex items-center p-1 bg-white border border-[#E0D5DC] rounded-2xl shadow-xs lg:hidden">
+      <div className="flex items-center p-1 bg-white border border-slate-200 rounded-2xl shadow-xs lg:hidden">
         <button
           type="button"
           onClick={() => setMobileTab('feed')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'feed'
-              ? 'bg-[#6B4355] text-white shadow-sm'
-              : 'text-[#8C7A87] hover:text-[#6B4355]'
+              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <Radio className="w-3.5 h-3.5" />
@@ -392,10 +413,10 @@ const LiveDangerFeedContent = () => {
         <button
           type="button"
           onClick={() => setMobileTab('map')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             mobileTab === 'map'
-              ? 'bg-[#6B4355] text-white shadow-sm'
-              : 'text-[#8C7A87] hover:text-[#6B4355]'
+              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <MapPin className="w-3.5 h-3.5" />
@@ -404,7 +425,7 @@ const LiveDangerFeedContent = () => {
       </div>
 
       {/* Main Grid: Feed List (Left 7 Cols) + Interactive Heatmap (Right 5 Cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[450px] lg:h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[450px] lg:h-[calc(100vh-140px)]">
         {/* Left Column: Filter & Incident Feed List */}
         <div className={`lg:col-span-7 space-y-4 overflow-y-auto pr-0 lg:pr-2 custom-scrollbar ${
           mobileTab === 'feed' ? 'block' : 'hidden lg:block'
@@ -425,10 +446,10 @@ const LiveDangerFeedContent = () => {
                 </p>
               </Card>
             ) : incidents.length === 0 ? (
-              <Card className="text-center py-12">
-                <Radio className="w-10 h-10 text-[#8C7A87] mx-auto mb-2 opacity-50" />
-                <p className="text-sm font-bold text-[#6B4355]">No matching incidents found.</p>
-                <p className="text-xs text-[#8C7A87] mt-1">
+              <Card className="text-center py-12 border-slate-200/80 shadow-card">
+                <Radio className="w-10 h-10 text-slate-400 mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-bold text-slate-900 font-display">No matching incidents found.</p>
+                <p className="text-xs text-slate-500 mt-1">
                   Try adjusting your search query or safety filters.
                 </p>
               </Card>
@@ -450,16 +471,16 @@ const LiveDangerFeedContent = () => {
         <div className={`lg:col-span-5 h-[calc(100vh-280px)] min-h-[420px] lg:h-full ${
           mobileTab === 'map' ? 'block' : 'hidden lg:block'
         }`}>
-          <Card className="p-1.5 h-full flex flex-col overflow-hidden relative border-[#E0D5DC]">
-            <div className="px-3.5 py-2.5 bg-white/90 backdrop-blur-sm border-b border-[#EFEAEF] flex items-center justify-between gap-2 overflow-hidden">
+          <Card className="p-1.5 h-full flex flex-col overflow-hidden relative border-slate-200/80 shadow-card">
+            <div className="px-3.5 py-2.5 bg-white/95 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between gap-2 overflow-hidden">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
-                <span className="text-xs font-extrabold text-[#2D2329] tracking-tight whitespace-nowrap">
+                <span className="text-xs font-extrabold text-slate-900 tracking-tight whitespace-nowrap font-display">
                   Live Safety Map
                 </span>
               </div>
 
-              <span className="px-2.5 py-0.5 rounded-full bg-[#F9F8FA] border border-[#E0D5DC] text-[10px] sm:text-[11px] font-extrabold text-[#6B4355] whitespace-nowrap flex-shrink-0">
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[10px] sm:text-[11px] font-extrabold text-white whitespace-nowrap flex-shrink-0 font-display shadow-xs">
                 {incidents.length} Active Pins
               </span>
             </div>
@@ -481,13 +502,13 @@ const LiveDangerFeedContent = () => {
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                   />
                   <MapClickHandler onMapClick={handleMapPinDrop} />
                   <RecenterMap lat={defaultLat} lng={defaultLng} />
                   <MapInvalidateSize isVisible={mobileTab === 'map'} />
-                  <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(true)} isExpanded={false} />
+                  <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(true)} isExpanded={false} selectedCoords={selectedCoords} onReportHere={() => setShowReportModal(true)} />
 
                   {/* User Live GPS Marker */}
                   <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon(user?.gender, user?.avatarUrl)}>
@@ -542,14 +563,14 @@ const LiveDangerFeedContent = () => {
                         icon={createCustomIcon(sevStr, inc.title)}
                       >
                         <Popup className="custom-leaflet-popup">
-                          <div className="p-3.5 space-y-2 text-[#2D2329]">
-                            <div className="flex items-center justify-between gap-2 border-b border-[#F0EBF0] pb-2">
+                          <div className="p-3.5 space-y-2 text-slate-900">
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
                                 isHighSev
-                                  ? 'bg-rose-500/15 text-rose-700 border border-rose-500/30'
+                                  ? 'bg-rose-100 text-rose-700'
                                   : isMedSev
-                                  ? 'bg-amber-500/15 text-amber-700 border border-amber-500/30'
-                                  : 'bg-indigo-500/15 text-indigo-700 border border-indigo-500/30'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-indigo-100 text-indigo-700'
                               }`}>
                                 {sevStr}
                               </span>
@@ -562,11 +583,11 @@ const LiveDangerFeedContent = () => {
                             </div>
 
                             <div>
-                              <h4 className="font-extrabold text-xs text-[#2D2329] leading-tight">
+                              <h4 className="font-extrabold text-xs text-slate-900 leading-tight font-display">
                                 {inc.title}
                               </h4>
-                              <p className="text-[10px] text-[#8C7A87] font-bold mt-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-[#6B4355]" />
+                              <p className="text-[10px] text-slate-500 font-bold mt-1 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-rose-600" />
                                 {inc.locationName}
                               </p>
                             </div>
@@ -579,16 +600,16 @@ const LiveDangerFeedContent = () => {
                             </div>
 
                             {inc.description && (
-                              <p className="text-[11px] text-[#4A3D46] font-medium line-clamp-2 leading-relaxed">
+                              <p className="text-[11px] text-slate-600 font-medium line-clamp-2 leading-relaxed">
                                 {inc.description}
                               </p>
                             )}
 
                             <Link
                               to={`/incident/${inc._id}`}
-                              className="popup-btn flex items-center justify-center gap-1.5 w-full py-2 bg-[#6B4355] text-white rounded-xl text-[11px] font-extrabold text-center hover:bg-[#543343] transition-all shadow-sm mt-2 cursor-pointer border border-[#6B4355]"
+                              className="popup-btn flex items-center justify-center gap-1.5 w-full py-2 bg-slate-900 text-white rounded-xl text-[11px] font-extrabold text-center hover:bg-slate-800 transition-all shadow-sm mt-2 cursor-pointer border border-slate-800 font-display"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-amber-300" />
+                              <MessageSquare className="w-3.5 h-3.5 text-rose-400" />
                               <span className="text-white font-extrabold">Open Discussion ({inc.comments?.length || 0})</span>
                             </Link>
                           </div>
@@ -601,17 +622,17 @@ const LiveDangerFeedContent = () => {
             </div>
 
             {/* Map Pin Icon Legend Footer */}
-            <div className="px-3.5 py-2 bg-[#F9F8FA] border-t border-[#EFEAEF] flex flex-wrap items-center justify-between gap-2 text-[10px] font-extrabold text-[#6B4355] rounded-b-2xl">
-              <span className="text-[#8C7A87] uppercase tracking-wider text-[9px] font-black flex items-center gap-1">
-                <Info className="w-3 h-3 text-[#6B4355]" /> Pin Legend:
+            <div className="px-3.5 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[10px] font-extrabold text-slate-800 rounded-b-2xl">
+              <span className="text-slate-500 uppercase tracking-wider text-[9px] font-black flex items-center gap-1 font-display">
+                <Info className="w-3 h-3 text-rose-600" /> Pin Legend:
               </span>
 
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <div className="flex items-center gap-1.5 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 text-rose-700">
                   <div className="w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-xs">
-                    <ShieldAlert className="w-2.5 h-2.5 text-white" />
+                    <span className="text-[9px]">!</span>
                   </div>
-                  <span>High Alert (Severe)</span>
+                  <span>High Alert</span>
                 </div>
 
                 <div className="flex items-center gap-1.5 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 text-amber-700">
@@ -641,7 +662,7 @@ const LiveDangerFeedContent = () => {
             setSelectedCoords(null);
             setShowReportModal(true);
           }}
-          className="p-3.5 bg-[#6B4355] text-white rounded-full shadow-lg hover:bg-[#543343] active:scale-95 transition-all flex items-center gap-2 font-extrabold text-xs border-2 border-white"
+          className="p-3.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-700 text-white rounded-full shadow-2xl active:scale-95 transition-all flex items-center gap-2 font-extrabold text-xs border-2 border-white cursor-pointer font-display"
           title="Report Street Hazard"
         >
           <Plus className="w-5 h-5 text-white" />
@@ -710,13 +731,13 @@ const LiveDangerFeedContent = () => {
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                   />
                   <MapClickHandler onMapClick={handleMapPinDrop} />
                   <RecenterMap lat={defaultLat} lng={defaultLng} />
                   <MapInvalidateSize isVisible={isExpandedMap} />
-                  <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(false)} isExpanded={true} />
+                  <MapControlsOverlay onRequestLocation={requestLocation} isLocating={isLocationLoading} onExpand={() => setIsExpandedMap(false)} isExpanded={true} selectedCoords={selectedCoords} onReportHere={() => setShowReportModal(true)} />
 
                   {/* User Live GPS Marker */}
                   <Marker position={[defaultLat, defaultLng]} icon={createUserLocationIcon(user?.gender, user?.avatarUrl)}>
@@ -791,11 +812,11 @@ const LiveDangerFeedContent = () => {
                             </div>
 
                             <div>
-                              <h4 className="font-extrabold text-xs text-[#2D2329] leading-tight">
+                              <h4 className="font-extrabold text-xs text-slate-900 leading-tight font-display">
                                 {inc.title}
                               </h4>
-                              <p className="text-[10px] text-[#8C7A87] font-bold mt-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-[#6B4355]" />
+                              <p className="text-[10px] text-slate-500 font-bold mt-1 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-rose-600" />
                                 {inc.locationName}
                               </p>
                             </div>
@@ -808,16 +829,16 @@ const LiveDangerFeedContent = () => {
                             </div>
 
                             {inc.description && (
-                              <p className="text-[11px] text-[#4A3D46] font-medium line-clamp-2 leading-relaxed">
+                              <p className="text-[11px] text-slate-600 font-medium line-clamp-2 leading-relaxed">
                                 {inc.description}
                               </p>
                             )}
 
                             <Link
                               to={`/incident/${inc._id}`}
-                              className="popup-btn flex items-center justify-center gap-1.5 w-full py-2 bg-[#6B4355] text-white rounded-xl text-[11px] font-extrabold text-center hover:bg-[#543343] transition-all shadow-sm mt-2 cursor-pointer border border-[#6B4355]"
+                              className="popup-btn flex items-center justify-center gap-1.5 w-full py-2 bg-slate-900 text-white rounded-xl text-[11px] font-extrabold text-center hover:bg-slate-800 transition-all shadow-sm mt-2 cursor-pointer border border-slate-800 font-display"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-amber-300" />
+                              <MessageSquare className="w-3.5 h-3.5 text-rose-400" />
                               <span className="text-white font-extrabold">Open Discussion ({inc.comments?.length || 0})</span>
                             </Link>
                           </div>
@@ -829,11 +850,11 @@ const LiveDangerFeedContent = () => {
               </div>
 
               {/* Map Legend Footer inside Modal */}
-              <div className="px-4 py-2.5 bg-[#F9F8FA] border-t border-[#EFEAEF] flex flex-wrap items-center justify-between gap-2 text-[10px] font-extrabold text-[#6B4355]">
-                <span className="text-[#8C7A87] uppercase tracking-wider text-[9px] font-black flex items-center gap-1">
-                  <Info className="w-3 h-3 text-[#6B4355]" /> Interactive Danger Map • Tap anywhere on map to drop hazard report pin
+              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[10px] font-extrabold text-slate-800">
+                <span className="text-slate-500 uppercase tracking-wider text-[9px] font-black flex items-center gap-1 font-display">
+                  <Info className="w-3 h-3 text-rose-600" /> Interactive Danger Map • Tap anywhere on map to drop hazard report pin
                 </span>
-                <span className="text-[10px] text-gray-500 font-bold">Press ESC to exit fullscreen</span>
+                <span className="text-[10px] text-slate-400 font-bold">Press ESC to exit fullscreen</span>
               </div>
             </div>
           </div>,
