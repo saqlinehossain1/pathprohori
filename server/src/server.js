@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
+import { setIO } from './socket.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
@@ -12,6 +13,8 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import { startHeartbeatMonitor } from './services/heartbeatService.js';
 import { startPrivacyCron } from './services/privacyCron.js';
 import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
+
+import emergencyRoutes from './routes/emergencyRoutes.js';
 
 dotenv.config();
 
@@ -26,6 +29,7 @@ const io = new Server(server, {
   },
 });
 
+setIO(io);
 // Middlewares with larger payload limit for base64 Cloudinary image uploads
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
@@ -42,6 +46,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/emergency', emergencyRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -56,17 +61,42 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Real-Time Socket.io Connection Handlers
+// Real-Time Socket.io Connection Handlers
 io.on('connection', (socket) => {
   console.log(`[Socket.io] Client connected: ${socket.id}`);
 
-  // Join user / trip room
+  // Join personal user room
+  socket.on('JOIN_USER_ROOM', (userId) => {
+    if (!userId) {
+      console.log('[Socket.io] No userId provided');
+      return;
+    }
+
+    socket.join(`user_${userId}`);
+
+    console.log(
+      `[Socket.io] Client ${socket.id} joined user_${userId}`
+    );
+  });
+
+  // Join trip room
   socket.on('JOIN_TRIP_ROOM', (tripId) => {
+    if (!tripId) {
+      console.log('[Socket.io] No tripId provided');
+      return;
+    }
+
     socket.join(`trip_${tripId}`);
-    console.log(`[Socket.io] Client ${socket.id} joined trip_${tripId}`);
+
+    console.log(
+      `[Socket.io] Client ${socket.id} joined trip_${tripId}`
+    );
   });
 
   // Client heartbeat ping event
   socket.on('CLIENT_HEARTBEAT_PING', (data) => {
+    if (!data?.tripId) return;
+
     io.to(`trip_${data.tripId}`).emit('HEARTBEAT_RECEIVED', {
       tripId: data.tripId,
       timestamp: new Date(),
@@ -74,7 +104,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+    console.log(
+      `[Socket.io] Client disconnected: ${socket.id}`
+    );
   });
 });
 
@@ -94,7 +126,7 @@ server.on('error', (error) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`==================================================`);
   console.log(`  PATHPROHORI Server Running on Port ${PORT}      `);
   console.log(`  MERN Stack Infrastructure & Enterprise MVC      `);

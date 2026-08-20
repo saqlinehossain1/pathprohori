@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
 import { Activity, AlertTriangle, CheckCircle2, Clock, Navigation } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
 export const ActiveTripBanner = ({
   activeTrip,
@@ -11,7 +12,10 @@ export const ActiveTripBanner = ({
   onPanic,
   onComplete,
 }) => {
+  const { user } = useContext(AuthContext);
   if (!activeTrip) return null;
+
+  const isResponseRole = user?.role === 'admin' || user?.role === 'operator';
 
   return (
     <Card className="border-rose-200 bg-gradient-to-br from-white via-rose-50/30 to-amber-50/20 shadow-lg relative overflow-hidden">
@@ -35,16 +39,18 @@ export const ActiveTripBanner = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={onPanic}
-            loading={panicLoading}
-            className="px-5 py-2.5 shadow-md text-xs font-black"
-          >
-            <AlertTriangle className="w-4 h-4 mr-1.5" />
-            1-TAP PANIC
-          </Button>
+          {!isResponseRole && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={onPanic}
+              loading={panicLoading}
+              className="px-5 py-2.5 shadow-md text-xs font-black"
+            >
+              <AlertTriangle className="w-4 h-4 mr-1.5" />
+              1-TAP PANIC
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={onComplete} className="text-xs">
             <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />
             End Trip Safely

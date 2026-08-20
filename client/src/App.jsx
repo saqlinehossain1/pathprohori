@@ -15,6 +15,7 @@ import { LiveDangerFeed } from './pages/LiveDangerFeed';
 import { IncidentDiscussion } from './pages/IncidentDiscussion';
 import { VoiceSettings } from './pages/VoiceSettings';
 import { ProfileSettings } from './pages/ProfileSettings';
+import { Notifications } from './pages/Notifications';
 
 export const App = () => {
   const { user } = useContext(AuthContext);
@@ -52,6 +53,14 @@ export const App = () => {
               element={
                 <ProtectedRoute>
                   <LiveDangerFeed />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Notifications />
                 </ProtectedRoute>
               }
             />
