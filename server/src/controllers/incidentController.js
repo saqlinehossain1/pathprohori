@@ -5,10 +5,18 @@ import { deleteCloudinaryImage } from '../config/cloudinary.js';
 
 // Helper to fetch populated incident
 const fetchPopulatedIncident = async (id) => {
-  return await Incident.findById(id)
+  const incident = await Incident.findById(id)
     .populate('reportedBy', 'name avatarUrl role')
     .populate('comments.author', 'name avatarUrl role')
     .populate('comments.replies.author', 'name avatarUrl role');
+
+  if (incident?.comments) {
+    incident.comments.sort((first, second) => (
+      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+    ));
+  }
+
+  return incident;
 };
 
 // @desc    Get all danger feed incidents

@@ -116,6 +116,7 @@ export const OngoingJourneyMap = ({
   const [currentPos, setCurrentPos] = useState(null);
   const [pingSending, setPingSending] = useState(false);
   const [roadRoutePoints, setRoadRoutePoints] = useState([]);
+  const panicTriggeredRef = React.useRef(false);
 
   // Voice-Activated Hands-Free Hook
   const {
@@ -149,12 +150,13 @@ export const OngoingJourneyMap = ({
 
   // Trigger Panic automatically when hands-free voice keyword matches!
   useEffect(() => {
-    if (keywordMatched) {
+    if (keywordMatched && !panicTriggeredRef.current && !isEmergencyActive) {
+      panicTriggeredRef.current = true;
       console.warn('🎙️ HANDS-FREE VOICE PHRASE DETECTED! TRIGGERING ALARM!');
       handleTriggerPanicClick();
       setKeywordMatched(false);
     }
-  }, [keywordMatched]);
+  }, [keywordMatched, isEmergencyActive, setKeywordMatched]);
 
   // Default Coordinates (Dhaka Mohakhali & Gulshan fallback)
   const defaultStart = trip.startCoords || { lat: 23.7808875, lng: 90.4068305 };
