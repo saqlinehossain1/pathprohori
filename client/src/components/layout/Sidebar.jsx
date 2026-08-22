@@ -43,10 +43,9 @@ export const Sidebar = () => {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                    isActive
-                      ? 'bg-[#6B4355] text-white shadow-card'
-                      : 'text-[#6B4355] hover:bg-[#FDF7F9] hover:text-[#2D2329]'
+                  `flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${isActive
+                    ? 'bg-[#6B4355] text-white shadow-card'
+                    : 'text-[#6B4355] hover:bg-[#FDF7F9] hover:text-[#2D2329]'
                   }`
                 }
               >

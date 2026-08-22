@@ -3,98 +3,98 @@ import { User } from '../models/User.js';
 import { getIO } from '../socket.js';
 
 const translateLocation = (str) => {
-  if (!str) return '';
-  let result = str
-    .replace(/বসুন্ধরা আবাসিক এলাকা/g, 'Bashundhara Residential Area')
-    .replace(/বসুন্ধরা/g, 'Bashundhara R/A')
-    .replace(/আবাসিক এলাকা/g, 'Residential Area')
-    .replace(/ব্লক/g, 'Block')
-    .replace(/রোড/g, 'Road')
-    .replace(/সেক্টর/g, 'Sector')
-    .replace(/ঢাকা/g, 'Dhaka')
-    .replace(/কুড়িল/g, 'Kuril')
-    .replace(/উত্তরা/g, 'Uttara')
-    .replace(/ধানমন্ডি/g, 'Dhanmondi')
-    .replace(/গুলশান/g, 'Gulshan')
-    .replace(/বনানী/g, 'Banani')
-    .replace(/মিরপুর/g, 'Mirpur')
-    .replace(/মোহাম্মদপুর/g, 'Mohammadpur')
-    .replace(/তেজগাঁও/g, 'Tejgaon')
-    .replace(/মহাখালী/g, 'Mohakhali');
+    if (!str) return '';
+    let result = str
+        .replace(/বসুন্ধরা আবাসিক এলাকা/g, 'Bashundhara Residential Area')
+        .replace(/বসুন্ধরা/g, 'Bashundhara R/A')
+        .replace(/আবাসিক এলাকা/g, 'Residential Area')
+        .replace(/ব্লক/g, 'Block')
+        .replace(/রোড/g, 'Road')
+        .replace(/সেক্টর/g, 'Sector')
+        .replace(/ঢাকা/g, 'Dhaka')
+        .replace(/কুড়িল/g, 'Kuril')
+        .replace(/উত্তরা/g, 'Uttara')
+        .replace(/ধানমন্ডি/g, 'Dhanmondi')
+        .replace(/গুলশান/g, 'Gulshan')
+        .replace(/বনানী/g, 'Banani')
+        .replace(/মিরপুর/g, 'Mirpur')
+        .replace(/মোহাম্মদপুর/g, 'Mohammadpur')
+        .replace(/তেজগাঁও/g, 'Tejgaon')
+        .replace(/মহাখালী/g, 'Mohakhali');
 
-  // Strip any lingering Bengali unicode characters to prevent mixed text
-  return result.replace(/[\u0980-\u09FF]+/g, '').trim();
+    // Strip any lingering Bengali unicode characters to prevent mixed text
+    return result.replace(/[\u0980-\u09FF]+/g, '').trim();
 };
 
 const getReverseGeocodedAddress = async (lat, lng) => {
-  try {
-    // 1. Primary: Nominatim with accept-language=en for pure English translations
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=en`,
-      {
-        headers: {
-          'User-Agent': 'PathProhori/1.0 (contact@pathprohori.com)',
-        },
-      }
-    );
+    try {
+        // 1. Primary: Nominatim with accept-language=en for pure English translations
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=en`,
+            {
+                headers: {
+                    'User-Agent': 'PathProhori/1.0 (contact@pathprohori.com)',
+                },
+            }
+        );
 
-    if (response.ok) {
-      const data = await response.json();
-      const addr = data.address || {};
-      const road = translateLocation(addr.road || data.name || '');
-      const quarter = translateLocation(addr.quarter || addr.suburb || addr.neighbourhood || '');
-      const area = translateLocation(addr.suburb || addr.residential || addr.district || '');
-      const city = translateLocation(addr.city || addr.town || addr.county || '') || 'Dhaka';
+        if (response.ok) {
+            const data = await response.json();
+            const addr = data.address || {};
+            const road = translateLocation(addr.road || data.name || '');
+            const quarter = translateLocation(addr.quarter || addr.suburb || addr.neighbourhood || '');
+            const area = translateLocation(addr.suburb || addr.residential || addr.district || '');
+            const city = translateLocation(addr.city || addr.town || addr.county || '') || 'Dhaka';
 
-      const rawParts = [road, quarter, area, city].filter(Boolean);
+            const rawParts = [road, quarter, area, city].filter(Boolean);
 
-      const allTokens = rawParts
-        .flatMap((part) => part.split(','))
-        .map((t) => t.trim())
-        .filter(Boolean);
+            const allTokens = rawParts
+                .flatMap((part) => part.split(','))
+                .map((t) => t.trim())
+                .filter(Boolean);
 
-      const uniqueTokens = [];
-      const seen = new Set();
+            const uniqueTokens = [];
+            const seen = new Set();
 
-      for (const token of allTokens) {
-        const normalized = token.toLowerCase();
-        if (!seen.has(normalized)) {
-          seen.add(normalized);
-          uniqueTokens.push(token);
+            for (const token of allTokens) {
+                const normalized = token.toLowerCase();
+                if (!seen.has(normalized)) {
+                    seen.add(normalized);
+                    uniqueTokens.push(token);
+                }
+            }
+
+            const formattedAddress = uniqueTokens.join(', ');
+            if (formattedAddress && formattedAddress.length > 3) {
+                return formattedAddress;
+            }
         }
-      }
-
-      const formattedAddress = uniqueTokens.join(', ');
-      if (formattedAddress && formattedAddress.length > 3) {
-        return formattedAddress;
-      }
+    } catch (err) {
+        console.warn('[Server Geocoding Warning]', err.message);
     }
-  } catch (err) {
-    console.warn('[Server Geocoding Warning]', err.message);
-  }
 
-  // Backup: BigDataCloud Reverse Geocode (100% English)
-  try {
-    const bdcRes = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
-    );
-    if (bdcRes.ok) {
-      const bdcData = await bdcRes.json();
-      const locality = bdcData.locality || bdcData.city || '';
-      const country = bdcData.countryName || 'Bangladesh';
-      const informative = (bdcData.localityInfo?.informative || [])
-        .map((i) => i.name)
-        .filter((n) => n && n !== 'Asia' && n !== 'Indian subcontinent' && !n.includes('/') && n !== country);
+    // Backup: BigDataCloud Reverse Geocode (100% English)
+    try {
+        const bdcRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+        );
+        if (bdcRes.ok) {
+            const bdcData = await bdcRes.json();
+            const locality = bdcData.locality || bdcData.city || '';
+            const country = bdcData.countryName || 'Bangladesh';
+            const informative = (bdcData.localityInfo?.informative || [])
+                .map((i) => i.name)
+                .filter((n) => n && n !== 'Asia' && n !== 'Indian subcontinent' && !n.includes('/') && n !== country);
 
-      const specificArea = informative.length > 0 ? informative.slice(0, 2).join(', ') : locality;
-      const fullName = [specificArea, bdcData.city || country].filter(Boolean).join(', ');
-      if (fullName) {
-        return fullName;
-      }
-    }
-  } catch (_) {}
+            const specificArea = informative.length > 0 ? informative.slice(0, 2).join(', ') : locality;
+            const fullName = [specificArea, bdcData.city || country].filter(Boolean).join(', ');
+            if (fullName) {
+                return fullName;
+            }
+        }
+    } catch (_) { }
 
-  return `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
+    return `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
 };
 
 export const triggerEmergency = async (req, res, next) => {
@@ -324,4 +324,4 @@ export const getEmergencies = async (req, res, next) => {
         console.error('[Get Emergencies Error]', error);
         next(error);
     }
-};
+};

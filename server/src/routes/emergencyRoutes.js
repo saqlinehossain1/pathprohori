@@ -8,6 +8,8 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+// routes 
+
 router.get('/', protect, getEmergencies);
 router.post(
     '/trigger',
@@ -20,4 +22,4 @@ router.put(
     resolveEmergency
 );
 
-export default router;
+export default router; 
