@@ -60,6 +60,25 @@ export const SocketProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [socket, activeTrip, user]);
 
+  const [latestEmergencyAlert, setLatestEmergencyAlert] = useState(null);
+  const [showGuardianModal, setShowGuardianModal] = useState(false);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleEmergencyBroadcast = (alertData) => {
+      console.warn('🚨 REAL-TIME GUARDIAN EMERGENCY SIGNAL RECEIVED:', alertData);
+      setLatestEmergencyAlert(alertData);
+      setShowGuardianModal(true);
+    };
+
+    socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyBroadcast);
+
+    return () => {
+      socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyBroadcast);
+    };
+  }, [socket]);
+
   return (
     <SocketContext.Provider
       value={{
@@ -69,6 +88,12 @@ export const SocketProvider = ({ children }) => {
         setActiveTrip,
         signalLossAlert,
         setSignalLossAlert,
+        latestEmergencyAlert,
+        setLatestEmergencyAlert,
+        showGuardianModal,
+        setShowGuardianModal,
+        reopenGuardianEmergencyModal: () => setShowGuardianModal(true),
+        closeGuardianEmergencyModal: () => setShowGuardianModal(false),
       }}
     >
       {children}

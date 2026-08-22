@@ -1,5 +1,8 @@
 import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
+import { User } from '../models/User.js';
+import { sendPushNotification } from '../services/pushService.js';
+import { sendEmergencySMS } from '../services/twilioService.js';
 
 // @desc    Log a new journey (Commuter)
 // @route   POST /api/trips
@@ -122,19 +125,120 @@ export const completeTrip = async (req, res, next) => {
   }
 };
 
-// @desc    One-Tap Instant Panic Button
+// @desc    One-Tap Instant Panic Button & Emergency Broadcast
 // @route   POST /api/trips/:id/trigger-panic
 export const triggerPanic = async (req, res, next) => {
   try {
+    const isDuress = req.body && req.body.isDuress;
     const trip = await Trip.findById(req.params.id);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    trip.status = 'EMERGENCY';
+    trip.status = isDuress ? 'DURESS' : 'EMERGENCY';
     await trip.save();
 
-    res.json({ message: 'CRITICAL EMERGENCY ALARM TRIGGERED', trip });
+    // Fetch user and linked guardians for Web Push & Twilio SMS broadcast
+    const user = await User.findById(trip.user).populate('guardians.user');
+    const commuterName = user?.name || 'Commuter';
+    const vehicleInfo = `${trip.vehicleType || 'Vehicle'} (${trip.numberPlate || 'No Plate'})`;
+    const emergencyTitle = isDuress
+      ? `🚨 SILENT DURESS ALARM: ${commuterName}`
+      : `🚨 CRITICAL EMERGENCY ALARM: ${commuterName}`;
+    const smsMessage = `[PATHPROHORI EMERGENCY ALERT] ${commuterName} activated ${isDuress ? 'SILENT DURESS' : 'CRITICAL PANIC'} mode in ${vehicleInfo}. Destination: ${trip.destination}. Check app now.`;
+
+    // 1. Send Twilio SMS to explicit linked guardians
+    if (user && Array.isArray(user.guardians)) {
+      for (const guardian of user.guardians) {
+        const phone = guardian.phone || (guardian.user && guardian.user.phone);
+        if (phone) {
+          sendEmergencySMS(phone, smsMessage).catch((e) => console.error('Twilio SMS error:', e));
+        }
+      }
+    }
+
+    // 2. Broadcast Web Push Notifications to all active push subscriptions (except the commuter themselves)
+    const targetPushUsers = await User.find({
+      _id: { $ne: user?._id },
+      'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
+    });
+
+    console.log(`🔔 Sending Web Push Notification to ${targetPushUsers.length} active guardian/user subscriptions...`);
+
+    for (const pushUser of targetPushUsers) {
+      if (pushUser.pushSubscription) {
+        sendPushNotification(pushUser.pushSubscription, {
+          title: emergencyTitle,
+          body: `Vehicle: ${vehicleInfo} | Destination: ${trip.destination}`,
+          icon: '/pwa-192x192.png',
+          url: `/notifications`,
+        }).catch((e) => console.error('Push notification error:', e));
+      }
+    }
+
+    // 3. Emit Real-Time Socket.io Emergency Broadcast to all open Guardian browser tabs
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('EMERGENCY_ALERT_BROADCAST', {
+        tripId: trip._id,
+        commuterId: user?._id,
+        commuterName,
+        commuterPhone: user?.phone,
+        vehicleType: trip.vehicleType,
+        numberPlate: trip.numberPlate,
+        vehicleColor: trip.vehicleColor,
+        destination: trip.destination,
+        startCoords: trip.startCoords,
+        destinationCoords: trip.destinationCoords,
+        status: trip.status,
+        timestamp: new Date(),
+      });
+    }
+
+    res.json({ message: 'CRITICAL EMERGENCY ALARM TRIGGERED', trip, status: trip.status });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Cancel false alarm & resume active trip
+// @route   PUT /api/trips/:id/cancel-panic
+export const cancelPanic = async (req, res, next) => {
+  try {
+    const { pinCode } = req.body;
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    const user = await User.findById(req.user._id).populate('guardians.user');
+    // If entered pin matches user's duress pin, maintain duress alarm
+    if (user && user.duressPin && pinCode === user.duressPin) {
+      trip.status = 'DURESS';
+      await trip.save();
+      return res.json({ message: 'Emergency status maintained', trip, status: trip.status });
+    }
+
+    // Revert trip status back to ACTIVE
+    trip.status = 'ACTIVE';
+    await trip.save();
+
+    // Broadcast Web Push to linked Guardians letting them know false alarm was resolved
+    const commuterName = user?.name || 'Commuter';
+    if (user && Array.isArray(user.guardians)) {
+      for (const guardian of user.guardians) {
+        if (guardian.user && guardian.user.pushSubscription) {
+          sendPushNotification(guardian.user.pushSubscription, {
+            title: `🟢 FALSE ALARM RESOLVED: ${commuterName}`,
+            body: `${commuterName} confirmed safe. False alarm has been cancelled and journey resumed.`,
+            icon: '/pwa-192x192.png',
+            url: `/notifications`,
+          }).catch((e) => console.error('Push notification resolution error:', e));
+        }
+      }
+    }
+
+    res.json({ message: 'False alarm resolved safely. Journey resumed.', trip, status: trip.status });
   } catch (error) {
     next(error);
   }

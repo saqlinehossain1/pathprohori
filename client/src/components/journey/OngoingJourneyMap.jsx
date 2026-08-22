@@ -7,6 +7,7 @@ import Button from '../common/Button';
 import Badge from '../common/Badge';
 import { AuthContext } from '../../context/AuthContext';
 import { useVoice } from '../../hooks/useVoice';
+import DuressPinModal from '../voice/DuressPinModal';
 import {
   Activity,
   AlertTriangle,
@@ -110,6 +111,7 @@ export const OngoingJourneyMap = ({
   trip,
   onComplete,
   onPanic,
+  onCancelPanic,
   panicLoading,
 }) => {
   const { user } = useContext(AuthContext);
@@ -129,9 +131,27 @@ export const OngoingJourneyMap = ({
     handsFreeActive,
   } = useVoice();
   
-  // Emergency Modal Popup State
-  const isEmergencyActive = trip.status === 'EMERGENCY';
+  // Emergency Modal Popup & Duress PIN State
+  const isEmergencyActive = trip.status === 'EMERGENCY' || trip.status === 'DURESS';
   const [showPanicModal, setShowPanicModal] = useState(isEmergencyActive);
+  const [showDuressModal, setShowDuressModal] = useState(false);
+  const [isEndingJourneyWithPin, setIsEndingJourneyWithPin] = useState(false);
+
+  // 10-Second Grace Period Countdown State
+  const [showGraceModal, setShowGraceModal] = useState(false);
+  const [graceCountdown, setGraceCountdown] = useState(10);
+  const graceTimerRef = React.useRef(null);
+
+  // HTML5 Battery Status API Helper
+  const getBatteryLevel = async () => {
+    if ('getBattery' in navigator) {
+      try {
+        const battery = await navigator.getBattery();
+        return Math.round(battery.level * 100);
+      } catch (e) {}
+    }
+    return 100;
+  };
 
   // Auto-start hands-free listening on mount when trip is active
   useEffect(() => {
@@ -152,15 +172,28 @@ export const OngoingJourneyMap = ({
   useEffect(() => {
     if (keywordMatched && !panicTriggeredRef.current && !isEmergencyActive) {
       panicTriggeredRef.current = true;
-      console.warn('🎙️ HANDS-FREE VOICE PHRASE DETECTED! TRIGGERING ALARM!');
-      handleTriggerPanicClick();
+      console.warn('🎙️ HANDS-FREE VOICE PHRASE DETECTED! INITIATING GRACE COUNTDOWN!');
+      handleInitiatePanic(false);
       setKeywordMatched(false);
     }
   }, [keywordMatched, isEmergencyActive, setKeywordMatched]);
 
-  // Default Coordinates (Dhaka Mohakhali & Gulshan fallback)
-  const defaultStart = trip.startCoords || { lat: 23.7808875, lng: 90.4068305 };
-  const defaultDest = trip.destinationCoords || { lat: 23.7925, lng: 90.4167 };
+  // Fail-Safe Default Coordinates (Dhaka Mohakhali & Gulshan fallback if coordinates are missing/invalid)
+  const defaultStart =
+    trip?.startCoords &&
+    typeof trip.startCoords.lat === 'number' &&
+    typeof trip.startCoords.lng === 'number' &&
+    !isNaN(trip.startCoords.lat)
+      ? trip.startCoords
+      : { lat: 23.7808875, lng: 90.4068305 };
+
+  const defaultDest =
+    trip?.destinationCoords &&
+    typeof trip.destinationCoords.lat === 'number' &&
+    typeof trip.destinationCoords.lng === 'number' &&
+    !isNaN(trip.destinationCoords.lat)
+      ? trip.destinationCoords
+      : { lat: 23.7925, lng: 90.4167 };
 
   // Fetch Actual Road-Following Route Coordinates via OSRM API (Google Maps style)
   useEffect(() => {
@@ -168,6 +201,9 @@ export const OngoingJourneyMap = ({
       try {
         const start = defaultStart;
         const dest = defaultDest;
+        if (typeof start.lng !== 'number' || typeof start.lat !== 'number' || typeof dest.lng !== 'number' || typeof dest.lat !== 'number') {
+          return;
+        }
         const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
         const res = await fetch(url);
         const data = await res.json();
@@ -202,13 +238,16 @@ export const OngoingJourneyMap = ({
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // Send Manual Heartbeat Ping
+  // Send Manual Heartbeat Ping with Battery Status Telemetry
   const handleSendPing = async () => {
     setPingSending(true);
     try {
-      const payload = currentPos
-        ? { latitude: currentPos.lat, longitude: currentPos.lng }
-        : {};
+      const batteryLevel = await getBatteryLevel();
+      const payload = {
+        latitude: currentPos?.lat,
+        longitude: currentPos?.lng,
+        batteryLevel,
+      };
       await tripApi.sendHeartbeat(trip._id, payload);
     } catch (err) {
       console.error('Failed to send heartbeat ping:', err);
@@ -217,14 +256,85 @@ export const OngoingJourneyMap = ({
     }
   };
 
-  // Trigger Panic with Siren & Immediate UI Response
-  const handleTriggerPanicClick = async () => {
+  // Trigger Panic Handler with 10-Second Grace Period (Prevents Accidental Triggers)
+  const handleInitiatePanic = (isDuress = false) => {
+    if (isDuress) {
+      executePanicTrigger(true);
+      return;
+    }
+    setGraceCountdown(10);
+    setShowGraceModal(true);
+  };
+
+  // 10-Second Grace Countdown Effect
+  useEffect(() => {
+    if (!showGraceModal) return;
+
+    if (graceCountdown <= 0) {
+      setShowGraceModal(false);
+      executePanicTrigger(false);
+      return;
+    }
+
+    graceTimerRef.current = setTimeout(() => {
+      setGraceCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => {
+      if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
+    };
+  }, [showGraceModal, graceCountdown]);
+
+  // Cancel False Alarm during 10s Grace Period
+  const handleCancelGracePeriod = () => {
+    if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
+    setShowGraceModal(false);
+    setGraceCountdown(10);
+    panicTriggeredRef.current = false;
+    console.log('🛡️ Accidental Panic Trigger Cancelled during 10s Grace Period.');
+  };
+
+  // Execute Backend Panic Broadcast
+  const executePanicTrigger = async (isDuress = false) => {
     playEmergencySirenSound();
-    setShowPanicModal(true);
+    if (!isDuress) {
+      setShowPanicModal(true);
+    }
     try {
-      await onPanic();
+      if (typeof onPanic === 'function') {
+        await onPanic(isDuress);
+      }
     } catch (err) {
       console.error('Panic trigger error:', err);
+    }
+  };
+
+  // Handle Dual-PIN Deactivation / False Alarm Cancellation
+  const handleDuressDeactivate = async (isSilentDuress) => {
+    if (isSilentDuress) {
+      // Visually close screen to deceive attacker, but secretly send high-priority DURESS trigger!
+      setShowPanicModal(false);
+      setIsEndingJourneyWithPin(false);
+      await executePanicTrigger(true);
+    } else {
+      // Standard PIN entry: Cancel False Alarm on Backend & Resume Active Journey
+      try {
+        if (typeof onCancelPanic === 'function') {
+          await onCancelPanic(user?.duressPin ? '0000' : '9999');
+        }
+      } catch (e) {
+        console.error('Cancel false alarm error:', e);
+      }
+      setShowPanicModal(false);
+      panicTriggeredRef.current = false;
+
+      // If user requested to end trip while in panic mode, complete journey safely after PIN verification!
+      if (isEndingJourneyWithPin) {
+        setIsEndingJourneyWithPin(false);
+        if (typeof onComplete === 'function') {
+          onComplete();
+        }
+      }
     }
   };
 
@@ -237,14 +347,17 @@ export const OngoingJourneyMap = ({
     }
   };
 
-  // AUTOMATIC Heartbeat Ping Interval (Every 30 Seconds)
+  // AUTOMATIC Heartbeat Ping Interval (Every 30 Seconds with Battery Status)
   useEffect(() => {
     if (!trip || !trip._id) return;
 
-    const interval = setInterval(() => {
-      const payload = currentPos
-        ? { latitude: currentPos.lat, longitude: currentPos.lng }
-        : {};
+    const interval = setInterval(async () => {
+      const batteryLevel = await getBatteryLevel();
+      const payload = {
+        latitude: currentPos?.lat,
+        longitude: currentPos?.lng,
+        batteryLevel,
+      };
       tripApi.sendHeartbeat(trip._id, payload).catch((err) => {
         console.error('Auto heartbeat ping error:', err);
       });
@@ -253,15 +366,25 @@ export const OngoingJourneyMap = ({
     return () => clearInterval(interval);
   }, [trip, currentPos]);
 
-  // Build Map Route Points & Bounds
-  const startLatLng = [defaultStart.lat, defaultStart.lng];
-  const destLatLng = [defaultDest.lat, defaultDest.lng];
-  const currentLatLng = currentPos ? [currentPos.lat, currentPos.lng] : startLatLng;
+  // Build Map Route Points & Bounds with safe LatLng validation
+  const startLatLng =
+    typeof defaultStart?.lat === 'number' && typeof defaultStart?.lng === 'number' && !isNaN(defaultStart.lat)
+      ? [defaultStart.lat, defaultStart.lng]
+      : [23.7808875, 90.4068305];
+
+  const destLatLng =
+    typeof defaultDest?.lat === 'number' && typeof defaultDest?.lng === 'number' && !isNaN(defaultDest.lat)
+      ? [defaultDest.lat, defaultDest.lng]
+      : [23.7925, 90.4167];
+
+  const currentLatLng =
+    currentPos && typeof currentPos.lat === 'number' && typeof currentPos.lng === 'number' && !isNaN(currentPos.lat)
+      ? [currentPos.lat, currentPos.lng]
+      : startLatLng;
 
   // Polyline Points
-  const activeRoutePolyline = roadRoutePoints.length > 0
-    ? roadRoutePoints
-    : [startLatLng, currentLatLng, destLatLng];
+  const activeRoutePolyline =
+    roadRoutePoints.length > 0 ? roadRoutePoints : [startLatLng, currentLatLng, destLatLng];
 
   const mapBounds = [startLatLng, destLatLng, currentLatLng];
   const userAvatarIcon = createUserAvatarIcon(user, isEmergencyActive);
@@ -314,12 +437,12 @@ export const OngoingJourneyMap = ({
             </button>
 
             <button
-              onClick={handleTriggerPanicClick}
+              onClick={isEmergencyActive ? () => setShowPanicModal(true) : () => handleInitiatePanic(false)}
               disabled={panicLoading}
-              className={`px-4 py-2.5 ${isEmergencyActive ? 'bg-rose-500 animate-bounce' : 'bg-rose-600 hover:bg-rose-700'} text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 active:scale-95 whitespace-nowrap`}
+              className={`px-4 py-2.5 ${isEmergencyActive ? 'bg-rose-600 hover:bg-rose-500 ring-2 ring-rose-400 animate-bounce' : 'bg-rose-600 hover:bg-rose-700'} text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 active:scale-95 whitespace-nowrap`}
             >
-              <AlertTriangle className="w-4 h-4" />
-              <span>{isEmergencyActive ? 'ALARM ACTIVE' : '1-TAP PANIC'}</span>
+              {isEmergencyActive ? <Siren className="w-4 h-4 text-white" /> : <AlertTriangle className="w-4 h-4" />}
+              <span>{isEmergencyActive ? '🚨 REOPEN SOS ALARM WINDOW' : '1-TAP PANIC'}</span>
             </button>
 
             <button
@@ -525,84 +648,199 @@ export const OngoingJourneyMap = ({
 
       {/* FULL SCREEN EMERGENCY PANIC SOS RESPONSE MODAL */}
       {showPanicModal && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-rose-950/85 backdrop-blur-md flex items-center justify-center p-4">
-          <Card className="max-w-lg w-full p-6 text-center space-y-5 shadow-2xl border-rose-500 bg-gradient-to-b from-slate-900 via-rose-950 to-slate-900 text-white animate-in zoom-in-95 duration-300 border-2">
-            {/* Top Siren Icon */}
-            <div className="w-20 h-20 rounded-full bg-rose-600 text-white mx-auto flex items-center justify-center border-4 border-rose-400 shadow-xl animate-bounce">
-              <Siren className="w-12 h-12" />
-            </div>
+        <div className="fixed inset-0 z-[9999] bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="max-w-xl w-full bg-gradient-to-b from-slate-900 via-rose-950/90 to-slate-950 border border-rose-500/50 rounded-3xl p-7 text-white space-y-6 shadow-[0_0_80px_rgba(225,29,72,0.35)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
+            {/* Ambient Top Crimson Glow Halo */}
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-80 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Title */}
-            <div className="space-y-1.5">
-              <h2 className="text-2xl font-black text-rose-400 font-display tracking-tight uppercase">
-                🚨 EMERGENCY ALARM ACTIVATED!
-              </h2>
-              <p className="text-xs text-rose-200 font-medium leading-relaxed">
-                Distress alarm broadcasted live to PATHPROHORI emergency response networks.
-              </p>
-            </div>
-
-            {/* Live Status Indicators */}
-            <div className="p-3.5 bg-slate-900/90 border border-rose-500/40 rounded-2xl text-left space-y-2.5 text-xs">
-              <div className="flex items-center gap-2 font-extrabold text-white font-display">
-                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Socket.io Real-time SOS Signal Dispatched</span>
+            {/* Header / Alarm Status */}
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/90 border border-rose-500/40 shadow-inner">
+              <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center border-2 border-rose-400 shadow-lg animate-bounce shrink-0">
+                <Siren className="w-8 h-8" />
               </div>
-              <div className="flex items-center gap-2 font-medium text-slate-300">
-                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Live Coordinates: <span className="font-mono text-cyan-300 font-bold">{currentLatLng[0].toFixed(4)}, {currentLatLng[1].toFixed(4)}</span></span>
-              </div>
-              <div className="flex items-center gap-2 font-medium text-slate-300">
-                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Vehicle & Driver Check-in Telemetry Sent to Guardians</span>
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-rose-500/20 text-rose-300 rounded-full text-[10px] font-black uppercase tracking-widest border border-rose-500/30 font-display">
+                  <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+                  <span>Critical Emergency Mode Active</span>
+                </div>
+                <h3 className="text-xl font-black text-rose-400 font-display tracking-tight leading-none">
+                  GUARDIAN SOS ALERT BROADCASTING
+                </h3>
+                <p className="text-xs text-slate-300 font-medium leading-tight">
+                  Live location, vehicle description & battery level are being monitored live.
+                </p>
               </div>
             </div>
 
-            {/* Direct Dial Emergency Hotlines */}
-            <div className="space-y-2.5 pt-1">
+            {/* Emergency Action Buttons */}
+            <div className="space-y-3">
               <a
                 href="tel:999"
-                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-950/60 active:scale-95 uppercase tracking-wide font-display text-sm"
+                className="w-full py-4 bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-black rounded-2xl text-xs transition-all shadow-lg shadow-rose-950/60 active:scale-95 cursor-pointer font-display uppercase tracking-wider flex items-center justify-center gap-2 text-sm"
               >
-                <PhoneCall className="w-5 h-5 animate-pulse" />
+                <PhoneCall className="w-5 h-5 animate-pulse text-white" />
                 <span>CALL 999 NATIONAL EMERGENCY</span>
               </a>
 
               {guardianPhone ? (
                 <a
                   href={`tel:${guardianPhone}`}
-                  className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95 font-display"
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black rounded-2xl text-xs transition-all shadow-md active:scale-95 cursor-pointer font-display uppercase tracking-wider flex items-center justify-center gap-2"
                 >
-                  <PhoneCall className="w-4 h-4 text-emerald-400" />
+                  <PhoneCall className="w-4 h-4 text-emerald-200" />
                   <span>CALL GUARDIAN ({primaryGuardian?.name || 'Emergency Contact'})</span>
                 </a>
               ) : null}
             </div>
 
-            {/* Close / Complete Safe */}
-            <div className="flex items-center justify-between pt-2 border-t border-rose-900/60">
+            {/* Disarm / Deactivate with Dual-PIN */}
+            <div className="flex items-center justify-between pt-4 border-t border-rose-900/60 gap-3 flex-wrap">
               <button
                 onClick={() => setShowPanicModal(false)}
-                className="text-xs text-rose-300 hover:text-white transition-all cursor-pointer font-medium"
+                className="text-xs text-slate-400 hover:text-white transition-all cursor-pointer font-extrabold font-display uppercase tracking-wider"
               >
                 Minimize Window
               </button>
 
-              <button
-                onClick={() => {
-                  setShowPanicModal(false);
-                  onComplete();
-                }}
-                className="text-xs font-extrabold text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer flex items-center gap-1 font-display"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>End Journey Safely</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowDuressModal(true)}
+                  className="text-xs font-extrabold text-amber-300 hover:text-amber-200 transition-all cursor-pointer flex items-center gap-1.5 font-display bg-amber-950/70 hover:bg-amber-900/80 px-3.5 py-2.5 rounded-xl border border-amber-500/40 shadow-xs"
+                >
+                  <X className="w-4 h-4 text-amber-400" />
+                  <span>Disarm Alarm (Enter PIN)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowPanicModal(false);
+                    setIsEndingJourneyWithPin(true);
+                    setShowDuressModal(true);
+                  }}
+                  className="text-xs font-extrabold text-emerald-300 hover:text-emerald-200 transition-all cursor-pointer flex items-center gap-1.5 font-display bg-emerald-950/70 hover:bg-emerald-900/80 px-3.5 py-2.5 rounded-xl border border-emerald-500/40 shadow-xs"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>End Journey Safely (PIN Required)</span>
+                </button>
+              </div>
             </div>
-          </Card>
+          </div>
         </div>,
         document.body
       )}
+
+      {/* HIGH-TECH 10-SECOND ACCIDENTAL PANIC GRACE PERIOD COUNTDOWN MODAL */}
+      {showGraceModal && createPortal(
+        <div className="fixed inset-0 z-[10000] bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950 border border-amber-500/40 rounded-3xl p-7 text-center space-y-6 shadow-[0_0_60px_rgba(245,158,11,0.2)] text-white animate-in zoom-in-95 duration-300 relative overflow-hidden">
+            {/* Ambient Top Glow Halo */}
+            <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Top Status Pill */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-amber-500/15 border border-amber-500/30 rounded-full text-[11px] font-black text-amber-300 uppercase tracking-widest font-display shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span>Safety Grace Period Active</span>
+            </div>
+
+            {/* Circular SVG Progress Ring with Sonar Pulse Effect */}
+            <div className="relative w-36 h-36 mx-auto flex items-center justify-center my-2">
+              {/* Outer Pulsing Sonar Ring */}
+              <div className="absolute inset-0 rounded-full bg-amber-500/10 animate-ping opacity-60 pointer-events-none" />
+              <div className="absolute inset-2 rounded-full border border-amber-500/20 pointer-events-none" />
+
+              {/* SVG Ring */}
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                {/* Background Ring Track */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  className="text-slate-800"
+                  strokeWidth="7"
+                  stroke="currentColor"
+                  fill="transparent"
+                />
+                {/* Progress Ring Stroke */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  stroke="url(#amber-gradient)"
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  fill="transparent"
+                  strokeDasharray={263.89}
+                  strokeDashoffset={263.89 * (1 - graceCountdown / 10)}
+                  style={{ transition: 'stroke-dashoffset 1s linear' }}
+                />
+                <defs>
+                  <linearGradient id="amber-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#F59E0B" />
+                    <stop offset="100%" stopColor="#EF4444" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              {/* Center Countdown Number Display */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-4xl font-black font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-amber-200 via-amber-400 to-rose-500 leading-none">
+                  {graceCountdown}
+                </span>
+                <span className="text-[10px] font-extrabold text-amber-300/80 uppercase tracking-widest mt-0.5 font-display">
+                  Seconds
+                </span>
+              </div>
+            </div>
+
+            {/* Header Text */}
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-white font-display tracking-tight">
+                Emergency SOS Dispatching
+              </h3>
+              <p className="text-xs text-slate-300 font-medium leading-relaxed max-w-xs mx-auto">
+                Live GPS coordinates, vehicle details, and SMS notifications will broadcast to your guardians when the timer hits zero.
+              </p>
+            </div>
+
+            {/* Callout Notice Card */}
+            <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-[11px] text-amber-200 font-semibold leading-snug flex items-center justify-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Triggered by mistake? Tap below to abort immediately.</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5 pt-1">
+              <button
+                onClick={handleCancelGracePeriod}
+                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl text-xs transition-all shadow-lg shadow-emerald-950/50 active:scale-95 cursor-pointer font-display uppercase tracking-wider flex items-center justify-center gap-2 text-sm"
+              >
+                <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                <span>Cancel False Alarm (I'm Safe)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowGraceModal(false);
+                  executePanicTrigger(false);
+                }}
+                className="w-full py-2.5 bg-slate-800/80 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 font-extrabold rounded-xl text-[11px] transition-all cursor-pointer font-display border border-slate-700/50 flex items-center justify-center gap-1.5"
+              >
+                <Siren className="w-3.5 h-3.5" />
+                <span>Skip Timer & Trigger Alarm Now ({graceCountdown}s)</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* DUAL-PIN SILENT DURESS DEACTIVATION MODAL */}
+      <DuressPinModal
+        isOpen={showDuressModal}
+        onClose={() => setShowDuressModal(false)}
+        onDeactivate={handleDuressDeactivate}
+        correctPin={user?.duressPin || '9999'}
+      />
     </div>
   );
 };

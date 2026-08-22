@@ -1,13 +1,30 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { SocketContext } from '../../context/SocketContext';
-import { Shield, User, LogOut, Activity, Radio, Sparkles } from 'lucide-react';
+import { Shield, User, LogOut, Activity, Radio, Sparkles, Bell, CheckCircle2, Siren } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { subscribeToWebPushNotifications } from '../../utils/pushNotifications';
 
 export const Header = () => {
   const { user, logout } = useContext(AuthContext);
-  const { isConnected, activeTrip } = useContext(SocketContext);
+  const {
+    isConnected,
+    activeTrip,
+    latestEmergencyAlert,
+    reopenGuardianEmergencyModal,
+  } = useContext(SocketContext);
   const navigate = useNavigate();
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+
+  const handleEnablePush = async () => {
+    setSubscribing(true);
+    const res = await subscribeToWebPushNotifications();
+    setSubscribing(false);
+    if (res.success) {
+      setPushSubscribed(true);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -68,6 +85,44 @@ export const Header = () => {
               {isConnected ? 'Heartbeat Active' : 'Connecting Network'}
             </span>
           </div>
+
+          {/* Web Push Subscription Quick Button */}
+          {user && (
+            <button
+              onClick={handleEnablePush}
+              disabled={subscribing}
+              title="Enable Browser Push Notifications for Emergency Alerts"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold border transition-all cursor-pointer shadow-xs active:scale-95 ${
+                pushSubscribed
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+              }`}
+            >
+              {pushSubscribed ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="hidden sm:inline">Push Active</span>
+                </>
+              ) : (
+                <>
+                  <Bell className="w-3.5 h-3.5 text-rose-600 animate-bounce" />
+                  <span className="hidden sm:inline">Enable Guardian Alerts</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Persistent Guardian SOS Emergency Re-open Button */}
+          {user && latestEmergencyAlert && (user.role === 'guardian' || user.role === 'operator' || user.role === 'admin' || user._id !== latestEmergencyAlert.commuterId) && (
+            <button
+              onClick={reopenGuardianEmergencyModal}
+              title="Re-open Live Emergency Signal & Interactive Map"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-rose-600 hover:bg-rose-700 text-white border border-rose-400 shadow-md shadow-rose-950/40 animate-pulse transition-all cursor-pointer active:scale-95 whitespace-nowrap font-display"
+            >
+              <Siren className="w-4 h-4 text-white animate-bounce" />
+              <span>REOPEN SOS ALERT ({latestEmergencyAlert.commuterName ? latestEmergencyAlert.commuterName.split(' ')[0] : 'Commuter'})</span>
+            </button>
+          )}
 
           {/* Active Trip Quick Pill */}
           {activeTrip && (

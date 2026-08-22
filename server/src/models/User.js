@@ -62,6 +62,13 @@ const userSchema = new mongoose.Schema(
       enum: ['male', 'female', 'other'],
       default: 'female',
     },
+    pushSubscription: {
+      endpoint: String,
+      keys: {
+        p256dh: String,
+        auth: String,
+      },
+    },
   },
   { timestamps: true }
 );

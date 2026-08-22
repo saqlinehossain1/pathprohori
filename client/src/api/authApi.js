@@ -25,6 +25,11 @@ export const authApi = {
     const { data } = await API.get(`/auth/search-users?q=${encodeURIComponent(query)}`);
     return data;
   },
+
+  subscribePush: async (subscription) => {
+    const { data } = await API.post('/auth/subscribe-push', { subscription });
+    return data;
+  },
 };
 
 export default authApi;

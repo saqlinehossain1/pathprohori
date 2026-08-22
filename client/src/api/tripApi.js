@@ -21,8 +21,13 @@ export const tripApi = {
     return data;
   },
 
-  triggerPanic: async (tripId) => {
-    const { data } = await API.post(`/trips/${tripId}/trigger-panic`);
+  triggerPanic: async (tripId, isDuress = false) => {
+    const { data } = await API.post(`/trips/${tripId}/trigger-panic`, { isDuress });
+    return data;
+  },
+
+  cancelPanic: async (tripId, pinCode = '') => {
+    const { data } = await API.put(`/trips/${tripId}/cancel-panic`, { pinCode });
     return data;
   },
 

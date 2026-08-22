@@ -34,6 +34,7 @@ export const LogJourney = () => {
     panicLoading,
     startTrip,
     triggerPanic,
+    cancelPanic,
     completeTrip
   } = useTrip();
 
@@ -168,6 +169,7 @@ export const LogJourney = () => {
           trip={activeTrip}
           onComplete={handleCompleteTrip}
           onPanic={triggerPanic}
+          onCancelPanic={cancelPanic}
           panicLoading={panicLoading}
         />
       ) : (

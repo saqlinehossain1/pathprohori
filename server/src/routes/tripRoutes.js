@@ -6,6 +6,7 @@ import {
   sendHeartbeat,
   completeTrip,
   triggerPanic,
+  cancelPanic,
   getUserTripHistory,
 } from '../controllers/tripController.js';
 
@@ -17,5 +18,6 @@ router.get('/history', protect, getUserTripHistory);
 router.post('/:id/heartbeat', protect, sendHeartbeat);
 router.put('/:id/complete', protect, completeTrip);
 router.post('/:id/trigger-panic', protect, triggerPanic);
+router.put('/:id/cancel-panic', protect, cancelPanic);
 
 export default router;

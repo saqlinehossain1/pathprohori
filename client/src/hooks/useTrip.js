@@ -39,11 +39,11 @@ export const useTrip = () => {
     }
   };
 
-  const triggerPanic = async () => {
+  const triggerPanic = async (isDuress = false) => {
     if (!activeTrip) return;
     try {
       setPanicLoading(true);
-      const res = await tripApi.triggerPanic(activeTrip._id);
+      const res = await tripApi.triggerPanic(activeTrip._id, isDuress);
       setActiveTrip(res.trip);
       return res.trip;
     } catch (err) {
@@ -51,6 +51,18 @@ export const useTrip = () => {
       throw err;
     } finally {
       setPanicLoading(false);
+    }
+  };
+
+  const cancelPanic = async (pinCode = '') => {
+    if (!activeTrip) return;
+    try {
+      const res = await tripApi.cancelPanic(activeTrip._id, pinCode);
+      setActiveTrip(res.trip);
+      return res.trip;
+    } catch (err) {
+      console.error('Failed to cancel panic alarm:', err);
+      throw err;
     }
   };
 
@@ -73,6 +85,7 @@ export const useTrip = () => {
     error,
     startTrip,
     triggerPanic,
+    cancelPanic,
     completeTrip,
     refreshActiveTrip: fetchActiveTrip,
   };

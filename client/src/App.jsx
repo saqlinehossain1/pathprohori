@@ -7,6 +7,8 @@ import { Footer } from './components/layout/Footer';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { PageTransition } from './components/layout/PageTransition';
+import { GuardianEmergencyModal } from './components/emergency/GuardianEmergencyModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -28,6 +30,11 @@ export const App = () => {
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-rose-300/10 rounded-full blur-3xl pointer-events-none z-0" />
 
       {user && <Header />}
+      {user && (
+        <ErrorBoundary>
+          <GuardianEmergencyModal />
+        </ErrorBoundary>
+      )}
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-hidden min-h-0 relative z-10">
         {user && <Sidebar />}

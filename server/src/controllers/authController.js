@@ -177,3 +177,25 @@ export const updateProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc Save Web Push subscription endpoint for user
+// @route POST /api/auth/subscribe-push
+export const subscribePush = async (req, res, next) => {
+  try {
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ message: 'Invalid push subscription object' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.pushSubscription = subscription;
+      await user.save();
+      return res.json({ success: true, message: 'Web Push notification subscription saved' });
+    }
+    res.status(404).json({ message: 'User not found' });
+  } catch (error) {
+    next(error);
+  }
+};
+
