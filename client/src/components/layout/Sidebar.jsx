@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import {
   LayoutDashboard,
   Navigation,
   ShieldAlert,
+  Bell,
   Mic,
   User,
   PhoneCall,
@@ -15,11 +17,13 @@ import {
 
 export const Sidebar = () => {
   const { user } = useContext(AuthContext);
+  const { unreadCount } = useNotifications();
 
   const navItems = [
     { label: 'Dashboard Overview', path: '/', icon: LayoutDashboard },
     { label: 'Log New Journey', path: '/log-journey', icon: Navigation },
     { label: 'Live Danger Feed', path: '/live-danger-feed', icon: ShieldAlert },
+    { label: 'Notifications', path: '/notifications', icon: Bell },
     { label: 'Voice & Emergency', path: '/voice-settings', icon: Mic },
     { label: 'Profile & Account', path: '/profile', icon: User },
   ];
@@ -37,6 +41,7 @@ export const Sidebar = () => {
         <nav className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const isNotificationsItem = item.path === '/notifications';
             return (
               <NavLink
                 key={item.path}
@@ -55,7 +60,13 @@ export const Sidebar = () => {
                       <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                       <span className="font-display tracking-wide">{item.label}</span>
                     </div>
-                    {isActive && <ChevronRight className="w-3.5 h-3.5 text-white/80" />}
+                    {isNotificationsItem && unreadCount > 0 ? (
+                      <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-xs">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    ) : (
+                      isActive && <ChevronRight className="w-3.5 h-3.5 text-white/80" />
+                    )}
                   </>
                 )}
               </NavLink>

@@ -69,7 +69,7 @@ export const seedDemoUsers = async () => {
     ];
 
     for (const uData of userSeedList) {
-      let existingUser = await User.findOne({ email: uData.email });
+      const existingUser = await User.findOne({ email: uData.email });
       if (!existingUser) {
         await User.create(uData);
         console.log(`[Database Seed] Created account: ${uData.email}`);
@@ -80,6 +80,35 @@ export const seedDemoUsers = async () => {
         await existingUser.save();
         console.log(`[Database Seed] Synced password for: ${uData.email}`);
       }
+      }
+    }
+
+    // Ensure guardian link between Md Saqline Hossain and Badrunnaher Pantho
+    const saqline = await User.findOne({ email: 'saqline.hossain@g.bracu.ac.bd' });
+    const pantho = await User.findOne({ email: 'badrunnaher.pantho@g.bracu.ac.bd' });
+
+    if (saqline && (!saqline.guardians || saqline.guardians.length === 0)) {
+      saqline.guardians = [
+        {
+          name: 'Badrunnaher Pantho',
+          email: 'badrunnaher.pantho@g.bracu.ac.bd',
+          phone: '+880 1811-234567',
+          relationship: 'Primary Guardian',
+        },
+      ];
+      await saqline.save();
+    }
+
+    if (pantho && (!pantho.guardians || pantho.guardians.length === 0)) {
+      pantho.guardians = [
+        {
+          name: 'Md Saqline Hossain',
+          email: 'saqline.hossain@g.bracu.ac.bd',
+          phone: '+880 1711-123456',
+          relationship: 'Monitored Commuter',
+        },
+      ];
+      await pantho.save();
     }
   } catch (err) {
     console.error('[Auth Seed Error]', err.message);

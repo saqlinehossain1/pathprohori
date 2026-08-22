@@ -9,8 +9,9 @@ import LiveCommunityMarquee from '../components/dashboard/LiveCommunityMarquee';
 import AnimatedBentoGrid from '../components/dashboard/AnimatedBentoGrid';
 import InteractiveHoverButton from '../components/ui/InteractiveHoverButton';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { Sparkles, ShieldAlert, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Sparkles, ShieldAlert, CheckCircle2, ArrowRight, ShieldCheck, Bell } from 'lucide-react';
 import tripApi from '../api/tripApi';
+import PanicButton from '../components/emergency/PanicButton';
 
 export const Dashboard = () => {
   const { user } = useContext(AuthContext);
@@ -28,6 +29,7 @@ export const Dashboard = () => {
   } = useTrip();
 
   const [recentSafeTrip, setRecentSafeTrip] = useState(null);
+  const isResponseRole = user?.role === 'admin' || user?.role === 'operator';
 
   // Fetch recent safe completed trip if no active trip exists
   useEffect(() => {
@@ -54,24 +56,40 @@ export const Dashboard = () => {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-extrabold mb-2 border border-emerald-200 shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-display">PATHPROHORI Safety Engine Active</span>
+            <span className="font-display">
+              {isResponseRole
+                ? 'PATHPROHORI Control Room & Operator Dispatch Center'
+                : 'PATHPROHORI Safety Engine Active'}
+            </span>
             <Sparkles className="w-3.5 h-3.5 text-amber-500 ml-1" />
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight font-display">
-            Welcome back, {user?.name || 'Commuter'}!
+            Welcome back, {user?.name || (isResponseRole ? 'System Monitor' : 'Commuter')}!
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium leading-relaxed">
-            Your signal heartbeat is monitored in real-time. Historical coordinates automatically purge after 48 hours per privacy guidelines.
+            {isResponseRole
+              ? 'Monitoring real-time emergency signals, high-alert transit telemetry, and safety notifications across all commuter routes.'
+              : 'Your signal heartbeat is monitored in real-time. Historical coordinates automatically purge after 48 hours per privacy guidelines.'}
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto flex-shrink-0">
-          <InteractiveHoverButton onClick={() => navigate('/log-journey')} className="w-full sm:w-auto whitespace-nowrap">
-            Log New Journey
-          </InteractiveHoverButton>
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-shrink-0">
+          {!isResponseRole && (
+            <InteractiveHoverButton onClick={() => navigate('/log-journey')} className="w-full sm:w-auto whitespace-nowrap">
+              Log New Journey
+            </InteractiveHoverButton>
+          )}
+
+          <button
+            onClick={() => navigate('/notifications')}
+            className="w-full sm:w-auto px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap font-display"
+          >
+            <Bell className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            <span className="whitespace-nowrap">Notifications</span>
+          </button>
 
           <button
             onClick={() => navigate('/live-danger-feed')}
@@ -81,6 +99,7 @@ export const Dashboard = () => {
             <span className="whitespace-nowrap">Live Danger Feed</span>
           </button>
         </div>
+      </div>
       </div>
 
       {/* Active Trip Tracking Status Banner (If Active) */}

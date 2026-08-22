@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
 import Modal from '../common/Modal';
 import AlarmDeactivationForm from '../trip/AlarmDeactivationForm';
-import { Activity, AlertTriangle, CheckCircle2, MapPin, Navigation } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, MapPin, Navigation, Clock } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
 export const ActiveTripBanner = ({
   activeTrip,
@@ -17,10 +18,13 @@ export const ActiveTripBanner = ({
   deactivating,
 }) => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+
   if (!activeTrip) return null;
 
   const isEmergencyActive = activeTrip.status === 'EMERGENCY';
+  const isResponseRole = user?.role === 'admin' || user?.role === 'operator';
 
   const handleDeactivateAlarm = async (pin) => {
     await onDeactivateAlarm(pin);
@@ -57,16 +61,18 @@ export const ActiveTripBanner = ({
             <span>View Live Journey Map</span>
           </button>
 
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={onPanic}
-            loading={panicLoading}
-            className="px-4 py-2 text-xs font-black shadow-md shadow-rose-950/20"
-          >
-            <AlertTriangle className="w-4 h-4 mr-1" />
-            1-TAP PANIC
-          </Button>
+          {!isResponseRole && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={onPanic}
+              loading={panicLoading}
+              className="px-4 py-2 text-xs font-black shadow-md shadow-rose-950/20"
+            >
+              <AlertTriangle className="w-4 h-4 mr-1" />
+              1-TAP PANIC
+            </Button>
+          )}
 
           <Button
             variant="secondary"

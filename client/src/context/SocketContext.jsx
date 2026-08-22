@@ -1,47 +1,35 @@
 import React, { createContext, useEffect, useState, useContext } from 'react';
-import { io } from 'socket.io-client';
+import { socket } from '../services/socket';
 import { AuthContext } from './AuthContext';
 
 export const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
-  const [socket, setSocket] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(socket.connected);
   const [activeTrip, setActiveTrip] = useState(null);
   const [signalLossAlert, setSignalLossAlert] = useState(null);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
-    const newSocket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      autoConnect: true,
-    });
-
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
-      console.log('[Socket.io Client] Connected with ID:', newSocket.id);
-      setIsConnected(true);
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('[Socket.io Client] Disconnected');
-      setIsConnected(false);
-    });
-
-    newSocket.on('connect_error', (err) => {
-      console.warn('[Socket.io Connection Error]', err.message);
-      setIsConnected(false);
-    });
-
-    newSocket.on('SIGNAL_LOSS_ALERT', (alertData) => {
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
+    const onSignalLoss = (alertData) => {
       console.warn('[Socket.io Alert] Signal Loss Alert Received:', alertData);
       setSignalLossAlert(alertData);
-    });
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('SIGNAL_LOSS_ALERT', onSignalLoss);
+
+    if (socket.connected) {
+      setIsConnected(true);
+    }
 
     return () => {
-      newSocket.close();
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('SIGNAL_LOSS_ALERT', onSignalLoss);
     };
   }, []);
 
