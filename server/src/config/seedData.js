@@ -80,7 +80,6 @@ export const seedDemoUsers = async () => {
         await existingUser.save();
         console.log(`[Database Seed] Synced password for: ${uData.email}`);
       }
-      }
     }
 
     // Ensure guardian link between Md Saqline Hossain and Badrunnaher Pantho

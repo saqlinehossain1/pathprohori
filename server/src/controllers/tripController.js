@@ -1,11 +1,8 @@
 import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
 import { User } from '../models/User.js';
-<<<<<<< HEAD
 import { sendPushNotification } from '../services/pushService.js';
 import { sendEmergencySMS } from '../services/twilioService.js';
-=======
->>>>>>> origin/JAMSHED
 
 // @desc    Log a new journey (Commuter)
 // @route   POST /api/trips

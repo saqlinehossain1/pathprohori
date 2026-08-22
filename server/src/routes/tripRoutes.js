@@ -5,6 +5,7 @@ import {
   getActiveTrip,
   sendHeartbeat,
   completeTrip,
+  triggerPanic,
   cancelPanic,
   deactivateAlarm,
   getUserTripHistory,
