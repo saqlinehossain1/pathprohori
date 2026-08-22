@@ -63,6 +63,7 @@ export const NotificationProvider = ({ children }) => {
         user: data.user || null,
         location: data.location || null,
         timestamp: data.timestamp || new Date().toISOString(),
+        status: data.status || 'ACTIVE',
         read: false,
       };
 
@@ -77,8 +78,9 @@ export const NotificationProvider = ({ children }) => {
       console.log('[NotificationContext] EMERGENCY_RESOLVED received:', data);
       setNotifications((prev) =>
         prev.map((n) => {
-          if (n.id === data.emergencyId || n.emergencyId === data.emergencyId) {
-            return { ...n, read: true };
+          const resolvedIds = data.emergencyIds || [data.emergencyId];
+          if (resolvedIds.some((id) => String(id) === String(n.id) || String(id) === String(n.emergencyId))) {
+            return { ...n, status: 'RESOLVED', read: true, resolvedAt: data.resolvedAt || new Date().toISOString() };
           }
           return n;
         })
@@ -89,8 +91,8 @@ export const NotificationProvider = ({ children }) => {
       if (String(data.commuterId) === String(userId)) return;
 
       const newNotif = {
-        id: data.tripId || `notif_${Date.now()}`,
-        emergencyId: data.tripId,
+        id: data.emergencyId || data.tripId || `notif_${Date.now()}`,
+        emergencyId: data.emergencyId || data.tripId,
         type: 'EMERGENCY',
         title: '🚨 CRITICAL PANIC ALERT',
         message: `${data.commuterName} activated CRITICAL PANIC mode in ${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}). Destination: ${data.destination || 'In Transit'}`,
@@ -98,6 +100,7 @@ export const NotificationProvider = ({ children }) => {
           id: data.commuterId,
           name: data.commuterName,
           phone: data.commuterPhone,
+          avatarUrl: data.avatarUrl,
         },
         location: {
           latitude: data.startCoords?.lat || 23.7808875,
@@ -105,6 +108,7 @@ export const NotificationProvider = ({ children }) => {
           address: `${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}) -> Dest: ${data.destination || 'In Transit'}`,
         },
         timestamp: data.timestamp || new Date().toISOString(),
+        status: 'ACTIVE',
         read: false,
       };
 
@@ -114,10 +118,29 @@ export const NotificationProvider = ({ children }) => {
       });
     };
 
+    const handleDuressEscalated = (data) => {
+      const escalatedIds = data.emergencyIds || [data.emergencyId];
+      setNotifications((prev) => prev.map((notification) => (
+        escalatedIds.some((id) => String(id) === String(notification.id) || String(id) === String(notification.emergencyId))
+          ? {
+              ...notification,
+              status: 'ACTIVE',
+              severity: 'CRITICAL',
+              alertType: 'SILENT_DURESS',
+              title: 'SILENT DURESS ALERT',
+              message: data.message || 'Silent duress PIN entered. Contact police immediately.',
+              location: data.location || notification.location,
+              read: false,
+            }
+          : notification
+      )));
+    };
+
     socket.on('connect', handleConnect);
     socket.on('EMERGENCY_ALERT', handleEmergencyAlert);
     socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
+    socket.on('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
 
     return () => {
       console.log('[NotificationContext] Cleaning up Socket.IO listeners');
@@ -125,6 +148,7 @@ export const NotificationProvider = ({ children }) => {
       socket.off('EMERGENCY_ALERT', handleEmergencyAlert);
       socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
       socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
+      socket.off('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
     };
   }, [user?._id]);
 

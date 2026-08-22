@@ -351,31 +351,15 @@ export const OngoingJourneyMap = ({
   };
 
   // Handle Dual-PIN Deactivation / False Alarm Cancellation
-  const handleDuressDeactivate = async (isSilentDuress) => {
-    if (isSilentDuress) {
-      // Visually close screen to deceive attacker, but secretly send high-priority DURESS trigger!
+  const handleDuressDeactivate = async (pin) => {
+    try {
+      await onDeactivateAlarm(pin, isEndingJourneyWithPin);
       setShowPanicModal(false);
-      setIsEndingJourneyWithPin(false);
-      await executePanicTrigger(true);
-    } else {
-      // Standard PIN entry: Cancel False Alarm on Backend & Resume Active Journey
-      try {
-        if (typeof onCancelPanic === 'function') {
-          await onCancelPanic(user?.duressPin ? '0000' : '9999');
-        }
-      } catch (e) {
-        console.error('Cancel false alarm error:', e);
-      }
-      setShowPanicModal(false);
+      setShowDuressModal(false);
       panicTriggeredRef.current = false;
-
-      // If user requested to end trip while in panic mode, complete journey safely after PIN verification!
-      if (isEndingJourneyWithPin) {
-        setIsEndingJourneyWithPin(false);
-        if (typeof onComplete === 'function') {
-          onComplete();
-        }
-      }
+      setIsEndingJourneyWithPin(false);
+    } catch (e) {
+      console.error('Alarm PIN verification error:', e);
     }
   };
 
@@ -453,27 +437,27 @@ export const OngoingJourneyMap = ({
   return (
     <div className="space-y-6">
       {/* Live Monitoring Top Bar Card - Flashes Red when Emergency */}
-      <Card className={`border-rose-200 transition-all duration-300 ${
+      <Card className={`border transition-all duration-300 ${
         isEmergencyActive
-          ? 'bg-gradient-to-r from-rose-950 via-rose-900 to-rose-950 text-white shadow-2xl ring-4 ring-rose-500/50 animate-pulse'
-          : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl'
-      } p-5`}>
+          ? 'bg-rose-950 text-white border-rose-500/60 shadow-xl ring-2 ring-rose-500/20'
+          : 'bg-white text-slate-900 border-slate-200 shadow-card'
+      } p-4 sm:p-5`}>
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
           {/* Header Info */}
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className={`w-12 h-12 rounded-2xl ${isEmergencyActive ? 'bg-rose-500 text-white animate-bounce' : 'bg-rose-600 text-white animate-pulse'} flex items-center justify-center shrink-0 shadow-md`}>
+            <div className={`w-11 h-11 rounded-xl ${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-600 text-white'} flex items-center justify-center shrink-0 shadow-md`}>
               {isEmergencyActive ? <Siren className="w-7 h-7" /> : <Activity className="w-6 h-6" />}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-black font-display tracking-wide truncate">
-                  {isEmergencyActive ? '🚨 EMERGENCY DISTRESS ALARM ACTIVE' : 'Live Guardian Tracking Progress'}
+                <h2 className="text-base sm:text-lg font-black font-display tracking-wide truncate">
+                  {isEmergencyActive ? 'Emergency alarm active' : 'Live guardian tracking'}
                 </h2>
-                <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-600 animate-pulse' : 'bg-rose-500'} text-white border-0 text-[10px] uppercase font-extrabold px-2.5`}>
+                <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-800 border border-rose-200'} border-0 text-[10px] uppercase font-extrabold px-2.5`}>
                   {trip.status}
                 </Badge>
               </div>
-              <p className="text-xs text-slate-300 font-medium mt-0.5 truncate">
+              <p className={`text-xs font-medium mt-0.5 truncate ${isEmergencyActive ? 'text-slate-300' : 'text-slate-500'}`}>
                 {isEmergencyActive
                   ? 'Emergency Guardians & Safety Operators notified live. Call emergency hotline immediately.'
                   : 'Heartbeat ping monitor active • Auto 30s connection sync enabled'}
@@ -486,7 +470,7 @@ export const OngoingJourneyMap = ({
             <button
               onClick={handleSendPing}
               disabled={pingSending}
-              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 whitespace-nowrap"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 whitespace-nowrap ${isEmergencyActive ? 'bg-white/10 hover:bg-white/20 border border-white/20 text-white' : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'}`}
             >
               <Radio className={`w-4 h-4 ${pingSending ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
               <span>{pingSending ? 'Pinging...' : 'Send Heartbeat Ping'}</span>
@@ -495,31 +479,31 @@ export const OngoingJourneyMap = ({
             <button
               onClick={isEmergencyActive ? () => setShowPanicModal(true) : () => handleInitiatePanic(false)}
               disabled={panicLoading}
-              className={`px-4 py-2.5 ${isEmergencyActive ? 'bg-rose-600 hover:bg-rose-500 ring-2 ring-rose-400 animate-bounce' : 'bg-rose-600 hover:bg-rose-700'} text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 active:scale-95 whitespace-nowrap`}
+              className={`px-3 py-2.5 ${isEmergencyActive ? 'bg-rose-600 hover:bg-rose-500' : 'bg-rose-600 hover:bg-rose-700'} text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 active:scale-95 whitespace-nowrap`}
             >
               {isEmergencyActive ? <Siren className="w-4 h-4 text-white" /> : <AlertTriangle className="w-4 h-4" />}
-              <span>{isEmergencyActive ? '🚨 REOPEN SOS ALARM WINDOW' : '1-TAP PANIC'}</span>
+              <span>{isEmergencyActive ? 'Reopen SOS' : '1-Tap Panic'}</span>
             </button>
 
             <button
-              onClick={() => (isEmergencyActive ? setShowPanicModal(true) : onComplete())}
+              onClick={() => (isEmergencyActive ? setShowPanicModal(true) : (setIsEndingJourneyWithPin(true), setShowDuressModal(true)))}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/20 active:scale-95 whitespace-nowrap"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isEmergencyActive ? 'Deactivate Alarm to Finish' : 'Finish Journey Safely'}</span>
+              <span>{isEmergencyActive ? 'Deactivate & finish' : 'Finish safely'}</span>
             </button>
           </div>
         </div>
 
         {/* HANDS-FREE VOICE TRIGGER BAR */}
-        <div className="mt-4 pt-3.5 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className={`mt-4 pt-3.5 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${isEmergencyActive ? 'border-white/10' : 'border-slate-100'}`}>
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={handleToggleVoiceMic}
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
                 isListening
-                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 ring-2 ring-rose-500/30'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15'
+                  ? isEmergencyActive ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 ring-2 ring-rose-500/30' : 'bg-rose-100 text-rose-800 border-rose-300 ring-2 ring-rose-200'
+                  : isEmergencyActive ? 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
               }`}
             >
               {isListening ? (
@@ -536,8 +520,8 @@ export const OngoingJourneyMap = ({
             </button>
 
             <div className="min-w-0 flex items-center gap-1.5 text-slate-300">
-              <span className="text-[11px] font-semibold text-slate-400 hidden sm:inline">Secret Phrase:</span>
-              <span className="font-extrabold text-cyan-300 bg-slate-950/60 px-2.5 py-1 rounded-lg border border-white/10 truncate font-mono text-[11px]">
+              <span className={`text-[11px] font-semibold hidden sm:inline ${isEmergencyActive ? 'text-slate-400' : 'text-slate-500'}`}>Secret Phrase:</span>
+              <span className={`font-extrabold px-2.5 py-1 rounded-lg border truncate font-mono text-[11px] ${isEmergencyActive ? 'text-cyan-300 bg-slate-950/60 border-white/10' : 'text-slate-700 bg-slate-100 border-slate-200'}`}>
                 "{secretPhrase}"
               </span>
             </div>
@@ -545,9 +529,9 @@ export const OngoingJourneyMap = ({
 
           {/* Live Voice Audio Transcript Feedback */}
           {isListening && (
-            <div className="flex items-center gap-2 text-[11px] text-slate-300 font-mono bg-slate-950/80 px-3 py-1 rounded-xl border border-white/10 truncate max-w-full sm:max-w-xs">
+            <div className={`flex items-center gap-2 text-[11px] font-mono px-3 py-1 rounded-xl border truncate max-w-full sm:max-w-xs ${isEmergencyActive ? 'text-slate-300 bg-slate-950/80 border-white/10' : 'text-slate-600 bg-slate-100 border-slate-200'}`}>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-              <span className="truncate italic text-slate-300">{transcript || 'Listening...'}</span>
+              <span className="truncate italic">{transcript || 'Listening...'}</span>
             </div>
           )}
         </div>
@@ -768,13 +752,6 @@ export const OngoingJourneyMap = ({
 
             {/* Disarm / Deactivate with Dual-PIN */}
             <div className="flex items-center justify-between pt-4 border-t border-rose-900/60 gap-3 flex-wrap">
-              <button
-                onClick={() => setShowPanicModal(false)}
-                className="text-xs text-slate-400 hover:text-white transition-all cursor-pointer font-extrabold font-display uppercase tracking-wider"
-              >
-                Minimize Window
-              </button>
-
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowDuressModal(true)}
@@ -786,7 +763,6 @@ export const OngoingJourneyMap = ({
 
                 <button
                   onClick={() => {
-                    setShowPanicModal(false);
                     setIsEndingJourneyWithPin(true);
                     setShowDuressModal(true);
                   }}
@@ -912,7 +888,8 @@ export const OngoingJourneyMap = ({
         isOpen={showDuressModal}
         onClose={() => setShowDuressModal(false)}
         onDeactivate={handleDuressDeactivate}
-        correctPin={user?.duressPin || '9999'}
+        title={isEndingJourneyWithPin ? 'Finish Journey — Enter PIN' : 'Emergency Mode Active — Enter PIN'}
+        description={isEndingJourneyWithPin ? 'Enter your normal PIN to finish this journey safely.' : undefined}
       />
     </div>
   );

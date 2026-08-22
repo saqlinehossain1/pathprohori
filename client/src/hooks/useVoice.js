@@ -13,7 +13,8 @@ export const useVoice = () => {
   const [emergencyPhraseInput, setEmergencyPhraseInput] = useState(
     user?.emergencyPhrase || 'Lavender Moonlight'
   );
-  const [duressPinInput, setDuressPinInput] = useState(user?.duressPin || '');
+  const [normalPinInput, setNormalPinInput] = useState('');
+  const [fakePinInput, setFakePinInput] = useState('');
 
   const recognitionRef = useRef(null);
   const handsFreeRef = useRef(handsFreeActive);
@@ -27,18 +28,17 @@ export const useVoice = () => {
     if (user?.emergencyPhrase) {
       setEmergencyPhraseInput(user.emergencyPhrase);
     }
-    if (user?.duressPin) {
-      setDuressPinInput(user.duressPin);
-    }
   }, [user]);
 
-  const saveSettings = async (phrase, pin) => {
+  const saveSettings = async (phrase, normalPin, fakePin) => {
     try {
       setSavingPhrase(true);
-      const updatedUser = await authApi.updateProfile({
+      const settings = {
         emergencyPhrase: phrase || emergencyPhraseInput,
-        duressPin: pin || duressPinInput,
-      });
+      };
+      if (normalPin) settings.normalPin = normalPin;
+      if (fakePin) settings.fakePin = fakePin;
+      const updatedUser = await authApi.updateProfile(settings);
       setUser((prev) => ({ ...prev, ...updatedUser }));
       return updatedUser;
     } catch (err) {
@@ -155,8 +155,10 @@ export const useVoice = () => {
     setKeywordMatched,
     emergencyPhraseInput,
     setEmergencyPhraseInput,
-    duressPinInput,
-    setDuressPinInput,
+    normalPinInput,
+    setNormalPinInput,
+    fakePinInput,
+    setFakePinInput,
     savingPhrase,
     saveSettings,
     startListening,

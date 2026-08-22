@@ -120,6 +120,21 @@ export const completeTrip = async (req, res, next) => {
       { isSafeTripCompleted: true, expiresAt: expiresAt }
     );
 
+    const resolvedEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
+    await Emergency.updateMany(
+      { user: req.user._id, status: 'ACTIVE' },
+      { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: now } }
+    );
+    const io = req.app.get('io');
+    if (io && resolvedEmergencies.length > 0) {
+      io.emit('EMERGENCY_RESOLVED', {
+        emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
+        userId: req.user._id,
+        resolvedAt: now,
+        message: `${req.user.name} completed the journey safely.`,
+      });
+    }
+
     res.json({ message: 'Trip completed safely', trip });
   } catch (error) {
     next(error);
@@ -186,6 +201,8 @@ export const triggerPanic = async (req, res, next) => {
         address: `${trip.vehicleType} (${trip.numberPlate || 'CNG/Bus'}) -> Dest: ${trip.destination}`,
       },
       status: 'ACTIVE',
+      alertType: isDuress ? 'SILENT_DURESS' : 'PANIC',
+      severity: isDuress ? 'CRITICAL' : 'HIGH',
       triggeredAt: new Date(),
     });
 
@@ -193,10 +210,12 @@ export const triggerPanic = async (req, res, next) => {
     const io = req.app.get('io');
     if (io) {
       io.emit('EMERGENCY_ALERT_BROADCAST', {
+        emergencyId: emergencyRecord._id,
         tripId: trip._id,
         commuterId: user?._id,
         commuterName,
         commuterPhone: user?.phone,
+        avatarUrl: user?.avatarUrl,
         vehicleType: trip.vehicleType,
         numberPlate: trip.numberPlate,
         vehicleColor: trip.vehicleColor,
@@ -217,6 +236,7 @@ export const triggerPanic = async (req, res, next) => {
           name: commuterName,
           email: user.email,
           phone: user.phone,
+          avatarUrl: user.avatarUrl,
         },
         location: {
           latitude: (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875,
@@ -224,6 +244,9 @@ export const triggerPanic = async (req, res, next) => {
           address: `${trip.vehicleType} (${trip.numberPlate || 'CNG/Bus'}) -> Dest: ${trip.destination}`,
         },
         timestamp: new Date().toISOString(),
+        status: 'ACTIVE',
+        severity: isDuress ? 'CRITICAL' : 'HIGH',
+        alertType: isDuress ? 'SILENT_DURESS' : 'PANIC',
       });
     }
 
@@ -256,14 +279,16 @@ export const cancelPanic = async (req, res, next) => {
     await trip.save();
 
     // Mark active emergency records as RESOLVED in database
+    const resolvedEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
     await Emergency.updateMany(
       { user: req.user._id, status: 'ACTIVE' },
-      { $set: { status: 'RESOLVED', resolvedAt: new Date() } }
+      { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: new Date() } }
     );
 
     const io = req.app.get('io');
     if (io) {
       io.emit('EMERGENCY_RESOLVED', {
+        emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
         userId: req.user._id,
         message: `${user?.name || 'Commuter'} resolved false alarm safely.`,
       });
@@ -294,7 +319,7 @@ export const cancelPanic = async (req, res, next) => {
 // @route   POST /api/trips/:id/deactivate-alarm
 export const deactivateAlarm = async (req, res, next) => {
   try {
-    const { pin, latitude, longitude } = req.body;
+    const { pin, latitude, longitude, finishJourney } = req.body;
 
     if (!pin || !/^\d{4}$/.test(String(pin))) {
       return res.status(400).json({ message: 'A valid 4-digit PIN is required.' });
@@ -309,7 +334,7 @@ export const deactivateAlarm = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to modify this journey' });
     }
 
-    if (trip.status !== 'EMERGENCY') {
+    if (!['ACTIVE', 'EMERGENCY', 'DURESS'].includes(trip.status) || (!finishJourney && trip.status === 'ACTIVE')) {
       return res.status(400).json({ message: 'No active alarm to deactivate for this journey' });
     }
 
@@ -322,8 +347,9 @@ export const deactivateAlarm = async (req, res, next) => {
       user.matchNormalPin(pin),
       user.matchFakePin(pin),
     ]);
+    const legacyNormalMatch = !user.normalPin && String(pin) === String(user.duressPin || '');
 
-    if (!isNormalMatch && !isFakeMatch) {
+    if (!isNormalMatch && !isFakeMatch && !legacyNormalMatch) {
       return res.status(400).json({ message: 'Incorrect PIN. Please try again.' });
     }
 
@@ -348,10 +374,92 @@ export const deactivateAlarm = async (req, res, next) => {
       if (locationCoords) trip.duressLastLocation = locationCoords;
     } else {
       // Genuine deactivation: alarm turns off, journey tracking continues normally.
-      trip.status = 'ACTIVE';
+      trip.status = finishJourney ? 'COMPLETED' : 'ACTIVE';
+      if (finishJourney) {
+        trip.completedAt = new Date();
+        trip.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+        await LocationLog.updateMany(
+          { trip: trip._id },
+          { isSafeTripCompleted: true, expiresAt: trip.expiresAt }
+        );
+      }
     }
 
     await trip.save();
+
+    if (isFakeMatch) {
+      const duressLocation = locationCoords || {
+        lat: trip.startCoords?.lat || 23.7808875,
+        lng: trip.startCoords?.lng || 90.4068305,
+      };
+      await Emergency.updateMany(
+        { user: req.user._id, status: 'ACTIVE' },
+        {
+          $set: {
+            alertType: 'SILENT_DURESS',
+            severity: 'CRITICAL',
+            'location.latitude': duressLocation.lat,
+            'location.longitude': duressLocation.lng,
+            'location.address': `LAST SEEN: ${duressLocation.lat.toFixed(5)}, ${duressLocation.lng.toFixed(5)}`,
+          },
+        }
+      );
+      let duressEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
+      if (duressEmergencies.length === 0) {
+        const duressRecord = await Emergency.create({
+          user: req.user._id,
+          location: {
+            latitude: duressLocation.lat,
+            longitude: duressLocation.lng,
+            address: `${trip.vehicleType || 'Vehicle'} -> Dest: ${trip.destination || 'In Transit'}`,
+          },
+          status: 'ACTIVE',
+          alertType: 'SILENT_DURESS',
+          severity: 'CRITICAL',
+          triggeredAt: new Date(),
+        });
+        duressEmergencies = [{ _id: duressRecord._id }];
+      }
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('EMERGENCY_DURESS_ESCALATED', {
+          emergencyId: duressEmergencies[0]?._id,
+          emergencyIds: duressEmergencies.map((emergency) => emergency._id),
+          userId: req.user._id,
+          location: { latitude: duressLocation.lat, longitude: duressLocation.lng },
+          message: `${user?.name || 'Commuter'} entered the silent duress PIN. Contact police immediately.`,
+        });
+      }
+      if (user && Array.isArray(user.guardians)) {
+        for (const guardian of user.guardians) {
+          if (guardian.user?.pushSubscription) {
+            sendPushNotification(guardian.user.pushSubscription, {
+              title: `🚨 SILENT DURESS: ${user.name}`,
+              body: `Contact police immediately. Last seen: ${duressLocation.lat.toFixed(5)}, ${duressLocation.lng.toFixed(5)}`,
+              icon: '/pwa-192x192.png',
+              url: '/notifications',
+            }).catch((error) => console.error('Duress push notification error:', error));
+          }
+        }
+      }
+    }
+
+    if (!isFakeMatch) {
+      const resolvedEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
+      await Emergency.updateMany(
+        { user: req.user._id, status: 'ACTIVE' },
+        { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: new Date() } }
+      );
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('EMERGENCY_RESOLVED', {
+          emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
+          userId: req.user._id,
+          message: `${user?.name || 'Commuter'} confirmed a false alarm and is safe.`,
+        });
+      }
+    }
 
     // Identical response for both branches - never reveals which PIN matched.
     return res.json({

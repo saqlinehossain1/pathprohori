@@ -85,7 +85,7 @@ export const Dashboard = () => {
 
           <button
             onClick={() => navigate('/notifications')}
-            className="w-full sm:w-auto px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap font-display"
+            className="order-3 w-full sm:w-auto px-4 py-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap font-display"
           >
             <Bell className="w-4 h-4 text-rose-600 flex-shrink-0" />
             <span className="whitespace-nowrap">Notifications</span>
@@ -93,7 +93,7 @@ export const Dashboard = () => {
 
           <button
             onClick={() => navigate('/live-danger-feed')}
-            className="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap flex-shrink-0 font-display"
+            className="order-2 w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap flex-shrink-0 font-display"
           >
             <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0" />
             <span className="whitespace-nowrap">Live Danger Feed</span>

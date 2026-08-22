@@ -3,6 +3,7 @@ import {
     triggerEmergency,
     resolveEmergency,
     getEmergencies,
+    resolveMonitoredEmergency,
 } from '../controllers/emergencyController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -21,5 +22,6 @@ router.put(
     protect,
     resolveEmergency
 );
+router.put('/:id/resolve', protect, resolveMonitoredEmergency);
 
 export default router; 

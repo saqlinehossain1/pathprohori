@@ -55,17 +55,45 @@ export const SocketProvider = ({ children }) => {
     if (!socket) return;
 
     const handleEmergencyBroadcast = (alertData) => {
+      if (String(alertData.commuterId) === String(user?._id)) return;
       console.warn('🚨 REAL-TIME GUARDIAN EMERGENCY SIGNAL RECEIVED:', alertData);
       setLatestEmergencyAlert(alertData);
       setShowGuardianModal(true);
     };
 
+    const handleEmergencyResolved = (data) => {
+      if (!data.userId) return;
+      setLatestEmergencyAlert((current) => (
+        current && String(current.commuterId) === String(data.userId) ? null : current
+      ));
+      setShowGuardianModal(false);
+    };
+
+    const handleDuressEscalated = (data) => {
+      setLatestEmergencyAlert((current) => {
+        if (!current || String(current.commuterId) !== String(data.userId)) return current;
+        return {
+          ...current,
+          status: 'DURESS',
+          severity: 'CRITICAL',
+          message: data.message,
+          startCoords: data.location
+            ? { lat: data.location.latitude, lng: data.location.longitude }
+            : current.startCoords,
+        };
+      });
+    };
+
     socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyBroadcast);
+    socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
+    socket.on('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
 
     return () => {
       socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyBroadcast);
+      socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
+      socket.off('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
     };
-  }, [socket]);
+  }, [socket, user?._id]);
 
   return (
     <SocketContext.Provider

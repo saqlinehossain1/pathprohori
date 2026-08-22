@@ -15,8 +15,10 @@ export const VoiceSettings = () => {
     setKeywordMatched,
     emergencyPhraseInput,
     setEmergencyPhraseInput,
-    duressPinInput,
-    setDuressPinInput,
+    normalPinInput,
+    setNormalPinInput,
+    fakePinInput,
+    setFakePinInput,
     savingPhrase,
     saveSettings,
     startListening,
@@ -30,21 +32,17 @@ export const VoiceSettings = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      await saveSettings(emergencyPhraseInput, duressPinInput);
+      await saveSettings(emergencyPhraseInput, normalPinInput, fakePinInput);
       setStatusMessage('Voice emergency phrase & duress settings saved!');
     } catch (err) {
       console.error('Save failed:', err);
     }
   };
 
-  const handleDuressDeactivate = (isSilentDuress) => {
+  const handleDuressDeactivate = () => {
     stopListening();
     setKeywordMatched(false);
-    if (isSilentDuress) {
-      alert('SILENT DURESS PIN ACTIVATED: Sending stealth emergency alert to police control room.');
-    } else {
-      alert('Alarm test disarmed successfully with primary PIN.');
-    }
+    alert('PIN test submitted. Use an active journey to verify alarm deactivation.');
   };
 
   return (
@@ -114,12 +112,20 @@ export const VoiceSettings = () => {
               </div>
 
               <Input
-                label="Duress Deactivation PIN (Optional)"
+                label="Normal Deactivation PIN"
                 type="password"
                 maxLength="4"
-                placeholder="e.g. 9999 (Normal) / 8888 (Silent Duress)"
-                value={duressPinInput}
-                onChange={(e) => setDuressPinInput(e.target.value)}
+                placeholder="4 digits"
+                value={normalPinInput}
+                onChange={(e) => setNormalPinInput(e.target.value.replace(/\D/g, ''))}
+              />
+              <Input
+                label="Silent Duress PIN"
+                type="password"
+                maxLength="4"
+                placeholder="Different 4 digits"
+                value={fakePinInput}
+                onChange={(e) => setFakePinInput(e.target.value.replace(/\D/g, ''))}
               />
 
               <Button type="submit" loading={savingPhrase} className="w-full py-3.5 font-extrabold shadow-md shadow-rose-950/20">
@@ -148,7 +154,6 @@ export const VoiceSettings = () => {
         isOpen={showDuressModal}
         onClose={() => setShowDuressModal(false)}
         onDeactivate={handleDuressDeactivate}
-        correctPin={duressPinInput || '9999'}
       />
     </div>
   );

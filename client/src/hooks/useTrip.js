@@ -83,14 +83,14 @@ export const useTrip = () => {
   // Dual-PIN Silent Duress Deactivation: entering either the normal PIN or the
   // secret fake PIN always resolves the same way here - the backend alone knows
   // which branch actually ran, and the local trip state is simply reset to ACTIVE.
-  const deactivateAlarm = async (pin) => {
+  const deactivateAlarm = async (pin, finishJourney = false) => {
     if (!activeTrip) return;
     try {
       setDeactivating(true);
       setDeactivateError('');
       const coords = await getBestEffortCoords();
-      const res = await tripApi.deactivateAlarm(activeTrip._id, { pin, ...coords });
-      setActiveTrip((prev) => (prev ? { ...prev, status: res.status || 'ACTIVE' } : prev));
+      const res = await tripApi.deactivateAlarm(activeTrip._id, { pin, finishJourney, ...coords });
+      setActiveTrip((prev) => (finishJourney ? null : (prev ? { ...prev, status: res.status || 'ACTIVE' } : prev)));
       return res;
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to deactivate alarm.';

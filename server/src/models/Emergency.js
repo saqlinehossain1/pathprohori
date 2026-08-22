@@ -29,6 +29,18 @@ const emergencySchema = new mongoose.Schema(
             default: 'ACTIVE',
         },
 
+        alertType: {
+            type: String,
+            enum: ['PANIC', 'FALSE_ALARM', 'SILENT_DURESS'],
+            default: 'PANIC',
+        },
+
+        severity: {
+            type: String,
+            enum: ['HIGH', 'CRITICAL'],
+            default: 'HIGH',
+        },
+
         triggeredAt: {
             type: Date,
             default: Date.now,

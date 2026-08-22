@@ -247,6 +247,37 @@ export const resolveEmergency = async (req, res, next) => {
     }
 };
 
+// @desc Resolve a monitored emergency from the guardian notification panel
+// @route PUT /api/emergency/:id/resolve
+export const resolveMonitoredEmergency = async (req, res, next) => {
+    try {
+        if (!['guardian', 'operator', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'Only emergency response users can resolve monitored alerts.' });
+        }
+
+        const emergency = await Emergency.findById(req.params.id);
+        if (!emergency) return res.status(404).json({ message: 'Emergency alert not found.' });
+
+        emergency.status = 'RESOLVED';
+        emergency.resolvedAt = new Date();
+        await emergency.save();
+
+        const io = getIO();
+        io.emit('EMERGENCY_RESOLVED', {
+            emergencyIds: [emergency._id],
+            userId: emergency.user,
+            resolvedBy: req.user._id,
+            resolvedAt: emergency.resolvedAt,
+            message: 'Emergency response user marked this alert resolved.',
+        });
+
+        return res.json({ success: true, emergencyId: emergency._id, status: emergency.status });
+    } catch (error) {
+        console.error('[Resolve Monitored Emergency Error]', error);
+        next(error);
+    }
+};
+
 // @desc    Get recent emergency alerts for guardians & response monitor
 // @route   GET /api/emergency
 export const getEmergencies = async (req, res, next) => {
@@ -305,17 +336,27 @@ export const getEmergencies = async (req, res, next) => {
         const formatted = filtered.map((e) => ({
             id: e._id,
             emergencyId: e._id,
-            type: 'EMERGENCY',
-            title: '🚨 Emergency Alert',
-            message: `${e.user?.name || 'Commuter'} has triggered an emergency.`,
+            type: e.alertType,
+            severity: e.severity,
+            title: e.alertType === 'SILENT_DURESS' ? '🚨 SILENT DURESS ALERT' : '🚨 Emergency Alert',
+            message: e.status === 'RESOLVED'
+                ? e.alertType === 'SILENT_DURESS'
+                    ? `Duress response for ${e.user?.name || 'Commuter'} was marked resolved by a response user.`
+                    : `${e.user?.name || 'Commuter'} confirmed safe. False alarm resolved and journey resumed.`
+                : e.alertType === 'SILENT_DURESS'
+                    ? `${e.user?.name || 'Commuter'} entered a silent duress PIN. Contact police immediately. Last seen coordinates are attached.`
+                    : `${e.user?.name || 'Commuter'} has an active emergency alert.`,
             user: {
                 id: e.user?._id,
                 name: e.user?.name || 'Commuter',
                 email: e.user?.email,
                 phone: e.user?.phone,
+                avatarUrl: e.user?.avatarUrl,
             },
             location: e.location,
             timestamp: e.triggeredAt || e.createdAt,
+            status: e.status,
+            resolvedAt: e.resolvedAt,
             read: e.status === 'RESOLVED',
         }));
 
