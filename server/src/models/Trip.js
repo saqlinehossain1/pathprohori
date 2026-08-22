@@ -67,6 +67,15 @@ const tripSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
     },
+    // Dual-PIN Silent Duress Deactivation audit trail: set only when the secret
+    // fake PIN is used to "deactivate" the alarm, silently escalating it instead.
+    duressTriggeredAt: {
+      type: Date,
+    },
+    duressLastLocation: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
     safeTripPurged: {
       type: Boolean,
       default: false,

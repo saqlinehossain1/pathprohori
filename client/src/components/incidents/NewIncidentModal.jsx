@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import Modal from '../common/Modal';
@@ -16,6 +16,40 @@ const createPickerSpotIcon = () => {
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
+};
+
+const FINDING_LOCATION_TEXT = 'Finding location...';
+const FALLBACK_LOCATION_TEXT = 'Selected location';
+
+// Reverse geocode lat/lng into a short human-readable place name (e.g. "Farmgate, Dhaka")
+// via Nominatim - the same provider already used for GPS lookups in JourneyForm.jsx,
+// with English labels + structured address fields for a clean "Area, City" result.
+const reverseGeocode = async (lat, lng) => {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en&zoom=16&addressdetails=1`
+    );
+    const data = await res.json();
+    const addr = data?.address;
+    const street = [addr?.house_number, addr?.road].filter(Boolean).join(' ');
+
+    if (addr) {
+      const area =
+        addr.suburb || addr.quarter || addr.neighbourhood || addr.village ||
+        addr.town || addr.city_district || addr.road;
+      const city = addr.city || addr.town || addr.county || addr.state;
+
+      const locationParts = [street, area !== street ? area : null, city !== area ? city : null].filter(Boolean);
+      if (locationParts.length) return locationParts.join(', ');
+    }
+
+    if (data?.display_name) {
+      return data.display_name.split(',').slice(0, 2).join(',').trim();
+    }
+  } catch (err) {
+    console.error('Reverse geocode failed:', err);
+  }
+  return null;
 };
 
 const MapPickerClickHandler = ({ onSelect }) => {
@@ -55,13 +89,21 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
+  // Reverse geocoding display state - lat/lng stay in formData for map/DB use,
+  // this is purely for showing a human-readable name to the user.
+  const [resolvedLocationName, setResolvedLocationName] = useState('');
+  const [resolvingLocation, setResolvingLocation] = useState(true);
+  const [pickerLocationName, setPickerLocationName] = useState('');
+  const [resolvingPickerLocation, setResolvingPickerLocation] = useState(true);
+  const userEditedLocationNameRef = useRef(false);
+  const lastResolvedCoordsRef = useRef(null);
+
   useEffect(() => {
     if (selectedCoords && typeof selectedCoords.lat === 'number' && typeof selectedCoords.lng === 'number') {
       setFormData((prev) => ({
         ...prev,
         latitude: selectedCoords.lat,
         longitude: selectedCoords.lng,
-        locationName: prev.locationName || `Map Pin [${selectedCoords.lat.toFixed(4)}, ${selectedCoords.lng.toFixed(4)}]`,
       }));
       setTempPickerCoords({ lat: selectedCoords.lat, lng: selectedCoords.lng });
     } else if (userLocation && typeof userLocation.lat === 'number' && typeof userLocation.lng === 'number') {
@@ -73,6 +115,57 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
       setTempPickerCoords({ lat: userLocation.lat, lng: userLocation.lng });
     }
   }, [selectedCoords, userLocation]);
+
+  // Whenever the selected pin's coordinates change (initial selection or a new
+  // spot confirmed via "Change Spot"), resolve them into a human-readable name.
+  useEffect(() => {
+    const lat = formData.latitude;
+    const lng = formData.longitude;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+    const coordKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    if (lastResolvedCoordsRef.current === coordKey) return;
+    lastResolvedCoordsRef.current = coordKey;
+
+    let cancelled = false;
+    setResolvingLocation(true);
+    setResolvedLocationName('');
+    if (!userEditedLocationNameRef.current) {
+      setFormData((prev) => ({ ...prev, locationName: FINDING_LOCATION_TEXT }));
+    }
+
+    reverseGeocode(lat, lng).then((name) => {
+      if (cancelled) return;
+      setResolvingLocation(false);
+      const finalName = name || FALLBACK_LOCATION_TEXT;
+      setResolvedLocationName(finalName);
+      if (!userEditedLocationNameRef.current) {
+        setFormData((prev) => ({ ...prev, locationName: finalName }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.latitude, formData.longitude]);
+
+  useEffect(() => {
+    if (!tempPickerCoords) return;
+
+    let cancelled = false;
+    setResolvingPickerLocation(true);
+    setPickerLocationName('');
+
+    reverseGeocode(tempPickerCoords.lat, tempPickerCoords.lng).then((name) => {
+      if (cancelled) return;
+      setPickerLocationName(name || FALLBACK_LOCATION_TEXT);
+      setResolvingPickerLocation(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tempPickerCoords]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -97,6 +190,12 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
       setLoading(true);
       const finalPayload = {
         ...formData,
+        // Safety net: never submit the transient "Finding location..." placeholder
+        // if the user manages to submit before reverse geocoding resolves.
+        locationName:
+          formData.locationName === FINDING_LOCATION_TEXT
+            ? FALLBACK_LOCATION_TEXT
+            : formData.locationName,
         latitude: typeof formData.latitude === 'number' ? formData.latitude : defaultLat,
         longitude: typeof formData.longitude === 'number' ? formData.longitude : defaultLng,
       };
@@ -112,6 +211,7 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
         latitude: defaultLat,
         longitude: defaultLng,
       });
+      userEditedLocationNameRef.current = false;
       setUploadSuccess(false);
       onClose();
     } catch (err) {
@@ -130,7 +230,7 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
                 <span>
-                  Selected Location Pin: [{formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}]
+                  Selected Location: {resolvingLocation ? FINDING_LOCATION_TEXT : (resolvedLocationName || FALLBACK_LOCATION_TEXT)}
                 </span>
               </div>
               <button
@@ -146,9 +246,7 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-sky-600 flex-shrink-0" />
                 <span>
-                  {userLocation?.lat
-                    ? `Live GPS Center: [${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}]`
-                    : 'Default GPS Area Selected'}
+                  {resolvingLocation ? FINDING_LOCATION_TEXT : (resolvedLocationName || FALLBACK_LOCATION_TEXT)}
                 </span>
               </div>
               <button
@@ -183,7 +281,10 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
             label="Location Name"
             placeholder="e.g. Green Valley Park East Gate"
             value={formData.locationName}
-            onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
+            onChange={(e) => {
+              userEditedLocationNameRef.current = true;
+              setFormData({ ...formData, locationName: e.target.value });
+            }}
             required
           />
 
@@ -209,7 +310,6 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
                 <Clock className="w-3.5 h-3.5 text-rose-600" />
                 Active Duration (Auto-Expiration)
               </span>
-              <span className="text-[10px] text-rose-600 font-bold lowercase">auto-deletes DB & Cloudinary image</span>
             </label>
             <select
               value={formData.durationHours}
@@ -229,9 +329,6 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
               <option value={72}>3 Days (72 Hours)</option>
               <option value={168}>7 Days (1 Week Max)</option>
             </select>
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-              If unsure, leave as default. The report record and uploaded Cloudinary photo will auto-delete after 24 hours.
-            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -254,7 +351,6 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
             </label>
             
             <div className="flex items-center gap-3">
-              <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-rose-950/20">
                 <Upload className="w-4 h-4" />
                 <span>{uploadingImage ? 'Uploading to Cloudinary...' : 'Upload Image File'}</span>
                 <input
@@ -264,14 +360,13 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
                   disabled={uploadingImage}
                   className="hidden"
                 />
-              </label>
+              </div>
 
               {uploadSuccess && (
                 <span className="text-xs font-extrabold text-emerald-600 flex items-center gap-1">
                   <CheckCircle className="w-4 h-4" /> Cloudinary Uploaded!
                 </span>
               )}
-            </div>
 
             <Input
               placeholder="Or paste image URL (https://...)"
@@ -317,17 +412,19 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
           </div>
 
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center font-display">
-            Selected Pin Coordinates: [{tempPickerCoords.lat.toFixed(5)}, {tempPickerCoords.lng.toFixed(5)}]
+            {resolvingPickerLocation ? FINDING_LOCATION_TEXT : pickerLocationName}
           </div>
 
           <Button
             type="button"
             onClick={() => {
+              // Picking a new spot always refreshes the human-readable name -
+              // see the reverse-geocoding effect keyed on latitude/longitude above.
+              userEditedLocationNameRef.current = false;
               setFormData((prev) => ({
                 ...prev,
                 latitude: tempPickerCoords.lat,
                 longitude: tempPickerCoords.lng,
-                locationName: prev.locationName || `Selected Area [${tempPickerCoords.lat.toFixed(4)}, ${tempPickerCoords.lng.toFixed(4)}]`,
               }));
               if (onSelectLocation) {
                 onSelectLocation(tempPickerCoords);

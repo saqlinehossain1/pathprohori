@@ -1,10 +1,10 @@
 import React from 'react';
 
-export const Input = ({ label, error, className = '', ...props }) => {
+export const Input = ({ label, error, className = '', labelClassName = '', ...props }) => {
   return (
     <div className="space-y-1.5 w-full">
       {label && (
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-display">
+        <label className={`block text-xs font-bold text-slate-700 uppercase tracking-wider font-display ${labelClassName}`}>
           {label}
         </label>
       )}

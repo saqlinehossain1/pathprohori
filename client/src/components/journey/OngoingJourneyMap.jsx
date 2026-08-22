@@ -5,6 +5,7 @@ import L from 'leaflet';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import AlarmDeactivationForm from '../trip/AlarmDeactivationForm';
 import { AuthContext } from '../../context/AuthContext';
 import { useVoice } from '../../hooks/useVoice';
 import DuressPinModal from '../voice/DuressPinModal';
@@ -27,7 +28,11 @@ import {
   Mic,
   MicOff,
   Volume2,
-  Sparkles
+  Sparkles,
+  Timer,
+  Play,
+  Pause,
+  RotateCcw
 } from 'lucide-react';
 import tripApi from '../../api/tripApi';
 
@@ -113,12 +118,47 @@ export const OngoingJourneyMap = ({
   onPanic,
   onCancelPanic,
   panicLoading,
+  onDeactivateAlarm,
+  deactivating,
 }) => {
   const { user } = useContext(AuthContext);
   const [currentPos, setCurrentPos] = useState(null);
   const [pingSending, setPingSending] = useState(false);
   const [roadRoutePoints, setRoadRoutePoints] = useState([]);
   const panicTriggeredRef = React.useRef(false);
+  const estimatedDurationSeconds = Math.max(1, Number(trip.estimatedTimeMinutes) || 30) * 60;
+  const [remainingSeconds, setRemainingSeconds] = useState(estimatedDurationSeconds);
+  const [timerActive, setTimerActive] = useState(false);
+
+  useEffect(() => {
+    setRemainingSeconds(estimatedDurationSeconds);
+    setTimerActive(false);
+  }, [trip._id, trip.estimatedTimeMinutes]);
+
+  useEffect(() => {
+    if (!timerActive) return undefined;
+
+    const interval = setInterval(() => {
+      setRemainingSeconds((seconds) => {
+        if (seconds <= 1) {
+          setTimerActive(false);
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerActive]);
+
+  const formatTimer = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remaining = seconds % 60;
+    return hours > 0
+      ? `${hours}:${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`
+      : `${minutes}:${String(remaining).padStart(2, '0')}`;
+  };
 
   // Voice-Activated Hands-Free Hook
   const {
@@ -228,11 +268,12 @@ export const OngoingJourneyMap = ({
         const coords = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
         };
         setCurrentPos(coords);
       },
       (err) => console.error('Live GPS tracking error:', err),
-      { enableHighAccuracy: true, maximumAge: 5000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -309,6 +350,7 @@ export const OngoingJourneyMap = ({
     }
   };
 
+<<<<<<< HEAD
   // Handle Dual-PIN Deactivation / False Alarm Cancellation
   const handleDuressDeactivate = async (isSilentDuress) => {
     if (isSilentDuress) {
@@ -336,6 +378,19 @@ export const OngoingJourneyMap = ({
         }
       }
     }
+=======
+  useEffect(() => {
+    if (remainingSeconds === 0 && !isEmergencyActive) {
+      handleTriggerPanicClick();
+    }
+  }, [remainingSeconds, isEmergencyActive]);
+
+  // Dual-PIN Silent Duress Deactivation: either PIN closes this screen the same way -
+  // only the backend knows whether the alarm was genuinely disarmed or silently escalated.
+  const handleDeactivateAlarm = async (pin) => {
+    await onDeactivateAlarm(pin);
+    setShowPanicModal(false);
+>>>>>>> origin/JAMSHED
   };
 
   // Toggle Hands-Free Mic Listening
@@ -446,11 +501,11 @@ export const OngoingJourneyMap = ({
             </button>
 
             <button
-              onClick={onComplete}
+              onClick={() => (isEmergencyActive ? setShowPanicModal(true) : onComplete())}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/20 active:scale-95 whitespace-nowrap"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Finish Journey Safely</span>
+              <span>{isEmergencyActive ? 'Deactivate Alarm to Finish' : 'Finish Journey Safely'}</span>
             </button>
           </div>
         </div>
@@ -620,6 +675,23 @@ export const OngoingJourneyMap = ({
                 <p className="font-extrabold text-slate-900 font-display text-sm flex items-center gap-1">
                   <Clock className="w-4 h-4 text-amber-500" /> {trip.estimatedTimeMinutes} Minutes
                 </p>
+                <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+                  <span className={`font-black font-mono text-base ${remainingSeconds === 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                    <Timer className="w-4 h-4 inline mr-1 text-rose-500" />
+                    {formatTimer(remainingSeconds)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (remainingSeconds === 0) setRemainingSeconds(estimatedDurationSeconds);
+                      setTimerActive((active) => !active);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-extrabold transition-colors cursor-pointer"
+                  >
+                    {remainingSeconds === 0 ? <RotateCcw className="w-3 h-3" /> : timerActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    {remainingSeconds === 0 ? 'Restart' : timerActive ? 'Pause' : 'Start Timer'}
+                  </button>
+                </div>
               </div>
 
               {trip.driverDescription && (
@@ -693,14 +765,29 @@ export const OngoingJourneyMap = ({
               ) : null}
             </div>
 
+<<<<<<< HEAD
             {/* Disarm / Deactivate with Dual-PIN */}
             <div className="flex items-center justify-between pt-4 border-t border-rose-900/60 gap-3 flex-wrap">
+=======
+            {/* PIN-Gated Alarm Deactivation */}
+            <div className="pt-3 border-t border-rose-900/60">
+              <AlarmDeactivationForm
+                onDeactivate={handleDeactivateAlarm}
+                loading={deactivating}
+                variant="dark"
+              />
+            </div>
+
+            {/* Minimize Window */}
+            <div className="text-center">
+>>>>>>> origin/JAMSHED
               <button
                 onClick={() => setShowPanicModal(false)}
                 className="text-xs text-slate-400 hover:text-white transition-all cursor-pointer font-extrabold font-display uppercase tracking-wider"
               >
                 Minimize Window
               </button>
+<<<<<<< HEAD
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -723,6 +810,8 @@ export const OngoingJourneyMap = ({
                   <span>End Journey Safely (PIN Required)</span>
                 </button>
               </div>
+=======
+>>>>>>> origin/JAMSHED
             </div>
           </div>
         </div>,

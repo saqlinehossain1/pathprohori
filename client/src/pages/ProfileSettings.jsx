@@ -22,6 +22,7 @@ import {
   UserPlus,
   ShieldAlert,
   AlertTriangle,
+  KeyRound,
 } from 'lucide-react';
 
 export const ProfileSettings = () => {
@@ -46,6 +47,13 @@ export const ProfileSettings = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+
+  // Dual-PIN Silent Duress Deactivation setup - kept isolated from the main
+  // `formData` object so avatar/guardian updates never resend partially-typed PINs.
+  const [pinData, setPinData] = useState({ normalPin: '', fakePin: '' });
+  const [savingPins, setSavingPins] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const [pinSuccess, setPinSuccess] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -171,6 +179,35 @@ export const ProfileSettings = () => {
       setStatusMessage('Emergency Guardian removed & saved.');
     } catch (err) {
       console.error('Failed to remove guardian:', err);
+    }
+  };
+
+  const handleSavePins = async (e) => {
+    e.preventDefault();
+    if (!/^\d{4}$/.test(pinData.normalPin) || !/^\d{4}$/.test(pinData.fakePin)) {
+      setPinError('Both PINs must be exactly 4 digits.');
+      return;
+    }
+    if (pinData.normalPin === pinData.fakePin) {
+      setPinError('The two PINs must be different.');
+      return;
+    }
+    try {
+      setSavingPins(true);
+      setPinError('');
+      setPinSuccess('');
+      const updatedUser = await authApi.updateProfile({
+        normalPin: pinData.normalPin,
+        fakePin: pinData.fakePin,
+      });
+      setUser((prev) => ({ ...prev, ...updatedUser }));
+      setPinData({ normalPin: '', fakePin: '' });
+      setPinSuccess('Alarm deactivation PINs saved securely.');
+    } catch (err) {
+      console.error('Failed to save deactivation PINs:', err);
+      setPinError(err.response?.data?.message || 'Failed to save PINs.');
+    } finally {
+      setSavingPins(false);
     }
   };
 
@@ -524,6 +561,58 @@ export const ProfileSettings = () => {
           </Button>
         </div>
       </form>
+
+      {/* Alarm Deactivation PINs (Dual-PIN Silent Duress Deactivation) */}
+      <Card className="space-y-4 shadow-card border-slate-200/80">
+        <h3 className="text-base font-extrabold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 font-display">
+          <KeyRound className="w-5 h-5 text-rose-600" />
+          Alarm Deactivation PINs
+        </h3>
+
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          Set two separate 4-digit PINs used to disarm an active emergency alarm. The Deactivation PIN turns
+          the alarm off normally. The Silent Alarm PIN looks identical on-screen but secretly escalates the
+          alert to maximum priority in the background — use it only if someone is forcing you to disarm the
+          alarm.
+        </p>
+
+        <form onSubmit={handleSavePins} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label={`Deactivation PIN ${user?.hasNormalPin ? '(configured)' : '(not set)'}`}
+              type="password"
+              inputMode="numeric"
+              maxLength="4"
+              placeholder="••••"
+              value={pinData.normalPin}
+              onChange={(e) =>
+                setPinData({ ...pinData, normalPin: e.target.value.replace(/\D/g, '') })
+              }
+              required
+            />
+            <Input
+              label={`Silent Alarm PIN ${user?.hasFakePin ? '(configured)' : '(not set)'}`}
+              type="password"
+              inputMode="numeric"
+              maxLength="4"
+              placeholder="••••"
+              value={pinData.fakePin}
+              onChange={(e) =>
+                setPinData({ ...pinData, fakePin: e.target.value.replace(/\D/g, '') })
+              }
+              required
+            />
+          </div>
+
+          {pinError && <p className="text-xs text-rose-600 font-semibold">{pinError}</p>}
+          {pinSuccess && <p className="text-xs text-emerald-600 font-semibold">{pinSuccess}</p>}
+
+          <Button type="submit" loading={savingPins} className="w-full py-3 text-xs font-extrabold">
+            <Save className="w-4 h-4 mr-2" />
+            Save Deactivation PINs
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 };

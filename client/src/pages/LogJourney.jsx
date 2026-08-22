@@ -32,9 +32,11 @@ export const LogJourney = () => {
     activeTrip,
     loading: loadingTrip,
     panicLoading,
+    deactivating,
     startTrip,
     triggerPanic,
     cancelPanic,
+    deactivateAlarm,
     completeTrip
   } = useTrip();
 
@@ -171,6 +173,8 @@ export const LogJourney = () => {
           onPanic={triggerPanic}
           onCancelPanic={cancelPanic}
           panicLoading={panicLoading}
+          onDeactivateAlarm={deactivateAlarm}
+          deactivating={deactivating}
         />
       ) : (
         /* Render Journey Log Form if no activeTrip */

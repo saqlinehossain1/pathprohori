@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import Modal from '../common/Modal';
+import AlarmDeactivationForm from '../trip/AlarmDeactivationForm';
 import { Activity, AlertTriangle, CheckCircle2, MapPin, Navigation } from 'lucide-react';
 
 export const ActiveTripBanner = ({
@@ -11,9 +13,19 @@ export const ActiveTripBanner = ({
   panicLoading,
   onPanic,
   onComplete,
+  onDeactivateAlarm,
+  deactivating,
 }) => {
   const navigate = useNavigate();
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   if (!activeTrip) return null;
+
+  const isEmergencyActive = activeTrip.status === 'EMERGENCY';
+
+  const handleDeactivateAlarm = async (pin) => {
+    await onDeactivateAlarm(pin);
+    setShowDeactivateModal(false);
+  };
 
   return (
     <Card className="border-rose-200 bg-gradient-to-br from-white via-rose-50/30 to-amber-50/20 shadow-lg relative overflow-hidden">
@@ -56,9 +68,14 @@ export const ActiveTripBanner = ({
             1-TAP PANIC
           </Button>
 
-          <Button variant="secondary" size="sm" onClick={onComplete} className="text-xs font-extrabold px-4 py-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => (isEmergencyActive ? setShowDeactivateModal(true) : onComplete())}
+            className="text-xs font-extrabold px-4 py-2"
+          >
             <CheckCircle2 className="w-4 h-4 mr-1 text-emerald-500" />
-            End Trip Safely
+            {isEmergencyActive ? 'Deactivate Alarm to Finish' : 'End Trip Safely'}
           </Button>
         </div>
       </div>
@@ -92,6 +109,15 @@ export const ActiveTripBanner = ({
           <span className="text-slate-900 font-black text-sm font-display">{activeTrip.estimatedTimeMinutes} Mins</span>
         </div>
       </div>
+
+      {/* PIN-Gated Alarm Deactivation */}
+      <Modal
+        isOpen={showDeactivateModal}
+        onClose={() => setShowDeactivateModal(false)}
+        title="Emergency Active"
+      >
+        <AlarmDeactivationForm onDeactivate={handleDeactivateAlarm} loading={deactivating} />
+      </Modal>
     </Card>
   );
 };
