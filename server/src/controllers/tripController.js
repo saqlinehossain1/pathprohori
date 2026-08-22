@@ -1,5 +1,6 @@
 import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
+import { User } from '../models/User.js';
 
 // @desc    Log a new journey (Commuter)
 // @route   POST /api/trips
@@ -135,6 +136,80 @@ export const triggerPanic = async (req, res, next) => {
     await trip.save();
 
     res.json({ message: 'CRITICAL EMERGENCY ALARM TRIGGERED', trip });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Deactivate an active emergency alarm using the normal or secret duress PIN
+// @route   POST /api/trips/:id/deactivate-alarm
+export const deactivateAlarm = async (req, res, next) => {
+  try {
+    const { pin, latitude, longitude } = req.body;
+
+    if (!pin || !/^\d{4}$/.test(String(pin))) {
+      return res.status(400).json({ message: 'A valid 4-digit PIN is required.' });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    if (String(trip.user) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to modify this journey' });
+    }
+
+    if (trip.status !== 'EMERGENCY') {
+      return res.status(400).json({ message: 'No active alarm to deactivate for this journey' });
+    }
+
+    // Explicitly select the hashed PINs (excluded by default via `select: false`)
+    const user = await User.findById(req.user._id).select('+normalPin +fakePin');
+
+    // Always evaluate both PINs (rather than short-circuiting) so the response
+    // timing and shape never hint at which PIN branch was taken.
+    const [isNormalMatch, isFakeMatch] = await Promise.all([
+      user.matchNormalPin(pin),
+      user.matchFakePin(pin),
+    ]);
+
+    if (!isNormalMatch && !isFakeMatch) {
+      return res.status(400).json({ message: 'Incorrect PIN. Please try again.' });
+    }
+
+    // Best-effort location snapshot at the moment of deactivation, logged for both
+    // branches so a silent escalation can't be inferred from whether a log was written.
+    let locationCoords;
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      locationCoords = { lat: latitude, lng: longitude };
+      await LocationLog.create({
+        trip: trip._id,
+        user: req.user._id,
+        location: { type: 'Point', coordinates: [longitude, latitude] },
+      });
+    }
+
+    if (isFakeMatch) {
+      // Silent duress: secretly upgrade the alarm to the highest priority instead
+      // of disarming it. The trip status intentionally falls out of the
+      // getActiveTrip() query so it disappears from the user's view entirely.
+      trip.status = 'DURESS';
+      trip.duressTriggeredAt = new Date();
+      if (locationCoords) trip.duressLastLocation = locationCoords;
+    } else {
+      // Genuine deactivation: alarm turns off, journey tracking continues normally.
+      trip.status = 'ACTIVE';
+    }
+
+    await trip.save();
+
+    // Identical response for both branches - never reveals which PIN matched.
+    return res.json({
+      success: true,
+      message: 'Alarm deactivated successfully.',
+      status: 'ACTIVE',
+    });
   } catch (error) {
     next(error);
   }

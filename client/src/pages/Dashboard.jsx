@@ -21,7 +21,9 @@ export const Dashboard = () => {
     signalLossAlert,
     loading: loadingTrip,
     panicLoading,
+    deactivating,
     triggerPanic,
+    deactivateAlarm,
     completeTrip,
   } = useTrip();
 
@@ -89,6 +91,8 @@ export const Dashboard = () => {
           panicLoading={panicLoading}
           onPanic={triggerPanic}
           onComplete={completeTrip}
+          onDeactivateAlarm={deactivateAlarm}
+          deactivating={deactivating}
         />
       )}
 

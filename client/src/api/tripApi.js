@@ -26,6 +26,11 @@ export const tripApi = {
     return data;
   },
 
+  deactivateAlarm: async (tripId, payload) => {
+    const { data } = await API.post(`/trips/${tripId}/deactivate-alarm`, payload);
+    return data;
+  },
+
   getTripHistory: async () => {
     const { data } = await API.get('/trips/history');
     return data;

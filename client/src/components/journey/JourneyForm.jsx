@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import Input from '../common/Input';
 import Button from '../common/Button';
+import Modal from '../common/Modal';
 import uploadApi from '../../api/uploadApi';
 import {
   Bus,
@@ -15,6 +18,41 @@ import {
   UploadCloud,
   CheckCircle2
 } from 'lucide-react';
+
+const createPickerSpotIcon = () => L.divIcon({
+  className: 'journey-picker-pin',
+  html: '<div style="background-color:#e11d48;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 4px 12px rgba(225,29,72,.5);display:flex;align-items:center;justify-content:center"><div style="width:9px;height:9px;background-color:white;border-radius:50%"></div></div>',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
+
+const MapPickerClickHandler = ({ onSelect }) => {
+  useMapEvents({
+    click(event) {
+      onSelect({ lat: event.latlng.lat, lng: event.latlng.lng });
+    },
+  });
+  return null;
+};
+
+const reverseGeocode = async (lat, lng) => {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en&zoom=16&addressdetails=1`
+    );
+    const data = await response.json();
+    const address = data?.address;
+    const street = [address?.house_number, address?.road].filter(Boolean).join(' ');
+    const area = address?.suburb || address?.quarter || address?.neighbourhood || address?.village || address?.town || address?.city_district || address?.road;
+    const city = address?.city || address?.town || address?.county || address?.state;
+    const locationParts = [street, area !== street ? area : null, city !== area ? city : null].filter(Boolean);
+    if (locationParts.length) return locationParts.join(', ');
+    return data?.display_name?.split(',').slice(0, 2).join(',').trim();
+  } catch (error) {
+    console.error('Reverse geocode failed:', error);
+    return null;
+  }
+};
 
 export const JourneyForm = ({
   formData,
@@ -39,9 +77,34 @@ export const JourneyForm = ({
 
   // GPS Locating State
   const [locatingGPS, setLocatingGPS] = useState(false);
+  const [mapPicker, setMapPicker] = useState(null);
+  const [pickerCoords, setPickerCoords] = useState(null);
 
   const startRef = useRef(null);
   const destRef = useRef(null);
+
+  const openMapPicker = (target) => {
+    const existingCoords = target === 'start' ? formData.startCoords : formData.destinationCoords;
+    setPickerCoords(existingCoords || { lat: 23.8103, lng: 90.4125 });
+    setMapPicker(target);
+  };
+
+  const confirmMapPicker = async () => {
+    if (!mapPicker || !pickerCoords) return;
+    const locationName = await reverseGeocode(pickerCoords.lat, pickerCoords.lng);
+    const fallbackName = `Selected location (${pickerCoords.lat.toFixed(4)}, ${pickerCoords.lng.toFixed(4)})`;
+    const isStart = mapPicker === 'start';
+    const fieldName = isStart ? 'startingLocation' : 'destination';
+    const coordsName = isStart ? 'startCoords' : 'destinationCoords';
+    setFormData((prev) => ({
+      ...prev,
+      [fieldName]: locationName || fallbackName,
+      [coordsName]: pickerCoords,
+    }));
+    if (isStart) setStartQuery(locationName || fallbackName);
+    else setDestQuery(locationName || fallbackName);
+    setMapPicker(null);
+  };
 
   // Vehicle Options
   const vehicleOptions = [
@@ -245,23 +308,36 @@ export const JourneyForm = ({
       {/* Starting Location with Interactive Map Search & GPS Button */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="relative space-y-1" ref={startRef}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col items-start gap-1">
             <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider font-display">
               Starting Location *
             </label>
-            <button
-              type="button"
-              onClick={handleUseGPSLocation}
-              disabled={locatingGPS}
-              className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
-            >
-              {locatingGPS ? (
-                <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
-              ) : (
-                <Locate className="w-3 h-3" />
-              )}
-              <span>GPS Current Location</span>
-            </button>
+            <div className="flex min-h-[36px] flex-col items-start gap-1">
+              <button
+                type="button"
+                onClick={handleUseGPSLocation}
+                disabled={locatingGPS}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                title="Use GPS current location"
+              >
+                {locatingGPS ? (
+                  <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
+                ) : (
+                  <Locate className="w-3 h-3" />
+                )}
+                <span className="hidden lg:inline whitespace-nowrap">GPS Current Location</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openMapPicker('start')}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                title="Select starting location on map"
+                aria-label="Select starting location on map"
+              >
+                <MapPin className="w-3 h-3" />
+                <span className="hidden lg:inline whitespace-nowrap">Select from map</span>
+              </button>
+            </div>
           </div>
 
           <div className="relative">
@@ -314,9 +390,21 @@ export const JourneyForm = ({
 
         {/* Destination Location with Interactive Map Search */}
         <div className="relative space-y-1" ref={destRef}>
-          <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider font-display">
-            Destination Address / Place *
-          </label>
+          <div className="flex flex-col items-start gap-1">
+            <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider font-display">
+              Ending Location *
+            </label>
+            <div className="flex min-h-[36px] items-start">
+              <button
+                type="button"
+                onClick={() => openMapPicker('destination')}
+                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+              >
+                <MapPin className="w-3 h-3" />
+                <span className="whitespace-nowrap">Select from map</span>
+              </button>
+            </div>
+          </div>
 
           <div className="relative">
             <MapPin className="w-4 h-4 text-rose-600 absolute left-3.5 top-3 z-10" />
@@ -367,10 +455,47 @@ export const JourneyForm = ({
         </div>
       </div>
 
+      <Modal
+        isOpen={Boolean(mapPicker)}
+        onClose={() => setMapPicker(null)}
+        title="Select from map"
+      >
+        {pickerCoords && (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 font-semibold">
+              Click anywhere on the map to place the journey pin.
+            </p>
+            <div className="h-72 w-full rounded-2xl overflow-hidden border border-slate-200">
+              <MapContainer
+                key={`${mapPicker}-${pickerCoords.lat}-${pickerCoords.lng}`}
+                center={[pickerCoords.lat, pickerCoords.lng]}
+                zoom={15}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                />
+                <MapPickerClickHandler onSelect={setPickerCoords} />
+                <Marker position={[pickerCoords.lat, pickerCoords.lng]} icon={createPickerSpotIcon()} />
+              </MapContainer>
+            </div>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center font-display">
+              Pin: [{pickerCoords.lat.toFixed(5)}, {pickerCoords.lng.toFixed(5)}]
+            </div>
+            <Button type="button" onClick={confirmMapPicker} className="w-full py-3.5 font-extrabold">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Use This Location
+            </Button>
+          </div>
+        )}
+      </Modal>
+
       {/* Number Plate & Color */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="Vehicle Number Plate (Optional)"
+          labelClassName="min-h-[32px]"
           name="numberPlate"
           placeholder="e.g. Dhaka Metro-GA-11-2233"
           value={formData.numberPlate || ''}
@@ -378,6 +503,7 @@ export const JourneyForm = ({
         />
         <Input
           label="Vehicle Color (Optional)"
+          labelClassName="min-h-[32px]"
           name="vehicleColor"
           placeholder="e.g. Green / Yellow / Black"
           value={formData.vehicleColor || ''}
@@ -389,6 +515,7 @@ export const JourneyForm = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="Est. Travel Time (Minutes) *"
+          labelClassName="min-h-[32px]"
           type="number"
           name="estimatedTimeMinutes"
           value={formData.estimatedTimeMinutes || 30}
@@ -399,6 +526,7 @@ export const JourneyForm = ({
         />
         <Input
           label="Driver Description / Notes (Optional)"
+          labelClassName="min-h-[32px]"
           name="driverDescription"
           placeholder="e.g. Driver wearing blue shirt & helmet"
           value={formData.driverDescription || ''}

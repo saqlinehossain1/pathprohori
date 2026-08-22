@@ -6,6 +6,8 @@ export const useTrip = () => {
   const { activeTrip, setActiveTrip, signalLossAlert } = useContext(SocketContext);
   const [loading, setLoading] = useState(true);
   const [panicLoading, setPanicLoading] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState('');
   const [error, setError] = useState(null);
 
   const fetchActiveTrip = useCallback(async () => {
@@ -54,6 +56,39 @@ export const useTrip = () => {
     }
   };
 
+  // Best-effort current position for the deactivation location snapshot -
+  // never blocks the PIN flow if location is unavailable or denied.
+  const getBestEffortCoords = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 3000, maximumAge: 10000 }
+      );
+    });
+
+  // Dual-PIN Silent Duress Deactivation: entering either the normal PIN or the
+  // secret fake PIN always resolves the same way here - the backend alone knows
+  // which branch actually ran, and the local trip state is simply reset to ACTIVE.
+  const deactivateAlarm = async (pin) => {
+    if (!activeTrip) return;
+    try {
+      setDeactivating(true);
+      setDeactivateError('');
+      const coords = await getBestEffortCoords();
+      const res = await tripApi.deactivateAlarm(activeTrip._id, { pin, ...coords });
+      setActiveTrip((prev) => (prev ? { ...prev, status: res.status || 'ACTIVE' } : prev));
+      return res;
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to deactivate alarm.';
+      setDeactivateError(message);
+      throw err;
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
   const completeTrip = async () => {
     if (!activeTrip) return;
     try {
@@ -70,9 +105,12 @@ export const useTrip = () => {
     signalLossAlert,
     loading,
     panicLoading,
+    deactivating,
+    deactivateError,
     error,
     startTrip,
     triggerPanic,
+    deactivateAlarm,
     completeTrip,
     refreshActiveTrip: fetchActiveTrip,
   };

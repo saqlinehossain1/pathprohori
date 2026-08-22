@@ -48,12 +48,19 @@ export const registerUser = async (req, res, next) => {
 // Helper to populate user and dynamically merge live guardian user profile data (latest name, phone, email, avatar)
 export const getUserWithLiveGuardians = async (userId) => {
   const user = await User.findById(userId)
-    .select('-password')
+    .select('-password +normalPin +fakePin')
     .populate('guardians.user', 'name email phone avatarUrl role gender');
 
   if (!user) return null;
 
   const userObj = user.toObject();
+
+  // Expose only whether each PIN is configured - never the PIN or its hash.
+  userObj.hasNormalPin = !!userObj.normalPin;
+  userObj.hasFakePin = !!userObj.fakePin;
+  delete userObj.normalPin;
+  delete userObj.fakePin;
+
   if (Array.isArray(userObj.guardians)) {
     userObj.guardians = userObj.guardians.map((g) => {
       if (g.user && typeof g.user === 'object') {
@@ -146,6 +153,26 @@ export const updateProfile = async (req, res, next) => {
       if (req.body.gender) user.gender = req.body.gender;
       user.emergencyPhrase = req.body.emergencyPhrase || user.emergencyPhrase;
       user.duressPin = req.body.duressPin || user.duressPin;
+
+      // Dual-PIN Silent Duress Deactivation: genuine + secret alarm PINs.
+      // Only touched when explicitly provided (non-empty) so unrelated profile
+      // updates (avatar, guardians, etc.) never accidentally clear a saved PIN.
+      if (req.body.normalPin) {
+        if (!/^\d{4}$/.test(req.body.normalPin)) {
+          return res.status(400).json({ message: 'Deactivation PIN must be exactly 4 digits.' });
+        }
+        user.normalPin = req.body.normalPin;
+      }
+      if (req.body.fakePin) {
+        if (!/^\d{4}$/.test(req.body.fakePin)) {
+          return res.status(400).json({ message: 'Silent Alarm PIN must be exactly 4 digits.' });
+        }
+        user.fakePin = req.body.fakePin;
+      }
+      if (req.body.normalPin && req.body.fakePin && req.body.normalPin === req.body.fakePin) {
+        return res.status(400).json({ message: 'Deactivation PIN and Silent Alarm PIN must be different.' });
+      }
+
       if (typeof req.body.avatarUrl === 'string') {
         user.avatarUrl = req.body.avatarUrl;
       }
