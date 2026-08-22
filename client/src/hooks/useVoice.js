@@ -17,6 +17,7 @@ export const useVoice = () => {
 
   const recognitionRef = useRef(null);
   const handsFreeRef = useRef(handsFreeActive);
+  const phraseMatchedRef = useRef(false);
 
   useEffect(() => {
     handsFreeRef.current = handsFreeActive;
@@ -50,6 +51,7 @@ export const useVoice = () => {
 
   const stopListening = useCallback(() => {
     setHandsFreeActive(false);
+    phraseMatchedRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -76,6 +78,7 @@ export const useVoice = () => {
 
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
+      phraseMatchedRef.current = false;
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
@@ -90,21 +93,28 @@ export const useVoice = () => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript;
         }
-        const text = currentTranscript.toLowerCase();
+        const text = currentTranscript.toLowerCase().trim();
         setTranscript(text);
 
-        const target = (user?.emergencyPhrase || emergencyPhraseInput || 'Lavender Moonlight').toLowerCase();
-        
-        // Match user's exact secret phrase or universal trigger keywords
+        const target = (user?.emergencyPhrase || emergencyPhraseInput || 'Lavender Moonlight')
+          .toLowerCase()
+          .trim();
+        const normalizedText = text.replace(/[^a-z0-9]+/g, ' ').trim();
+        const normalizedTarget = target.replace(/[^a-z0-9]+/g, ' ').trim();
+
         if (
-          (target && target.length > 2 && text.includes(target)) ||
-          text.includes('help me') ||
-          text.includes('emergency')
+          normalizedTarget.length > 2 &&
+          normalizedText.includes(normalizedTarget) &&
+          !phraseMatchedRef.current
         ) {
+          phraseMatchedRef.current = true;
           setKeywordMatched(true);
+          setHandsFreeActive(false);
           try {
             recognition.stop();
-          } catch (e) {}
+          } catch (e) {
+            // Recognition may already have ended after the phrase was heard.
+          }
           setIsListening(false);
         }
       };
@@ -118,8 +128,7 @@ export const useVoice = () => {
 
       recognition.onend = () => {
         setIsListening(false);
-        // If continuous hands-free mode is active and target not yet matched, auto-restart listener
-        if (handsFreeRef.current && !keywordMatched) {
+        if (handsFreeRef.current && !phraseMatchedRef.current) {
           setTimeout(() => {
             if (handsFreeRef.current) {
               try {
