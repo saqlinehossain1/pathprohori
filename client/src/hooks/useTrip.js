@@ -43,7 +43,12 @@ export const useTrip = () => {
     if (!activeTrip) return;
     try {
       setPanicLoading(true);
+<<<<<<< Updated upstream
       const res = await tripApi.triggerPanic(activeTrip._id);
+=======
+      const coords = await getBestEffortCoords();
+      const res = await tripApi.triggerPanic(activeTrip._id, isDuress, coords);
+>>>>>>> Stashed changes
       setActiveTrip(res.trip);
       return res.trip;
     } catch (err) {

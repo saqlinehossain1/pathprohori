@@ -246,9 +246,9 @@ export const Notifications = () => {
         <div className="space-y-4">
           {notifications.map((notif) => {
             const isUnread = !notif.read;
-            const lat = notif.location?.latitude;
-            const lng = notif.location?.longitude;
-            const hasCoords = typeof lat === 'number' && typeof lng === 'number';
+            const lat = notif.location?.latitude ?? notif.location?.lat ?? notif.latitude;
+            const lng = notif.location?.longitude ?? notif.location?.lng ?? notif.longitude;
+            const hasCoords = typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng);
             const mapUrl = hasCoords ? `https://www.google.com/maps?q=${lat},${lng}` : '#';
 
             return (

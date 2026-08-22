@@ -21,8 +21,28 @@ export const tripApi = {
     return data;
   },
 
+<<<<<<< Updated upstream
   triggerPanic: async (tripId) => {
     const { data } = await API.post(`/trips/${tripId}/trigger-panic`);
+=======
+  triggerPanic: async (tripId, isDuress = false, coords = {}) => {
+    const { data } = await API.post(`/trips/${tripId}/trigger-panic`, { isDuress, ...coords });
+    return data;
+  },
+
+  cancelPanic: async (tripId, pinCode = '') => {
+    const { data } = await API.put(`/trips/${tripId}/cancel-panic`, { pinCode });
+    return data;
+  },
+
+  deactivateAlarm: async (tripId, payload) => {
+    const { data } = await API.post(`/trips/${tripId}/deactivate-alarm`, payload);
+    return data;
+  },
+
+  getTripHistory: async () => {
+    const { data } = await API.get('/trips/history');
+>>>>>>> Stashed changes
     return data;
   },
 };

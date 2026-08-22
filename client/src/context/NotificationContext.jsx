@@ -85,6 +85,58 @@ export const NotificationProvider = ({ children }) => {
       );
     };
 
+<<<<<<< Updated upstream
+=======
+    const handleEmergencyAlertBroadcast = (data) => {
+      if (String(data.commuterId) === String(userId)) return;
+
+      const newNotif = {
+        id: data.emergencyId || data.tripId || `notif_${Date.now()}`,
+        emergencyId: data.emergencyId || data.tripId,
+        type: 'EMERGENCY',
+        title: '🚨 CRITICAL PANIC ALERT',
+        message: `${data.commuterName} activated CRITICAL PANIC mode in ${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}). Destination: ${data.destination || 'In Transit'}`,
+        user: {
+          id: data.commuterId,
+          name: data.commuterName,
+          phone: data.commuterPhone,
+          avatarUrl: data.avatarUrl,
+        },
+        location: {
+          latitude: data.location?.latitude ?? data.location?.lat ?? data.startCoords?.lat ?? 23.7808875,
+          longitude: data.location?.longitude ?? data.location?.lng ?? data.startCoords?.lng ?? 90.4068305,
+          address: data.location?.address || `${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}) -> Dest: ${data.destination || 'In Transit'}`,
+        },
+        timestamp: data.timestamp || new Date().toISOString(),
+        status: 'ACTIVE',
+        read: false,
+      };
+
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === newNotif.id)) return prev;
+        return [newNotif, ...prev];
+      });
+    };
+
+    const handleDuressEscalated = (data) => {
+      const escalatedIds = data.emergencyIds || [data.emergencyId];
+      setNotifications((prev) => prev.map((notification) => (
+        escalatedIds.some((id) => String(id) === String(notification.id) || String(id) === String(notification.emergencyId))
+          ? {
+              ...notification,
+              status: 'ACTIVE',
+              severity: 'CRITICAL',
+              alertType: 'SILENT_DURESS',
+              title: 'SILENT DURESS ALERT',
+              message: data.message || 'Silent duress PIN entered. Contact police immediately.',
+              location: data.location || notification.location,
+              read: false,
+            }
+          : notification
+      )));
+    };
+
+>>>>>>> Stashed changes
     socket.on('connect', handleConnect);
     socket.on('EMERGENCY_ALERT', handleEmergencyAlert);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
