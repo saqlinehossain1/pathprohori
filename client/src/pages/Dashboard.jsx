@@ -100,7 +100,6 @@ export const Dashboard = () => {
           </button>
         </div>
       </div>
-      </div>
 
       {/* Active Trip Tracking Status Banner (If Active) */}
       {activeTrip && (

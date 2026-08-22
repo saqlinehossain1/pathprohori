@@ -350,7 +350,6 @@ export const OngoingJourneyMap = ({
     }
   };
 
-<<<<<<< HEAD
   // Handle Dual-PIN Deactivation / False Alarm Cancellation
   const handleDuressDeactivate = async (isSilentDuress) => {
     if (isSilentDuress) {
@@ -378,7 +377,8 @@ export const OngoingJourneyMap = ({
         }
       }
     }
-=======
+  };
+
   useEffect(() => {
     if (remainingSeconds === 0 && !isEmergencyActive) {
       handleTriggerPanicClick();
@@ -388,9 +388,10 @@ export const OngoingJourneyMap = ({
   // Dual-PIN Silent Duress Deactivation: either PIN closes this screen the same way -
   // only the backend knows whether the alarm was genuinely disarmed or silently escalated.
   const handleDeactivateAlarm = async (pin) => {
-    await onDeactivateAlarm(pin);
+    if (typeof onDeactivateAlarm === 'function') {
+      await onDeactivateAlarm(pin);
+    }
     setShowPanicModal(false);
->>>>>>> origin/JAMSHED
   };
 
   // Toggle Hands-Free Mic Listening
@@ -765,29 +766,14 @@ export const OngoingJourneyMap = ({
               ) : null}
             </div>
 
-<<<<<<< HEAD
             {/* Disarm / Deactivate with Dual-PIN */}
             <div className="flex items-center justify-between pt-4 border-t border-rose-900/60 gap-3 flex-wrap">
-=======
-            {/* PIN-Gated Alarm Deactivation */}
-            <div className="pt-3 border-t border-rose-900/60">
-              <AlarmDeactivationForm
-                onDeactivate={handleDeactivateAlarm}
-                loading={deactivating}
-                variant="dark"
-              />
-            </div>
-
-            {/* Minimize Window */}
-            <div className="text-center">
->>>>>>> origin/JAMSHED
               <button
                 onClick={() => setShowPanicModal(false)}
                 className="text-xs text-slate-400 hover:text-white transition-all cursor-pointer font-extrabold font-display uppercase tracking-wider"
               >
                 Minimize Window
               </button>
-<<<<<<< HEAD
 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -810,8 +796,6 @@ export const OngoingJourneyMap = ({
                   <span>End Journey Safely (PIN Required)</span>
                 </button>
               </div>
-=======
->>>>>>> origin/JAMSHED
             </div>
           </div>
         </div>,
