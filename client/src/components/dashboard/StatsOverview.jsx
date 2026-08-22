@@ -7,7 +7,7 @@ export const StatsOverview = () => {
     {
       title: 'Community Verified Incidents',
       value: '24 Reports',
-      desc: 'Module 1 Crowdsourced Feed',
+      desc: 'Crowdsourced Feed',
       icon: ShieldCheck,
       badge: '+12% active verified',
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -25,7 +25,7 @@ export const StatsOverview = () => {
     {
       title: 'Privacy Purge Schedule',
       value: '48-hr Purge',
-      desc: 'Module 3 Automatic cleanup',
+      desc: 'Automatic cleanup',
       icon: Trash2,
       badge: 'Privacy Compliant',
       badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',

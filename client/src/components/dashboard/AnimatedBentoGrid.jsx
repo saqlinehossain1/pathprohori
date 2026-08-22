@@ -16,7 +16,7 @@ export const AnimatedBentoGrid = () => {
       Icon: ShieldAlert,
       name: 'Live Hyperlocal Danger Feed',
       description:
-        'Module 1 crowdsourced community danger warnings, heatmaps, and interactive Leaflet map pin reports.',
+        'Crowdsourced community danger warnings, heatmaps, and interactive Leaflet map pin reports.',
       href: '/live-danger-feed',
       cta: 'Explore Danger Feed',
       className: 'col-span-3 lg:col-span-2',
@@ -115,7 +115,7 @@ export const AnimatedBentoGrid = () => {
       Icon: Trash2,
       name: '48-Hour Automatic Privacy Purge',
       description:
-        'Module 3 privacy policy automatically deletes historical journey GPS breadcrumbs and raw logs after 48 hours.',
+        'Privacy policy automatically deletes historical journey GPS breadcrumbs and raw logs after 48 hours.',
       href: '/profile',
       cta: 'Privacy Settings',
       className: 'col-span-3 lg:col-span-2',
@@ -127,7 +127,7 @@ export const AnimatedBentoGrid = () => {
               Zero Permanent Storage
             </span>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-display">
-              Module 3 Auto-Purge Active
+              Auto-Purge Active
             </span>
           </div>
 
