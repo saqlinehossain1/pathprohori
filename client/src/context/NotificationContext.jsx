@@ -85,14 +85,45 @@ export const NotificationProvider = ({ children }) => {
       );
     };
 
+    const handleEmergencyAlertBroadcast = (data) => {
+      if (String(data.commuterId) === String(userId)) return;
+
+      const newNotif = {
+        id: data.tripId || `notif_${Date.now()}`,
+        emergencyId: data.tripId,
+        type: 'EMERGENCY',
+        title: '🚨 CRITICAL PANIC ALERT',
+        message: `${data.commuterName} activated CRITICAL PANIC mode in ${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}). Destination: ${data.destination || 'In Transit'}`,
+        user: {
+          id: data.commuterId,
+          name: data.commuterName,
+          phone: data.commuterPhone,
+        },
+        location: {
+          latitude: data.startCoords?.lat || 23.7808875,
+          longitude: data.startCoords?.lng || 90.4068305,
+          address: `${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}) -> Dest: ${data.destination || 'In Transit'}`,
+        },
+        timestamp: data.timestamp || new Date().toISOString(),
+        read: false,
+      };
+
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === newNotif.id)) return prev;
+        return [newNotif, ...prev];
+      });
+    };
+
     socket.on('connect', handleConnect);
     socket.on('EMERGENCY_ALERT', handleEmergencyAlert);
+    socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
 
     return () => {
       console.log('[NotificationContext] Cleaning up Socket.IO listeners');
       socket.off('connect', handleConnect);
       socket.off('EMERGENCY_ALERT', handleEmergencyAlert);
+      socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
       socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
     };
   }, [user?._id]);

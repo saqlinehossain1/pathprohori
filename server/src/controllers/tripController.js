@@ -1,6 +1,7 @@
 import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
 import { User } from '../models/User.js';
+import { Emergency } from '../models/Emergency.js';
 import { sendPushNotification } from '../services/pushService.js';
 import { sendEmergencySMS } from '../services/twilioService.js';
 
@@ -176,7 +177,19 @@ export const triggerPanic = async (req, res, next) => {
       }
     }
 
-    // 3. Emit Real-Time Socket.io Emergency Broadcast to all open Guardian browser tabs
+    // 3. Create Emergency Record in Database for Guardian Notification Panel
+    const emergencyRecord = await Emergency.create({
+      user: user._id,
+      location: {
+        latitude: (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875,
+        longitude: (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305,
+        address: `${trip.vehicleType} (${trip.numberPlate || 'CNG/Bus'}) -> Dest: ${trip.destination}`,
+      },
+      status: 'ACTIVE',
+      triggeredAt: new Date(),
+    });
+
+    // 4. Emit Real-Time Socket.io Emergency Broadcast & Alert to all open Guardian browser tabs
     const io = req.app.get('io');
     if (io) {
       io.emit('EMERGENCY_ALERT_BROADCAST', {
@@ -192,6 +205,25 @@ export const triggerPanic = async (req, res, next) => {
         destinationCoords: trip.destinationCoords,
         status: trip.status,
         timestamp: new Date(),
+      });
+
+      io.emit('EMERGENCY_ALERT', {
+        emergencyId: emergencyRecord._id,
+        type: 'EMERGENCY',
+        title: '🚨 CRITICAL PANIC ALERT',
+        message: `${commuterName} activated CRITICAL PANIC mode in ${trip.vehicleType} (${trip.numberPlate || ''}). Destination: ${trip.destination}`,
+        user: {
+          id: user._id,
+          name: commuterName,
+          email: user.email,
+          phone: user.phone,
+        },
+        location: {
+          latitude: (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875,
+          longitude: (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305,
+          address: `${trip.vehicleType} (${trip.numberPlate || 'CNG/Bus'}) -> Dest: ${trip.destination}`,
+        },
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -222,6 +254,20 @@ export const cancelPanic = async (req, res, next) => {
     // Revert trip status back to ACTIVE
     trip.status = 'ACTIVE';
     await trip.save();
+
+    // Mark active emergency records as RESOLVED in database
+    await Emergency.updateMany(
+      { user: req.user._id, status: 'ACTIVE' },
+      { $set: { status: 'RESOLVED', resolvedAt: new Date() } }
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('EMERGENCY_RESOLVED', {
+        userId: req.user._id,
+        message: `${user?.name || 'Commuter'} resolved false alarm safely.`,
+      });
+    }
 
     // Broadcast Web Push to linked Guardians letting them know false alarm was resolved
     const commuterName = user?.name || 'Commuter';

@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNotifications } from '../context/NotificationContext';
 import {
+  Siren,
   Bell,
   MapPin,
   ExternalLink,
@@ -9,6 +10,11 @@ import {
   CheckCheck,
   AlertTriangle,
   ShieldCheck,
+  PhoneCall,
+  Navigation,
+  Car,
+  Filter,
+  CheckCircle2
 } from 'lucide-react';
 
 const translateLocation = (str) => {
@@ -35,10 +41,10 @@ const translateLocation = (str) => {
 };
 
 const LocationName = ({ lat, lng, address }) => {
-  const [locationName, setLocationName] = React.useState(address || '');
-  const [loading, setLoading] = React.useState(!address);
+  const [locationName, setLocationName] = useState(address || '');
+  const [loading, setLoading] = useState(!address);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (address) {
       setLocationName(address);
       setLoading(false);
@@ -62,7 +68,6 @@ const LocationName = ({ lat, lng, address }) => {
 
     const fetchLocationName = async () => {
       try {
-        // Primary: BigDataCloud (fast, zero rate limits)
         try {
           const bdcRes = await fetchWithTimeout(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
@@ -87,7 +92,6 @@ const LocationName = ({ lat, lng, address }) => {
           }
         } catch (_) {}
 
-        // Secondary: Photon Komoot API with 2.5s timeout
         try {
           const res = await fetchWithTimeout(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`, 2500);
           if (res.ok) {
@@ -100,15 +104,8 @@ const LocationName = ({ lat, lng, address }) => {
               const district = translateLocation(prop.district);
               const city = translateLocation(prop.city) || 'Dhaka';
 
-              const rawParts = [
-                buildingOrPlace,
-                street,
-                locality,
-                district,
-                city
-              ].filter(Boolean);
+              const rawParts = [buildingOrPlace, street, locality, district, city].filter(Boolean);
 
-              // Tokenize by comma, trim whitespace, and perform case-insensitive deduplication
               const allTokens = rawParts
                 .flatMap((part) => part.split(','))
                 .map((t) => t.trim())
@@ -126,7 +123,6 @@ const LocationName = ({ lat, lng, address }) => {
               }
 
               const exactAddress = uniqueTokens.join(', ');
-
               if (exactAddress) {
                 setLocationName(exactAddress);
                 return;
@@ -135,7 +131,6 @@ const LocationName = ({ lat, lng, address }) => {
           }
         } catch (_) {}
       } catch (e) {
-        // Silent fallback
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -145,18 +140,18 @@ const LocationName = ({ lat, lng, address }) => {
     return () => {
       isMounted = false;
     };
-  }, [lat, lng]);
+  }, [lat, lng, address]);
 
   if (loading) {
-    return <span className="text-[#765C6A] font-medium animate-pulse">Detecting exact location name...</span>;
+    return <span className="text-slate-400 font-medium animate-pulse">Detecting GPS location name...</span>;
   }
 
   if (locationName) {
-    return <span className="text-[#2F2930] font-extrabold">{locationName}</span>;
+    return <span className="text-white font-extrabold font-display">{locationName}</span>;
   }
 
   return (
-    <span className="text-[#6B4355] font-bold">
+    <span className="text-rose-300 font-mono font-bold">
       {typeof lat === 'number' && typeof lng === 'number'
         ? `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`
         : 'Exact GPS Coordinates'}
@@ -164,25 +159,16 @@ const LocationName = ({ lat, lng, address }) => {
   );
 };
 
-
-
 export const Notifications = () => {
   const { notifications, unreadCount, markAsRead } = useNotifications();
+  const [activeFilter, setActiveFilter] = useState('ALL');
 
-  // Mark unread notifications as read when visiting this page
-  useEffect(() => {
-    if (notifications.length > 0) {
-      notifications.forEach((notif) => {
-        if (!notif.read) {
-          markAsRead(notif.id);
-        }
-      });
-    }
-  }, [notifications, markAsRead]);
-
-  const handleViewLocation = (e, notif) => {
-    markAsRead(notif.id);
-  };
+  // Filter logic
+  const filteredNotifications = notifications.filter((notif) => {
+    if (activeFilter === 'UNREAD') return !notif.read;
+    if (activeFilter === 'RESOLVED') return notif.read;
+    return true; // 'ALL'
+  });
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Just now';
@@ -190,138 +176,239 @@ export const Notifications = () => {
     return isNaN(date.getTime())
       ? dateString
       : date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-10">
-      {/* Header Banner */}
-      <div className="bg-white border border-[#E5D8DF] rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#FDF7F9] flex items-center justify-center text-[#6B4355] shadow-inner shrink-0">
-            <Bell className="w-6 h-6" />
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Header Banner - High Tech Platform Theme */}
+      <div className="bg-gradient-to-r from-slate-900 via-rose-950/90 to-slate-900 border-2 border-rose-500/40 rounded-3xl p-6 shadow-[0_0_50px_rgba(225,29,72,0.25)] text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
+        {/* Ambient Top Light */}
+        <div className="absolute -top-20 -right-20 w-80 h-80 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center gap-4 z-10">
+          <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center border-2 border-rose-400 shadow-lg animate-pulse shrink-0">
+            <Siren className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-[#2F2930] tracking-tight">
-              Emergency Notifications
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-rose-500/25 text-rose-200 rounded-full text-[10px] font-black uppercase tracking-widest border border-rose-400/30 font-display mb-1">
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+              <span>Real-Time Guardian Alert Feed</span>
+            </div>
+            <h1 className="text-2xl font-black text-white font-display tracking-tight">
+              Emergency SOS Notifications
             </h1>
-            <p className="text-xs text-[#765C6A] font-medium mt-0.5">
-              Real-time emergency signals & safety alerts from commuters
+            <p className="text-xs text-rose-200/80 font-medium mt-0.5">
+              Live distress signals, GPS coordinates, and vehicle details transmitted by commuters
             </p>
           </div>
         </div>
 
-        {notifications.length > 0 && unreadCount > 0 && (
-          <button
-            onClick={() => markAsRead()}
-            className="flex items-center gap-2 px-4 py-2 bg-[#FDF7F9] hover:bg-[#F3E8EE] text-[#6B4355] border border-[#E5D8DF] rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95"
-          >
-            <CheckCheck className="w-4 h-4 text-[#6B4355]" />
-            <span>Mark All as Read</span>
-          </button>
-        )}
+        {/* Filter & Action Buttons */}
+        <div className="flex items-center gap-3 z-10 flex-wrap shrink-0">
+          {notifications.length > 0 && unreadCount > 0 && (
+            <button
+              onClick={() => markAsRead()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/40 rounded-xl text-xs font-black transition-all shrink-0 active:scale-95 font-display cursor-pointer"
+            >
+              <CheckCheck className="w-4 h-4 text-rose-300" />
+              <span>Mark All as Read</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Notifications List or Empty State */}
-      {notifications.length === 0 ? (
-        <div className="bg-white border border-[#E5D8DF] rounded-3xl p-12 text-center shadow-sm space-y-4">
-          <div className="w-16 h-16 rounded-full bg-[#FDF7F9] border border-[#E5D8DF] mx-auto flex items-center justify-center text-[#6B4355]">
-            <ShieldCheck className="w-8 h-8" />
+      {/* Filter Tabs Header */}
+      {notifications.length > 0 && (
+        <div className="flex items-center justify-between gap-3 p-1.5 bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800 text-xs font-display">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <button
+              onClick={() => setActiveFilter('ALL')}
+              className={`px-4 py-2 rounded-xl font-black transition-all cursor-pointer ${
+                activeFilter === 'ALL'
+                  ? 'bg-rose-600 text-white shadow-md'
+                  : 'text-slate-400 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              All Alerts ({notifications.length})
+            </button>
+
+            <button
+              onClick={() => setActiveFilter('UNREAD')}
+              className={`px-4 py-2 rounded-xl font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeFilter === 'UNREAD'
+                  ? 'bg-rose-600 text-white shadow-md'
+                  : 'text-slate-400 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+              <span>Active Distress ({unreadCount})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveFilter('RESOLVED')}
+              className={`px-4 py-2 rounded-xl font-black transition-all cursor-pointer ${
+                activeFilter === 'RESOLVED'
+                  ? 'bg-rose-600 text-white shadow-md'
+                  : 'text-slate-400 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              Resolved ({notifications.length - unreadCount})
+            </button>
           </div>
-          <div className="space-y-1 max-w-sm mx-auto">
-            <h2 className="text-base font-extrabold text-[#2F2930]">
-              No Emergency Notifications
+        </div>
+      )}
+
+      {/* Notifications List or Empty State */}
+      {filteredNotifications.length === 0 ? (
+        <div className="bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 rounded-3xl p-12 text-center text-white space-y-4 shadow-2xl relative overflow-hidden">
+          <div className="w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 mx-auto flex items-center justify-center text-emerald-400 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
+            <ShieldCheck className="w-10 h-10 animate-pulse" />
+          </div>
+
+          <div className="space-y-1.5 max-w-md mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-black uppercase tracking-wider border border-emerald-500/30 font-display mb-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>Commuter Network Protected</span>
+            </div>
+
+            <h2 className="text-xl font-black text-white font-display">
+              All Monitored Commuters Are Safe
             </h2>
-            <p className="text-xs text-[#765C6A]">
-              You have no active emergency alerts. All monitored commuters are currently safe.
+
+            <p className="text-xs text-slate-400 leading-relaxed font-medium">
+              No active emergency SOS signals recorded. When a commuter activates 1-Tap Panic or hands-free voice SOS, real-time telemetry and GPS locations will appear here instantly.
             </p>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
-          {notifications.map((notif) => {
+          {filteredNotifications.map((notif) => {
             const isUnread = !notif.read;
             const lat = notif.location?.latitude;
             const lng = notif.location?.longitude;
             const hasCoords = typeof lat === 'number' && typeof lng === 'number';
             const mapUrl = hasCoords ? `https://www.google.com/maps?q=${lat},${lng}` : '#';
 
+            const commuterName = notif.user?.name || 'Commuter';
+            const commuterPhone = notif.user?.phone || '';
+
             return (
               <div
                 key={notif.id}
                 onClick={() => markAsRead(notif.id)}
-                className={`p-6 rounded-3xl border transition-all relative overflow-hidden ${isUnread
-                  ? 'bg-[#FDF7F9] border-[#6B4355] shadow-md'
-                  : 'bg-white border-[#E5D8DF] shadow-sm hover:border-[#D5C8D0]'
-                  }`}
+                className={`p-6 rounded-3xl border transition-all relative overflow-hidden ${
+                  isUnread
+                    ? 'bg-gradient-to-br from-slate-900 via-rose-950/80 to-slate-950 border-2 border-rose-500/60 shadow-[0_0_40px_rgba(225,29,72,0.25)] text-white'
+                    : 'bg-slate-900/90 border border-slate-800 text-slate-300 shadow-md'
+                }`}
               >
-                {/* Visual Unread Accent Strip */}
+                {/* Visual Unread Accent Bar */}
                 {isUnread && (
-                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[#6B4355] rounded-l-3xl" />
+                  <div className="absolute top-0 left-0 bottom-0 w-2 bg-gradient-to-b from-rose-500 to-rose-700 rounded-l-3xl animate-pulse" />
                 )}
 
                 <div className="space-y-4">
                   {/* Top Header Row */}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#6B4355] text-white rounded-full text-xs font-black tracking-wide shadow-sm">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Emergency Alert
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wide font-display ${
+                          isUnread
+                            ? 'bg-rose-600 text-white shadow-md border border-rose-400/40 animate-pulse'
+                            : 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                        }`}
+                      >
+                        {isUnread ? <Siren className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                        <span>{isUnread ? '🚨 CRITICAL DISTRESS' : '🟢 RESOLVED / SAFE'}</span>
                       </span>
+
                       {isUnread && (
-                        <span className="px-2 py-0.5 bg-[#FDF7F9] text-[#633E4E] text-[10px] font-black rounded-full uppercase tracking-wider border border-[#E5D8DF]">
-                          New
+                        <span className="px-2.5 py-0.5 bg-rose-500/20 text-rose-300 text-[10px] font-black rounded-full uppercase tracking-wider border border-rose-500/40 font-display">
+                          LIVE UNREAD
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs text-[#765C6A] font-medium">
-                      <Clock className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono font-medium">
+                      <Clock className="w-3.5 h-3.5 text-rose-400" />
                       <span>{formatDate(notif.timestamp)}</span>
                     </div>
                   </div>
 
                   {/* Commuter Information & Message */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-black text-[#2F2930]">
-                      <User className="w-4 h-4 text-[#6B4355]" />
-                      <span>{notif.user?.name || 'Unknown Commuter'}</span>
-                    </div>
-
-                    <p className="text-xs text-[#4C3A45] font-semibold leading-relaxed bg-white/70 p-3 rounded-2xl border border-[#E5D8DF]/30">
-                      {notif.message || 'Emergency trigger initiated by commuter.'}
-                    </p>
-                  </div>
-
-                  {/* Location Details & Map Action */}
-                  <div className="pt-2 border-t border-[#E5D8DF]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs font-bold text-[#6B4355]">
-                      <MapPin className="w-4 h-4 shrink-0 text-[#6B4355]" />
-                      {hasCoords ? (
-                        <LocationName lat={lat} lng={lng} address={notif.location?.address} />
-                      ) : (
-                        <span className="text-[#765C6A]">Location coordinates not available</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-rose-500/30 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase text-slate-400 font-display">
+                        Commuter Contact
+                      </span>
+                      <p className="font-extrabold text-white text-sm font-display flex items-center gap-2">
+                        <User className="w-4 h-4 text-rose-400" />
+                        <span>{commuterName}</span>
+                      </p>
+                      {commuterPhone && (
+                        <p className="text-slate-300 font-mono font-medium">Phone: {commuterPhone}</p>
                       )}
                     </div>
 
-                    {hasCoords && (
+                    <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-rose-500/30 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase text-slate-400 font-display">
+                        SOS Signal Message
+                      </span>
+                      <p className="text-rose-200 font-semibold leading-relaxed">
+                        {notif.message || '1-Tap Panic activated by commuter.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Location Details & Interactive Actions */}
+                  <div className="pt-3 border-t border-rose-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                      <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
+                      {hasCoords ? (
+                        <LocationName lat={lat} lng={lng} address={notif.location?.address} />
+                      ) : (
+                        <span className="text-slate-400">GPS location telemetry not available</span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2.5 flex-wrap shrink-0">
                       <a
-                        href={mapUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => handleViewLocation(e, notif)}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#6B4355] hover:bg-[#633E4E] text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+                        href="tel:999"
+                        className="py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 uppercase font-display tracking-wide"
                       >
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>View Location</span>
-                        <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
+                        <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
+                        <span>Call 999</span>
                       </a>
-                    )}
+
+                      {commuterPhone && (
+                        <a
+                          href={`tel:${commuterPhone}`}
+                          className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 font-display tracking-wide"
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                          <span>Call Commuter</span>
+                        </a>
+                      )}
+
+                      {hasCoords && (
+                        <a
+                          href={mapUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 font-display"
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-blue-200" />
+                          <span>View Google Map</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
