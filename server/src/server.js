@@ -26,6 +26,10 @@ const io = new Server(server, {
   },
 });
 
+// Make the Socket.io instance reachable from controllers (req.app.get('io')) so the
+// shared emergency-escalation pathway can broadcast without a circular import.
+app.set('io', io);
+
 // Middlewares with larger payload limit for base64 Cloudinary image uploads
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -8,6 +8,8 @@ import Badge from '../common/Badge';
 import AlarmDeactivationForm from '../trip/AlarmDeactivationForm';
 import { AuthContext } from '../../context/AuthContext';
 import { useVoice } from '../../hooks/useVoice';
+import { useBatteryEmergency } from '../../hooks/useBatteryEmergency';
+import { enqueueLocationPoint } from '../../utils/offlineLocationQueueDb';
 import {
   Activity,
   AlertTriangle,
@@ -121,6 +123,9 @@ export const OngoingJourneyMap = ({
 }) => {
   const { user } = useContext(AuthContext);
   const [currentPos, setCurrentPos] = useState(null);
+  const currentPosRef = useRef(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const isOfflineRef = useRef(isOffline);
   const [pingSending, setPingSending] = useState(false);
   const [roadRoutePoints, setRoadRoutePoints] = useState([]);
   const estimatedDurationSeconds = Math.max(1, Number(trip.estimatedTimeMinutes) || 30) * 60;
@@ -221,7 +226,9 @@ export const OngoingJourneyMap = ({
     fetchRoadRoute();
   }, [defaultStart.lat, defaultStart.lng, defaultDest.lat, defaultDest.lng]);
 
-  // Watch Live GPS Location
+  // Watch Live GPS Location - the single geolocation watcher for this trip. Both the
+  // Dead-Battery Emergency Blast and the Offline Queue read from currentPos/currentPosRef
+  // instead of opening their own navigator.geolocation.watchPosition().
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -233,6 +240,7 @@ export const OngoingJourneyMap = ({
           accuracy: pos.coords.accuracy,
         };
         setCurrentPos(coords);
+        currentPosRef.current = coords;
       },
       (err) => console.error('Live GPS tracking error:', err),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
@@ -240,6 +248,33 @@ export const OngoingJourneyMap = ({
 
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  // Dead-Battery Final Emergency Blast - monitors navigator.getBattery() while this
+  // trip is active and reuses currentPosRef above for the emergency payload's coordinates.
+  useBatteryEmergency(trip, currentPosRef, user);
+
+  // Offline Memory Storage Queue - navigator.onLine can be unreliable on flaky networks,
+  // so the 'offline' event and a failed heartbeat call (below) are treated as the
+  // authoritative signal that connectivity is actually lost, not the onLine flag alone.
+  useEffect(() => {
+    const handleOffline = () => {
+      console.warn(`[Offline Queue] Network OFFLINE event detected for trip ${trip._id} - queuing GPS points locally.`);
+      isOfflineRef.current = true;
+      setIsOffline(true);
+    };
+    const handleOnline = () => {
+      console.log(`[Offline Queue] Network ONLINE event detected for trip ${trip._id} - queued points will now be flushed.`);
+      isOfflineRef.current = false;
+      setIsOffline(false);
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [trip._id]);
 
   // Send Manual Heartbeat Ping
   const handleSendPing = async () => {
@@ -289,17 +324,43 @@ export const OngoingJourneyMap = ({
     }
   };
 
-  // AUTOMATIC Heartbeat Ping Interval (Every 30 Seconds)
+  // AUTOMATIC Heartbeat Ping Interval (Every 30 Seconds) - also the cadence the
+  // Offline Queue captures points at while connectivity is down, so it reuses this
+  // same interval/GPS reading instead of a separate loop.
   useEffect(() => {
     if (!trip || !trip._id) return;
 
-    const interval = setInterval(() => {
-      const payload = currentPos
-        ? { latitude: currentPos.lat, longitude: currentPos.lng }
-        : {};
-      tripApi.sendHeartbeat(trip._id, payload).catch((err) => {
+    const interval = setInterval(async () => {
+      const coords = currentPos;
+      const timestamp = new Date().toISOString();
+
+      if (isOfflineRef.current) {
+        if (coords) {
+          await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id });
+          console.log(
+            `[Offline Queue] Captured GPS point while offline for trip ${trip._id}: ` +
+            `(${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})`
+          );
+        } else {
+          console.log('[Offline Queue] Offline with no GPS fix yet - nothing to queue this tick.');
+        }
+        return;
+      }
+
+      const payload = coords ? { latitude: coords.lat, longitude: coords.lng } : {};
+      try {
+        await tripApi.sendHeartbeat(trip._id, payload);
+      } catch (err) {
         console.error('Auto heartbeat ping error:', err);
-      });
+        // A failed call while onLine still reads true (flaky network / captive portal)
+        // is treated as the authoritative offline signal, same as the 'offline' event.
+        console.warn(`[Offline Queue] Heartbeat request failed for trip ${trip._id} - treating as offline.`);
+        isOfflineRef.current = true;
+        setIsOffline(true);
+        if (coords) {
+          await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id });
+        }
+      }
     }, 30000);
 
     return () => clearInterval(interval);
@@ -345,11 +406,18 @@ export const OngoingJourneyMap = ({
                 <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-600 animate-pulse' : 'bg-rose-500'} text-white border-0 text-[10px] uppercase font-extrabold px-2.5`}>
                   {trip.status}
                 </Badge>
+                {isOffline && (
+                  <Badge variant="highAlert" className="bg-amber-500 text-white border-0 text-[10px] uppercase font-extrabold px-2.5 animate-pulse">
+                    Offline • Queuing Locally
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-slate-300 font-medium mt-0.5 truncate">
                 {isEmergencyActive
                   ? 'Emergency Guardians & Safety Operators notified live. Call emergency hotline immediately.'
-                  : 'Heartbeat ping monitor active • Auto 30s connection sync enabled'}
+                  : isOffline
+                    ? 'Connection lost - GPS points are being saved locally and will auto-sync once back online.'
+                    : 'Heartbeat ping monitor active • Auto 30s connection sync enabled'}
               </p>
             </div>
           </div>

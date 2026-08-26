@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { SocketContext } from '../context/SocketContext';
 import tripApi from '../api/tripApi';
+import { clearBatteryAlertFlag } from '../utils/batteryAlertStorage';
 
 export const useTrip = () => {
   const { activeTrip, setActiveTrip, signalLossAlert } = useContext(SocketContext);
@@ -31,6 +32,13 @@ export const useTrip = () => {
     try {
       setLoading(true);
       const newTrip = await tripApi.createTrip(tripForm);
+      // Dead-Battery Final Emergency Blast: a new trip starting is one of the two
+      // conditions (the other being charging back above 15%) that resets the
+      // one-time low-battery alert flag - clear whatever the previous trip left behind.
+      if (activeTrip?._id) {
+        clearBatteryAlertFlag(activeTrip._id);
+        console.log(`[Battery Emergency] New trip started (${newTrip._id}) - low-battery alert flag reset.`);
+      }
       setActiveTrip(newTrip);
       return newTrip;
     } catch (err) {

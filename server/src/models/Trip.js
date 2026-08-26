@@ -76,6 +76,22 @@ const tripSchema = new mongoose.Schema(
       lat: { type: Number },
       lng: { type: Number },
     },
+    // Which pathway escalated this trip to EMERGENCY (1-tap panic button vs. the
+    // dead-battery final blast). Lets guardian notifications explain why the alert fired.
+    emergencySource: {
+      type: String,
+      enum: ['PANIC', 'BATTERY_CRITICAL'],
+    },
+    batteryCriticalTriggeredAt: {
+      type: Date,
+    },
+    batteryLevelAtTrigger: {
+      type: Number,
+    },
+    batteryCriticalLastLocation: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
     safeTripPurged: {
       type: Boolean,
       default: false,

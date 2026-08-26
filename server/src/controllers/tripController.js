@@ -2,6 +2,65 @@ import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
 import { User } from '../models/User.js';
 
+// Shared guardian-escalation pathway for anything that raises a trip to EMERGENCY
+// priority - the 1-tap panic button and the dead-battery final blast both funnel
+// through here so there is exactly one place that flips trip status, logs the
+// location, and broadcasts the Socket.io alert to guardians/operators.
+const escalateToEmergency = async (trip, { source, io, batteryLevel, coords } = {}) => {
+  trip.status = 'EMERGENCY';
+  trip.emergencySource = source;
+
+  if (source === 'BATTERY_CRITICAL') {
+    trip.batteryCriticalTriggeredAt = new Date();
+    if (typeof batteryLevel === 'number') trip.batteryLevelAtTrigger = batteryLevel;
+    if (coords) trip.batteryCriticalLastLocation = coords;
+  }
+
+  await trip.save();
+
+  if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+    await LocationLog.create({
+      trip: trip._id,
+      user: trip.user,
+      location: { type: 'Point', coordinates: [coords.lng, coords.lat] },
+      batteryLevel: typeof batteryLevel === 'number' ? Math.round(batteryLevel * 100) : undefined,
+    });
+  }
+
+  if (io) {
+    const populatedUser = await User.findById(trip.user)
+      .select('name email phone guardians')
+      .populate('guardians.user', 'name email phone avatarUrl');
+
+    const guardians = Array.isArray(populatedUser?.guardians)
+      ? populatedUser.guardians.map((g) => ({
+          name: g.user?.name || g.name,
+          phone: g.user?.phone || g.phone,
+          email: g.user?.email || g.email,
+          relationship: g.relationship || 'Guardian',
+        }))
+      : [];
+
+    io.emit('EMERGENCY_ALERT', {
+      tripId: trip._id,
+      userId: trip.user,
+      userName: populatedUser?.name,
+      userPhone: populatedUser?.phone,
+      guardians,
+      source,
+      priority: 'CRITICAL',
+      lastLocation: coords,
+      batteryLevel,
+      alertTime: new Date(),
+    });
+
+    console.log(
+      `[Emergency Escalation] Trip ${trip._id} escalated via ${source}. ` +
+      'Socket.io EMERGENCY_ALERT broadcast to guardians/operators.'
+    );
+  }
+};
+
 // @desc    Log a new journey (Commuter)
 // @route   POST /api/trips
 export const createTrip = async (req, res, next) => {
@@ -132,10 +191,50 @@ export const triggerPanic = async (req, res, next) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    trip.status = 'EMERGENCY';
-    await trip.save();
+    await escalateToEmergency(trip, { source: 'PANIC', io: req.app.get('io') });
 
     res.json({ message: 'CRITICAL EMERGENCY ALARM TRIGGERED', trip });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Dead-Battery Final Emergency Blast - fired once by the client via
+//          navigator.sendBeacon() the moment battery.level drops to <= 5%. Reuses the
+//          same EMERGENCY escalation pathway as the panic button (see escalateToEmergency).
+// @route   POST /api/trips/:id/battery-emergency
+export const handleBatteryCriticalEmergency = async (req, res, next) => {
+  try {
+    const { latitude, longitude, batteryLevel } = req.body;
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    if (String(trip.user) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to modify this journey' });
+    }
+
+    const coords =
+      typeof latitude === 'number' && typeof longitude === 'number'
+        ? { lat: latitude, lng: longitude }
+        : undefined;
+
+    await escalateToEmergency(trip, {
+      source: 'BATTERY_CRITICAL',
+      io: req.app.get('io'),
+      batteryLevel,
+      coords,
+    });
+
+    console.log(
+      `[Battery Emergency] Trip ${trip._id}: critical battery ` +
+      `(${typeof batteryLevel === 'number' ? Math.round(batteryLevel * 100) : '?'}%) beacon received ` +
+      `at ${coords ? `${coords.lat}, ${coords.lng}` : 'unknown location'}.`
+    );
+
+    res.status(201).json({ success: true, status: 'EMERGENCY' });
   } catch (error) {
     next(error);
   }
@@ -210,6 +309,57 @@ export const deactivateAlarm = async (req, res, next) => {
       message: 'Alarm deactivated successfully.',
       status: 'ACTIVE',
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Offline Memory Storage Queue - bulk-ingest GPS points captured locally in
+//          IndexedDB while the device was offline, flushed as one batch the moment
+//          connectivity returns. Original client-side timestamps are preserved rather
+//          than using the upload time, so the path history stays chronologically correct.
+// @route   POST /api/trips/:id/coordinates/batch
+export const addCoordinateBatch = async (req, res, next) => {
+  try {
+    const { points } = req.body;
+
+    if (!Array.isArray(points) || points.length === 0) {
+      return res.status(400).json({ message: 'A non-empty points array is required.' });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    if (String(trip.user) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to modify this journey' });
+    }
+
+    const docs = points
+      .filter((p) => typeof p?.lat === 'number' && typeof p?.lng === 'number')
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map((p) => ({
+        trip: trip._id,
+        user: req.user._id,
+        location: { type: 'Point', coordinates: [p.lng, p.lat] },
+        recordedAt: p.timestamp ? new Date(p.timestamp) : new Date(),
+        isSafeTripCompleted: trip.status === 'COMPLETED',
+        expiresAt: trip.expiresAt || undefined,
+      }));
+
+    if (docs.length === 0) {
+      return res.status(400).json({ message: 'No valid coordinate points supplied.' });
+    }
+
+    await LocationLog.insertMany(docs, { ordered: true });
+
+    console.log(
+      `[Offline Queue] Flushed ${docs.length} queued coordinate point(s) into trip ${trip._id} ` +
+      '(chronological order preserved via original client timestamps).'
+    );
+
+    res.status(201).json({ success: true, inserted: docs.length });
   } catch (error) {
     next(error);
   }
