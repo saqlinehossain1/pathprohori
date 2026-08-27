@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
 import { User } from '../models/User.js';
@@ -82,6 +83,9 @@ export const createTrip = async (req, res, next) => {
       photoUrl,
     } = req.body;
 
+    const trackingToken = crypto.randomBytes(20).toString('hex');
+    const trackingExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4-hour self-destruct window
+
     const trip = await Trip.create({
       user: req.user._id,
       vehicleType,
@@ -97,6 +101,9 @@ export const createTrip = async (req, res, next) => {
       photoUrl,
       status: 'ACTIVE',
       lastHeartbeatAt: new Date(),
+      trackingToken,
+      trackingExpiresAt,
+      trackingActive: true,
     });
 
     res.status(201).json(trip);
@@ -139,14 +146,24 @@ export const sendHeartbeat = async (req, res, next) => {
     if (req.body.latitude && req.body.longitude) {
       await LocationLog.create({
         trip: trip._id,
-        user: req.user._id,
+        user: trip.user,
         location: {
           type: 'Point',
           coordinates: [req.body.longitude, req.body.latitude],
         },
-        batteryLevel: req.body.batteryLevel || 100,
-        expiresAt: trip.expiresAt || undefined,
+        batteryLevel: req.body.batteryLevel,
       });
+
+      // Real-time broadcast to public guardian tracking room
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`track_${trip._id}`).emit('TRACKING_LOCATION_UPDATE', {
+          coords: { lat: req.body.latitude, lng: req.body.longitude },
+          batteryLevel: req.body.batteryLevel,
+          status: trip.status,
+          updatedAt: new Date(),
+        });
+      }
     }
 
     res.json({ success: true, lastHeartbeatAt: trip.lastHeartbeatAt, status: trip.status });
@@ -171,6 +188,7 @@ export const completeTrip = async (req, res, next) => {
     trip.status = 'COMPLETED';
     trip.completedAt = now;
     trip.expiresAt = expiresAt;
+    trip.trackingActive = false;
     await trip.save();
 
     // Mark location logs as completed safe trip and apply 48-hour expiration TTL
@@ -185,12 +203,19 @@ export const completeTrip = async (req, res, next) => {
       { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: now } }
     );
     const io = req.app.get('io');
-    if (io && resolvedEmergencies.length > 0) {
-      io.emit('EMERGENCY_RESOLVED', {
-        emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
-        userId: req.user._id,
-        resolvedAt: now,
-        message: `${req.user.name} completed the journey safely.`,
+    if (io) {
+      if (resolvedEmergencies.length > 0) {
+        io.emit('EMERGENCY_RESOLVED', {
+          emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
+          userId: req.user._id,
+          resolvedAt: now,
+          message: `${req.user.name} completed the journey safely.`,
+        });
+      }
+      // Broadcast tracking expiration to any active guardian map sessions
+      io.to(`track_${trip._id}`).emit('TRACKING_EXPIRED', {
+        reason: 'TRIP_COMPLETED',
+        message: 'The journey has ended safely.',
       });
     }
 
@@ -212,16 +237,27 @@ export const triggerPanic = async (req, res, next) => {
 
     await escalateToEmergency(trip, { source: 'PANIC', io: req.app.get('io'), isDuress });
 
+    // Ensure trip has an active 4-hour tracking token
+    if (!trip.trackingToken) {
+      trip.trackingToken = crypto.randomBytes(20).toString('hex');
+    }
+    trip.trackingExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4h from panic trigger
+    trip.trackingActive = true;
+    await trip.save();
+
     // Fetch user and linked guardians for Web Push & Twilio SMS broadcast
     const user = await User.findById(trip.user).populate('guardians.user');
     const commuterName = user?.name || 'Commuter';
     const vehicleInfo = `${trip.vehicleType || 'Vehicle'} (${trip.numberPlate || 'No Plate'})`;
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const trackingUrl = `${clientUrl}/track/${trip.trackingToken}`;
+
     const emergencyTitle = isDuress
       ? `🚨 SILENT DURESS ALARM: ${commuterName}`
       : `🚨 CRITICAL EMERGENCY ALARM: ${commuterName}`;
-    const smsMessage = `[PATHPROHORI EMERGENCY ALERT] ${commuterName} activated ${isDuress ? 'SILENT DURESS' : 'CRITICAL PANIC'} mode in ${vehicleInfo}. Destination: ${trip.destination}. Check app now.`;
+    const smsMessage = `[PATHPROHORI EMERGENCY ALERT] ${commuterName} activated ${isDuress ? 'SILENT DURESS' : 'CRITICAL PANIC'} mode in ${vehicleInfo}. Destination: ${trip.destination}. LIVE TRACKING LINK: ${trackingUrl} (Expires in 4 hrs).`;
 
-    // 1. Send Twilio SMS to explicit linked guardians
+    // 1. Send Twilio SMS with Self-Destructing Tracking Link to explicit linked guardians
     if (user && Array.isArray(user.guardians)) {
       for (const guardian of user.guardians) {
         const phone = guardian.phone || (guardian.user && guardian.user.phone);
@@ -237,15 +273,15 @@ export const triggerPanic = async (req, res, next) => {
       'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
     });
 
-    console.log(`🔔 Sending Web Push Notification to ${targetPushUsers.length} active guardian/user subscriptions...`);
+    console.log(`🔔 Sending Web Push Notification to ${targetPushUsers.length} active guardian/user subscriptions with Live Tracking URL...`);
 
     for (const pushUser of targetPushUsers) {
       if (pushUser.pushSubscription) {
         sendPushNotification(pushUser.pushSubscription, {
           title: emergencyTitle,
-          body: `Vehicle: ${vehicleInfo} | Destination: ${trip.destination}`,
+          body: `🚨 Tap to open 4h live emergency tracking stream! Vehicle: ${vehicleInfo} | Destination: ${trip.destination}`,
           icon: '/pwa-192x192.png',
-          url: `/notifications`,
+          url: `/track/${trip.trackingToken}`,
         }).catch((e) => console.error('Push notification error:', e));
       }
     }
@@ -253,6 +289,8 @@ export const triggerPanic = async (req, res, next) => {
     // 3. Create Emergency Record in Database for Guardian Notification Panel
     const emergencyRecord = await Emergency.create({
       user: user._id,
+      trip: trip._id,
+      trackingToken: trip.trackingToken,
       location: {
         latitude: (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875,
         longitude: (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305,
@@ -270,6 +308,8 @@ export const triggerPanic = async (req, res, next) => {
       io.emit('EMERGENCY_ALERT_BROADCAST', {
         emergencyId: emergencyRecord._id,
         tripId: trip._id,
+        trackingToken: trip.trackingToken,
+        trackingUrl,
         commuterId: user?._id,
         commuterName,
         commuterPhone: user?.phone,
@@ -286,6 +326,9 @@ export const triggerPanic = async (req, res, next) => {
 
       io.emit('EMERGENCY_ALERT', {
         emergencyId: emergencyRecord._id,
+        tripId: trip._id,
+        trackingToken: trip.trackingToken,
+        trackingUrl,
         type: 'EMERGENCY',
         title: '🚨 CRITICAL PANIC ALERT',
         message: `${commuterName} activated CRITICAL PANIC mode in ${trip.vehicleType} (${trip.numberPlate || ''}). Destination: ${trip.destination}`,
@@ -638,3 +681,87 @@ export const getUserTripHistory = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Public Live Tracking Feed for Guardians (Self-Destructing 4h Link)
+// @route   GET /api/trips/track/:token
+export const getPublicTrackingData = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return res.status(400).json({ valid: false, reason: 'INVALID_TOKEN', message: 'Tracking token is required.' });
+    }
+
+    const trip = await Trip.findOne({ trackingToken: token }).populate('user', 'name phone avatarUrl');
+    if (!trip) {
+      return res.status(404).json({ valid: false, reason: 'NOT_FOUND', message: 'This emergency tracking link does not exist.' });
+    }
+
+    const now = new Date();
+    const isExpired = trip.trackingExpiresAt && new Date(trip.trackingExpiresAt) < now;
+    const isCompleted = trip.status === 'COMPLETED';
+
+    if (!trip.trackingActive || isExpired || isCompleted) {
+      return res.status(200).json({
+        valid: false,
+        reason: isCompleted ? 'TRIP_COMPLETED' : (isExpired ? 'EXPIRED' : 'DEACTIVATED'),
+        message: isCompleted
+          ? 'This journey has completed safely. Live tracking session is closed.'
+          : 'This emergency tracking link has expired (4-hour time limit reached).',
+        trip: {
+          _id: trip._id,
+          destination: trip.destination,
+          completedAt: trip.completedAt,
+        },
+      });
+    }
+
+    // Fetch recent location logs (up to last 150 points for live breadcrumb trail)
+    const logs = await LocationLog.find({ trip: trip._id })
+      .sort({ recordedAt: 1 })
+      .limit(150)
+      .select('location batteryLevel recordedAt');
+
+    const breadcrumbs = logs.map((log) => ({
+      lat: log.location.coordinates[1],
+      lng: log.location.coordinates[0],
+      batteryLevel: log.batteryLevel,
+      recordedAt: log.recordedAt,
+    }));
+
+    const lastCoord = breadcrumbs.length > 0
+      ? breadcrumbs[breadcrumbs.length - 1]
+      : (trip.startCoords || { lat: 23.7808875, lng: 90.4068305 });
+
+    return res.json({
+      valid: true,
+      trip: {
+        _id: trip._id,
+        status: trip.status,
+        vehicleType: trip.vehicleType,
+        numberPlate: trip.numberPlate,
+        vehicleColor: trip.vehicleColor,
+        startingLocation: trip.startingLocation,
+        destination: trip.destination,
+        driverDescription: trip.driverDescription,
+        journeyNotes: trip.journeyNotes,
+        photoUrl: trip.photoUrl,
+        startCoords: trip.startCoords,
+        destinationCoords: trip.destinationCoords,
+        lastHeartbeatAt: trip.lastHeartbeatAt,
+        trackingExpiresAt: trip.trackingExpiresAt,
+        createdAt: trip.createdAt,
+      },
+      commuter: {
+        name: trip.user?.name || 'Commuter',
+        phone: trip.user?.phone,
+        avatarUrl: trip.user?.avatarUrl,
+      },
+      currentLocation: lastCoord,
+      breadcrumbs,
+      expiresInSeconds: Math.max(0, Math.floor((new Date(trip.trackingExpiresAt).getTime() - now.getTime()) / 1000)),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

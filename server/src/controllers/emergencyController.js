@@ -345,6 +345,8 @@ export const getEmergencies = async (req, res, next) => {
         const formatted = filtered.map((e) => ({
             id: e._id,
             emergencyId: e._id,
+            trackingToken: e.trackingToken,
+            tripId: e.trip,
             type: e.alertType,
             severity: e.severity,
             title: e.alertType === 'SILENT_DURESS' ? '🚨 SILENT DURESS ALERT' : '🚨 Emergency Alert',

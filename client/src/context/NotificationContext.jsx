@@ -57,6 +57,8 @@ export const NotificationProvider = ({ children }) => {
       const newNotification = {
         id: data.emergencyId || data.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         emergencyId: data.emergencyId || data.id,
+        trackingToken: data.trackingToken,
+        trackingUrl: data.trackingUrl,
         type: data.type || 'EMERGENCY',
         title: data.title || '🚨 Emergency Alert',
         message: data.message || `${data.user?.name || 'A commuter'} has triggered an emergency alert!`,
@@ -93,6 +95,8 @@ export const NotificationProvider = ({ children }) => {
       const newNotif = {
         id: data.emergencyId || data.tripId || `notif_${Date.now()}`,
         emergencyId: data.emergencyId || data.tripId,
+        trackingToken: data.trackingToken,
+        trackingUrl: data.trackingUrl,
         type: 'EMERGENCY',
         title: '🚨 CRITICAL PANIC ALERT',
         message: `${data.commuterName} activated CRITICAL PANIC mode in ${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}). Destination: ${data.destination || 'In Transit'}`,

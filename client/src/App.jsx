@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from './context/AuthContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -19,9 +19,21 @@ import { IncidentDiscussion } from './pages/IncidentDiscussion';
 import { VoiceSettings } from './pages/VoiceSettings';
 import { ProfileSettings } from './pages/ProfileSettings';
 import { Notifications } from './pages/Notifications';
+import { PublicLiveTracking } from './pages/PublicLiveTracking';
 
 export const App = () => {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
+  const isTrackingRoute = location.pathname.startsWith('/track/');
+
+  if (isTrackingRoute) {
+    return (
+      <Routes>
+        <Route path="/track/:token" element={<PublicLiveTracking />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-app-texture text-[#2D2329] font-sans overflow-hidden relative">
@@ -43,6 +55,7 @@ export const App = () => {
         <main className="flex-1 p-4 md:p-6 pb-28 md:pb-12 overflow-y-auto min-h-0">
           <PageTransition>
             <Routes>
+              <Route path="/track/:token" element={<PublicLiveTracking />} />
               <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
               <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
 

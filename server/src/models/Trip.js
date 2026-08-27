@@ -96,6 +96,20 @@ const tripSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Self-Destructing Tracking Link token & expiration for Guardians
+    trackingToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    trackingExpiresAt: {
+      type: Date,
+    },
+    trackingActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

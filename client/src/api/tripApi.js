@@ -62,6 +62,12 @@ export const tripApi = {
       return false;
     }
   },
+
+  // Self-Destructing Public Tracking Link (No JWT needed)
+  getPublicTracking: async (trackingToken) => {
+    const { data } = await API.get(`/trips/track/${trackingToken}`);
+    return data;
+  },
 };
 
 export default tripApi;

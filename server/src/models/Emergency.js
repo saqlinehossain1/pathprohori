@@ -8,6 +8,15 @@ const emergencySchema = new mongoose.Schema(
             required: true,
         },
 
+        trip: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Trip',
+        },
+
+        trackingToken: {
+            type: String,
+        },
+
         location: {
             latitude: {
                 type: Number,

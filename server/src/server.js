@@ -100,6 +100,13 @@ io.on('connection', (socket) => {
     );
   });
 
+  // Join public guardian live tracking room
+  socket.on('JOIN_PUBLIC_TRACKING', (tripId) => {
+    if (!tripId) return;
+    socket.join(`track_${tripId}`);
+    console.log(`[Socket.io] Guardian client ${socket.id} joined live tracking for trip: track_${tripId}`);
+  });
+
   // Client heartbeat ping event
   socket.on('CLIENT_HEARTBEAT_PING', (data) => {
     if (!data?.tripId) return;
@@ -108,6 +115,15 @@ io.on('connection', (socket) => {
       tripId: data.tripId,
       timestamp: new Date(),
     });
+
+    if (data.coords) {
+      io.to(`track_${data.tripId}`).emit('TRACKING_LOCATION_UPDATE', {
+        coords: data.coords,
+        batteryLevel: data.batteryLevel,
+        status: data.status || 'ACTIVE',
+        updatedAt: new Date(),
+      });
+    }
   });
 
   socket.on('disconnect', () => {

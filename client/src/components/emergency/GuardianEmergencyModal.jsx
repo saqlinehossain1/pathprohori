@@ -285,6 +285,17 @@ export const GuardianEmergencyModal = () => {
             )}
           </div>
 
+          {latestEmergencyAlert?.trackingToken && (
+            <a
+              href={`/track/${latestEmergencyAlert.trackingToken}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 shadow"
+            >
+              Open Dedicated Live Tracking Screen (4h Expiry)
+            </a>
+          )}
+
           <button
             onClick={closeGuardianEmergencyModal}
             className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-extrabold rounded-xl text-xs transition-all cursor-pointer font-display border border-slate-200"

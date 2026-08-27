@@ -15,7 +15,9 @@ import {
   PhoneCall,
   Navigation,
   CheckCircle2,
-  Filter
+  Filter,
+  Radio,
+  Share2
 } from 'lucide-react';
 
 const translateLocation = (str) => {
@@ -386,14 +388,46 @@ export const Notifications = () => {
                     </div>
                   </div>
 
-                  {/* Location & Action Bar */}
+                  {/* Detailed Location & Coordinates Strip */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 text-xs">
+                    <div className="flex items-start gap-2 text-slate-800 font-bold">
+                      <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] font-extrabold uppercase text-slate-400 block font-display">
+                          Reported Emergency Location
+                        </span>
+                        {hasCoords ? (
+                          <LocationName lat={lat} lng={lng} address={notif.location?.address} />
+                        ) : (
+                          <span className="text-slate-400 font-normal">GPS coordinates unavailable</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {hasCoords && (
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono pl-6">
+                        <span>Coordinates: <strong className="text-slate-700">{lat.toFixed(5)}, {lng.toFixed(5)}</strong></span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons Bar */}
                   <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                      <MapPin className="w-4 h-4 text-rose-600 shrink-0" />
-                      {hasCoords ? (
-                        <LocationName lat={lat} lng={lng} address={notif.location?.address} />
+                    {/* Live Tracking Link Button */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {notif.trackingToken ? (
+                        <a
+                          href={`/track/${notif.trackingToken}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2 px-3.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 font-display"
+                        >
+                          <Radio className="w-3.5 h-3.5 animate-pulse text-yellow-300" />
+                          <span>Open Live Tracking Stream</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
                       ) : (
-                        <span className="text-slate-400 font-normal">GPS coordinates unavailable</span>
+                        <span className="text-[11px] text-slate-400 italic">Tracking stream linked to trip</span>
                       )}
                     </div>
 
@@ -434,9 +468,9 @@ export const Notifications = () => {
                           type="button"
                           onClick={() => resolveAlert(notif)}
                           disabled={resolvingId === String(notif.emergencyId || notif.id)}
-                          className="py-2 px-3.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display"
+                          className="py-2 px-3.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display cursor-pointer"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                           <span>{resolvingId === String(notif.emergencyId || notif.id) ? 'Resolving...' : 'Mark Resolved'}</span>
                         </button>
                       )}

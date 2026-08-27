@@ -11,9 +11,13 @@ import {
   getUserTripHistory,
   handleBatteryCriticalEmergency,
   addCoordinateBatch,
+  getPublicTrackingData,
 } from '../controllers/tripController.js';
 
 const router = express.Router();
+
+// Public Guardian Tracking Route (Self-Destructing 4h Link - No Login Required)
+router.get('/track/:token', getPublicTrackingData);
 
 router.post('/', protect, createTrip);
 router.get('/active', protect, getActiveTrip);
