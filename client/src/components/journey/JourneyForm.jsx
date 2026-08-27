@@ -4,6 +4,7 @@ import L from 'leaflet';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
+import LocationMapPickerModal from '../common/LocationMapPickerModal';
 import uploadApi from '../../api/uploadApi';
 import {
   Bus,
@@ -89,20 +90,18 @@ export const JourneyForm = ({
     setMapPicker(target);
   };
 
-  const confirmMapPicker = async () => {
-    if (!mapPicker || !pickerCoords) return;
-    const locationName = await reverseGeocode(pickerCoords.lat, pickerCoords.lng);
-    const fallbackName = `Selected location (${pickerCoords.lat.toFixed(4)}, ${pickerCoords.lng.toFixed(4)})`;
+  const handleConfirmMapPicker = ({ lat, lng, address }) => {
+    if (!mapPicker) return;
     const isStart = mapPicker === 'start';
     const fieldName = isStart ? 'startingLocation' : 'destination';
     const coordsName = isStart ? 'startCoords' : 'destinationCoords';
     setFormData((prev) => ({
       ...prev,
-      [fieldName]: locationName || fallbackName,
-      [coordsName]: pickerCoords,
+      [fieldName]: address,
+      [coordsName]: { lat, lng },
     }));
-    if (isStart) setStartQuery(locationName || fallbackName);
-    else setDestQuery(locationName || fallbackName);
+    if (isStart) setStartQuery(address);
+    else setDestQuery(address);
     setMapPicker(null);
   };
 
@@ -455,41 +454,19 @@ export const JourneyForm = ({
         </div>
       </div>
 
-      <Modal
+      {/* Uber/Pathao Style Location Map Picker Modal */}
+      <LocationMapPickerModal
         isOpen={Boolean(mapPicker)}
         onClose={() => setMapPicker(null)}
-        title="Select from map"
-      >
-        {pickerCoords && (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500 font-semibold">
-              Click anywhere on the map to place the journey pin.
-            </p>
-            <div className="h-72 w-full rounded-2xl overflow-hidden border border-slate-200">
-              <MapContainer
-                key={`${mapPicker}-${pickerCoords.lat}-${pickerCoords.lng}`}
-                center={[pickerCoords.lat, pickerCoords.lng]}
-                zoom={15}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                />
-                <MapPickerClickHandler onSelect={setPickerCoords} />
-                <Marker position={[pickerCoords.lat, pickerCoords.lng]} icon={createPickerSpotIcon()} />
-              </MapContainer>
-            </div>
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center font-display">
-              Pin: [{pickerCoords.lat.toFixed(5)}, {pickerCoords.lng.toFixed(5)}]
-            </div>
-            <Button type="button" onClick={confirmMapPicker} className="w-full py-3.5 font-extrabold">
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Use This Location
-            </Button>
-          </div>
-        )}
-      </Modal>
+        initialCoords={pickerCoords}
+        onConfirm={handleConfirmMapPicker}
+        title={mapPicker === 'start' ? 'Select Starting Location' : 'Select Destination Location'}
+        subtitle={
+          mapPicker === 'start'
+            ? 'Pan or drag map to place center pin at your starting origin point.'
+            : 'Pan or drag map to place center pin at your destination arrival point.'
+        }
+      />
 
       {/* Number Plate & Color */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

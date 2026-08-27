@@ -58,6 +58,36 @@ const emergencySchema = new mongoose.Schema(
         resolvedAt: {
             type: Date,
         },
+
+        evidence: {
+            photos: [
+                {
+                    url: { type: String, required: true },
+                    public_id: { type: String },
+                    capturedAt: { type: Date, default: Date.now },
+                    sizeBytes: { type: Number, default: 0 },
+                    sequenceIndex: { type: Number, default: 0 },
+                },
+            ],
+            audioClips: [
+                {
+                    url: { type: String, required: true },
+                    public_id: { type: String },
+                    capturedAt: { type: Date, default: Date.now },
+                    durationSec: { type: Number, default: 0 },
+                    sizeBytes: { type: Number, default: 0 },
+                },
+            ],
+            captureStatus: {
+                type: String,
+                enum: ['PENDING', 'CAPTURING', 'COMPLETED', 'PARTIAL', 'FAILED'],
+                default: 'PENDING',
+            },
+            totalSizeBytes: {
+                type: Number,
+                default: 0,
+            },
+        },
     },
     {
         timestamps: true,

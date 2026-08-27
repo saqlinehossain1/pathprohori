@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useCallback } from 'react';
 import { SocketContext } from '../context/SocketContext';
 import tripApi from '../api/tripApi';
 import { clearBatteryAlertFlag } from '../utils/batteryAlertStorage';
+import { captureEvidenceBurst } from '../services/evidenceLockerService';
 
 export const useTrip = () => {
   const { activeTrip, setActiveTrip, signalLossAlert } = useContext(SocketContext);
@@ -55,6 +56,15 @@ export const useTrip = () => {
       setPanicLoading(true);
       const res = await tripApi.triggerPanic(activeTrip._id, isDuress);
       setActiveTrip(res.trip);
+
+      // Low-Bandwidth Evidence Locker: silently capture photo burst and audio
+      const emergencyId = res.emergencyId || res.emergency?._id;
+      if (emergencyId) {
+        captureEvidenceBurst(emergencyId).catch((evErr) =>
+          console.warn('[Evidence Locker Trip Panic Error]', evErr)
+        );
+      }
+
       return res.trip;
     } catch (err) {
       console.error('Failed to trigger panic alarm:', err);

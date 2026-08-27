@@ -5,6 +5,7 @@ import { User } from '../models/User.js';
 import { Emergency } from '../models/Emergency.js';
 import { sendPushNotification } from '../services/pushService.js';
 import { sendEmergencySMS } from '../services/twilioService.js';
+import { getReverseGeocodedAddress } from './emergencyController.js';
 
 // Shared guardian-escalation pathway for anything that raises a trip to EMERGENCY
 // priority - the 1-tap panic button and the dead-battery final blast both funnel
@@ -287,14 +288,23 @@ export const triggerPanic = async (req, res, next) => {
     }
 
     // 3. Create Emergency Record in Database for Guardian Notification Panel
+    const panicLat = (req.body.latitude && typeof req.body.latitude === 'number')
+      ? req.body.latitude
+      : (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875;
+    const panicLng = (req.body.longitude && typeof req.body.longitude === 'number')
+      ? req.body.longitude
+      : (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305;
+
+    const panicAddress = await getReverseGeocodedAddress(panicLat, panicLng);
+
     const emergencyRecord = await Emergency.create({
       user: user._id,
       trip: trip._id,
       trackingToken: trip.trackingToken,
       location: {
-        latitude: (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875,
-        longitude: (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305,
-        address: `${trip.vehicleType} (${trip.numberPlate || 'CNG/Bus'}) -> Dest: ${trip.destination}`,
+        latitude: panicLat,
+        longitude: panicLng,
+        address: panicAddress || `${panicLat.toFixed(4)}° N, ${panicLng.toFixed(4)}° E`,
       },
       status: 'ACTIVE',
       alertType: isDuress ? 'SILENT_DURESS' : 'PANIC',
@@ -320,6 +330,11 @@ export const triggerPanic = async (req, res, next) => {
         destination: trip.destination,
         startCoords: trip.startCoords,
         destinationCoords: trip.destinationCoords,
+        location: {
+          latitude: panicLat,
+          longitude: panicLng,
+          address: panicAddress,
+        },
         status: trip.status,
         timestamp: new Date(),
       });
@@ -340,9 +355,14 @@ export const triggerPanic = async (req, res, next) => {
           avatarUrl: user.avatarUrl,
         },
         location: {
-          latitude: (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875,
-          longitude: (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305,
-          address: `${trip.vehicleType} (${trip.numberPlate || 'CNG/Bus'}) -> Dest: ${trip.destination}`,
+          latitude: panicLat,
+          longitude: panicLng,
+          address: panicAddress,
+        },
+        transit: {
+          vehicleType: trip.vehicleType,
+          numberPlate: trip.numberPlate,
+          destination: trip.destination,
         },
         timestamp: new Date().toISOString(),
         status: 'ACTIVE',
@@ -351,7 +371,13 @@ export const triggerPanic = async (req, res, next) => {
       });
     }
 
-    res.json({ message: 'CRITICAL EMERGENCY ALARM TRIGGERED', trip, status: trip.status });
+    res.json({
+      message: 'CRITICAL EMERGENCY ALARM TRIGGERED',
+      trip,
+      status: trip.status,
+      emergencyId: emergencyRecord._id,
+      emergency: emergencyRecord,
+    });
   } catch (error) {
     next(error);
   }

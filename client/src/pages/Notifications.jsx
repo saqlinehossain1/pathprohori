@@ -17,8 +17,13 @@ import {
   CheckCircle2,
   Filter,
   Radio,
-  Share2
+  Share2,
+  HardDrive,
+  Lock,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import EvidenceLockerViewer from '../components/emergency/EvidenceLockerViewer';
 
 const translateLocation = (str) => {
   if (!str) return '';
@@ -44,23 +49,40 @@ const translateLocation = (str) => {
 };
 
 const LocationName = ({ lat, lng, address }) => {
-  const [locationName, setLocationName] = useState(address || '');
-  const [loading, setLoading] = useState(!address);
+  // If address is actually a vehicle descriptor (e.g. "Taxi -> Dest: Bashundhara"), do not treat it as physical location
+  const isTransitDescriptor = address && (
+    address.includes('-> Dest:') ||
+    address.includes('->') ||
+    address.toLowerCase().includes('metro') ||
+    address.toLowerCase().includes('cng')
+  );
+  const initialValidAddress = isTransitDescriptor ? '' : address;
+
+  const [locationName, setLocationName] = useState(initialValidAddress || '');
+  const [loading, setLoading] = useState(!initialValidAddress);
 
   useEffect(() => {
-    if (address) {
-      setLocationName(address);
+    if (initialValidAddress && initialValidAddress.length > 4) {
+      setLocationName(initialValidAddress);
+      setLoading(false);
+      return;
+    }
+
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
       setLoading(false);
       return;
     }
 
     let isMounted = true;
 
-    const fetchWithTimeout = async (url, timeoutMs = 2500) => {
+    const fetchWithTimeout = async (url, timeoutMs = 3000) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const res = await fetch(url, { signal: controller.signal });
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: { 'Accept-Language': 'en' },
+        });
         clearTimeout(timer);
         return res;
       } catch (err) {
@@ -71,6 +93,45 @@ const LocationName = ({ lat, lng, address }) => {
 
     const fetchLocationName = async () => {
       try {
+        // 1. Primary: Nominatim OpenStreetMap (High accuracy place & street names)
+        try {
+          const nomRes = await fetchWithTimeout(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=en`,
+            3000
+          );
+          if (nomRes.ok) {
+            const data = await nomRes.json();
+            const addr = data.address || {};
+            const road = translateLocation(addr.road || addr.pedestrian || data.name || '');
+            const quarter = translateLocation(addr.quarter || addr.suburb || addr.neighbourhood || '');
+            const area = translateLocation(addr.suburb || addr.residential || addr.district || '');
+            const city = translateLocation(addr.city || addr.town || addr.county || '') || 'Dhaka';
+
+            const rawParts = [road, quarter, area, city].filter(Boolean);
+            const allTokens = rawParts
+              .flatMap((part) => part.split(','))
+              .map((t) => t.trim())
+              .filter(Boolean);
+
+            const uniqueTokens = [];
+            const seen = new Set();
+            for (const token of allTokens) {
+              const normalized = token.toLowerCase();
+              if (!seen.has(normalized)) {
+                seen.add(normalized);
+                uniqueTokens.push(token);
+              }
+            }
+
+            const formattedAddress = uniqueTokens.join(', ');
+            if (isMounted && formattedAddress && formattedAddress.length > 3) {
+              setLocationName(formattedAddress);
+              return;
+            }
+          }
+        } catch (_) {}
+
+        // 2. Backup: BigDataCloud Reverse Geocoding
         try {
           const bdcRes = await fetchWithTimeout(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
@@ -87,7 +148,7 @@ const LocationName = ({ lat, lng, address }) => {
 
               const specificArea = informative.length > 0 ? informative.slice(0, 2).join(', ') : locality;
               const fullName = [specificArea, bdcData.city || country].filter(Boolean).join(', ');
-              if (fullName && fullName.length > 3 && !fullName.toLowerCase().startsWith('dhaka, dhaka')) {
+              if (fullName && fullName.length > 3) {
                 setLocationName(fullName);
                 return;
               }
@@ -95,6 +156,7 @@ const LocationName = ({ lat, lng, address }) => {
           }
         } catch (_) {}
 
+        // 3. Fallback: Photon Komoot
         try {
           const res = await fetchWithTimeout(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`, 2500);
           if (res.ok) {
@@ -108,24 +170,7 @@ const LocationName = ({ lat, lng, address }) => {
               const city = translateLocation(prop.city) || 'Dhaka';
 
               const rawParts = [buildingOrPlace, street, locality, district, city].filter(Boolean);
-
-              const allTokens = rawParts
-                .flatMap((part) => part.split(','))
-                .map((t) => t.trim())
-                .filter(Boolean);
-
-              const uniqueTokens = [];
-              const seen = new Set();
-
-              for (const token of allTokens) {
-                const normalized = token.toLowerCase();
-                if (!seen.has(normalized)) {
-                  seen.add(normalized);
-                  uniqueTokens.push(token);
-                }
-              }
-
-              const exactAddress = uniqueTokens.join(', ');
+              const exactAddress = rawParts.join(', ');
               if (exactAddress) {
                 setLocationName(exactAddress);
                 return;
@@ -146,17 +191,17 @@ const LocationName = ({ lat, lng, address }) => {
   }, [lat, lng, address]);
 
   if (loading) {
-    return <span className="text-slate-400 font-medium animate-pulse">Detecting GPS location...</span>;
+    return <span className="text-slate-400 font-medium animate-pulse">Resolving place name...</span>;
   }
 
   if (locationName) {
-    return <span className="text-slate-800 font-extrabold">{locationName}</span>;
+    return <span className="text-slate-900 font-extrabold text-sm">{locationName}</span>;
   }
 
   return (
-    <span className="text-slate-600 font-mono font-bold">
+    <span className="text-slate-700 font-bold">
       {typeof lat === 'number' && typeof lng === 'number'
-        ? `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`
+        ? `Location near ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`
         : 'GPS Location Telemetry'}
     </span>
   );
@@ -168,6 +213,7 @@ export const Notifications = () => {
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [resolvingId, setResolvingId] = useState(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [expandedEvidenceId, setExpandedEvidenceId] = useState(null);
 
   const filteredNotifications = notifications.filter((notif) => {
     if (activeFilter === 'UNREAD') return notif.status !== 'RESOLVED';
@@ -389,93 +435,123 @@ export const Notifications = () => {
                   </div>
 
                   {/* Detailed Location & Coordinates Strip */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 text-xs">
-                    <div className="flex items-start gap-2 text-slate-800 font-bold">
-                      <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="p-3 bg-white/90 rounded-xl border border-slate-200 space-y-2 text-xs shadow-2xs">
+                    <div className="flex items-start gap-2.5 text-slate-800">
+                      <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5">
+                        <MapPin className="w-4 h-4 text-rose-600" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <span className="text-[10px] font-extrabold uppercase text-slate-400 block font-display">
-                          Reported Emergency Location
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block font-display tracking-wider">
+                          Incident Location (Place & Landmark)
                         </span>
-                        {hasCoords ? (
-                          <LocationName lat={lat} lng={lng} address={notif.location?.address} />
-                        ) : (
-                          <span className="text-slate-400 font-normal">GPS coordinates unavailable</span>
-                        )}
+                        <div className="text-slate-900 font-extrabold text-sm leading-snug mt-0.5">
+                          {hasCoords ? (
+                            <LocationName lat={lat} lng={lng} address={notif.location?.address} />
+                          ) : (
+                            <span className="text-slate-400 font-normal">GPS coordinates unavailable</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {hasCoords && (
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono pl-6">
-                        <span>Coordinates: <strong className="text-slate-700">{lat.toFixed(5)}, {lng.toFixed(5)}</strong></span>
+                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px] text-slate-500 font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <Navigation className="w-3 h-3 text-rose-500 shrink-0" />
+                          <span>Exact GPS: <strong className="text-slate-700 font-bold">{lat.toFixed(5)}° N, {lng.toFixed(5)}° E</strong></span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-sans font-medium">Auto-Reverse Geocoded</span>
                       </div>
                     )}
                   </div>
 
                   {/* Action Buttons Bar */}
-                  <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="pt-3 border-t border-slate-200/80 flex flex-wrap items-center gap-2 text-xs">
                     {/* Live Tracking Link Button */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {notif.trackingToken ? (
-                        <a
-                          href={`/track/${notif.trackingToken}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="py-2 px-3.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 font-display"
-                        >
-                          <Radio className="w-3.5 h-3.5 animate-pulse text-yellow-300" />
-                          <span>Open Live Tracking Stream</span>
-                          <ExternalLink className="w-3 h-3 ml-0.5" />
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">Tracking stream linked to trip</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    {notif.trackingToken && (
                       <a
-                        href="tel:999"
-                        className="py-2 px-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 uppercase font-display"
+                        href={`/track/${notif.trackingToken}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2.5 px-4 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95 font-display whitespace-nowrap"
                       >
-                        <PhoneCall className="w-3.5 h-3.5" />
-                        <span>Call 999</span>
+                        <Radio className="w-3.5 h-3.5 animate-pulse text-yellow-300 shrink-0" />
+                        <span>Open Live Tracking Stream</span>
+                        <ExternalLink className="w-3 h-3 ml-0.5 shrink-0" />
                       </a>
+                    )}
 
-                      {commuterPhone && (
-                        <a
-                          href={`tel:${commuterPhone}`}
-                          className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display"
-                        >
-                          <PhoneCall className="w-3.5 h-3.5" />
-                          <span>Call Commuter</span>
-                        </a>
+                    {/* Evidence Locker Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const emergencyId = String(notif.emergencyId || notif.id);
+                        setExpandedEvidenceId(expandedEvidenceId === emergencyId ? null : emergencyId);
+                      }}
+                      className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95 font-display cursor-pointer whitespace-nowrap"
+                    >
+                      <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Evidence Locker</span>
+                      {expandedEvidenceId === String(notif.emergencyId || notif.id) ? (
+                        <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 shrink-0" />
                       )}
+                    </button>
 
-                      {hasCoords && (
-                        <a
-                          href={mapUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display"
-                        >
-                          <Navigation className="w-3.5 h-3.5 text-rose-400" />
-                          <span>Google Map</span>
-                          <ExternalLink className="w-3 h-3 ml-0.5" />
-                        </a>
-                      )}
+                    <a
+                      href="tel:999"
+                      className="py-2.5 px-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 uppercase font-display whitespace-nowrap"
+                    >
+                      <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+                      <span>Call 999</span>
+                    </a>
 
-                      {notif.status !== 'RESOLVED' && user && (
-                        <button
-                          type="button"
-                          onClick={() => resolveAlert(notif)}
-                          disabled={resolvingId === String(notif.emergencyId || notif.id)}
-                          className="py-2 px-3.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>{resolvingId === String(notif.emergencyId || notif.id) ? 'Resolving...' : 'Mark Resolved'}</span>
-                        </button>
-                      )}
-                    </div>
+                    {commuterPhone && (
+                      <a
+                        href={`tel:${commuterPhone}`}
+                        className="py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display whitespace-nowrap"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+                        <span>Call Commuter</span>
+                      </a>
+                    )}
+
+                    {hasCoords && (
+                      <a
+                        href={mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-2.5 px-3.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display whitespace-nowrap"
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span>Google Map</span>
+                        <ExternalLink className="w-3 h-3 ml-0.5 shrink-0" />
+                      </a>
+                    )}
+
+                    {notif.status !== 'RESOLVED' && user && (
+                      <button
+                        type="button"
+                        onClick={() => resolveAlert(notif)}
+                        disabled={resolvingId === String(notif.emergencyId || notif.id)}
+                        className="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display cursor-pointer whitespace-nowrap sm:ml-auto"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>{resolvingId === String(notif.emergencyId || notif.id) ? 'Resolving...' : 'Mark Resolved'}</span>
+                      </button>
+                    )}
                   </div>
+
+                  {/* Expandable Evidence Locker Section */}
+                  {expandedEvidenceId === String(notif.emergencyId || notif.id) && (
+                    <div className="pt-3 mt-3 border-t border-slate-200/80 animate-fadeIn">
+                      <EvidenceLockerViewer
+                        emergencyId={notif.emergencyId || notif.id}
+                        isLive={notif.status !== 'RESOLVED'}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );

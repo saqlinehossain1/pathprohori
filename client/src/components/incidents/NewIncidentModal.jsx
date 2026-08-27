@@ -4,6 +4,7 @@ import L from 'leaflet';
 import Modal from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
+import LocationMapPickerModal from '../common/LocationMapPickerModal';
 import uploadApi from '../../api/uploadApi';
 import { AlertCircle, MapPin, Upload, Image, CheckCircle, Crosshair, Clock } from 'lucide-react';
 
@@ -406,56 +407,28 @@ export const NewIncidentModal = ({ isOpen, onClose, onSubmit, selectedCoords, us
         </form>
       </Modal>
 
-      {/* Interactive Map Picker Modal Centered at User's Real GPS Position */}
-      <Modal isOpen={showMapPicker} onClose={() => setShowMapPicker(false)} title="Select Particular Hazard Location on Map">
-        <div className="space-y-3">
-          <p className="text-xs text-slate-500 font-semibold">
-            Click anywhere on the interactive map below to select the exact spot near your location for this hazard report:
-          </p>
-
-          <div className="h-72 w-full rounded-2xl overflow-hidden border border-slate-200 relative">
-            <MapContainer
-              key={`${tempPickerCoords.lat}-${tempPickerCoords.lng}`}
-              center={[tempPickerCoords.lat, tempPickerCoords.lng]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              />
-              <MapPickerClickHandler onSelect={(coords) => setTempPickerCoords(coords)} />
-              <Marker position={[tempPickerCoords.lat, tempPickerCoords.lng]} icon={createPickerSpotIcon()} />
-            </MapContainer>
-          </div>
-
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 text-center font-display">
-            {resolvingPickerLocation ? FINDING_LOCATION_TEXT : pickerLocationName}
-          </div>
-
-          <Button
-            type="button"
-            onClick={() => {
-              // Picking a new spot always refreshes the human-readable name -
-              // see the reverse-geocoding effect keyed on latitude/longitude above.
-              userEditedLocationNameRef.current = false;
-              setFormData((prev) => ({
-                ...prev,
-                latitude: tempPickerCoords.lat,
-                longitude: tempPickerCoords.lng,
-              }));
-              if (onSelectLocation) {
-                onSelectLocation(tempPickerCoords);
-              }
-              setShowMapPicker(false);
-            }}
-            className="w-full py-3.5 font-extrabold shadow-md shadow-rose-950/20"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Confirm Selected Location Pin
-          </Button>
-        </div>
-      </Modal>
+      {/* Uber/Pathao Style Location Map Picker Modal */}
+      <LocationMapPickerModal
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        initialCoords={tempPickerCoords}
+        onConfirm={({ lat, lng, address }) => {
+          userEditedLocationNameRef.current = false;
+          setFormData((prev) => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+            locationName: address,
+          }));
+          setResolvedLocationName(address);
+          if (onSelectLocation) {
+            onSelectLocation({ lat, lng });
+          }
+          setShowMapPicker(false);
+        }}
+        title="Select Hazard Location on Map"
+        subtitle="Pan or drag the map to position the center pin over the reported danger spot."
+      />
     </>
   );
 };

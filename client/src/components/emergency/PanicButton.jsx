@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
-import { AlertTriangle, Loader2, ShieldAlert, CheckCircle2, StopCircle, Radio, Compass } from 'lucide-react';
+import { AlertTriangle, Loader2, ShieldAlert, CheckCircle2, StopCircle, Radio, Compass, Lock, Camera, Mic } from 'lucide-react';
 import { triggerEmergency, resolveEmergency } from '../../services/emergencyService';
+import { captureEvidenceBurst } from '../../services/evidenceLockerService';
 import { AuthContext } from '../../context/AuthContext';
 
 
@@ -10,6 +11,7 @@ export const PanicButton = () => {
   const [stopping, setStopping] = useState(false);
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [activeEmergencyId, setActiveEmergencyId] = useState(null);
+  const [evidenceStatus, setEvidenceStatus] = useState(null); // 'CAPTURING' | 'COMPLETED' | 'PARTIAL' | null
   const [error, setError] = useState('');
 
   // Admins and Operators only monitor emergency notifications and do not trigger panic alerts
@@ -34,8 +36,19 @@ export const PanicButton = () => {
           const { latitude, longitude } = position.coords;
           const res = await triggerEmergency(latitude, longitude);
 
-          if (res?.emergency?.id || res?.emergency?._id) {
-            setActiveEmergencyId(res.emergency.id || res.emergency._id);
+          const emergencyId = res?.emergency?.id || res?.emergency?._id;
+          if (emergencyId) {
+            setActiveEmergencyId(emergencyId);
+            // Initiate silent low-bandwidth background photo burst & audio capture
+            setEvidenceStatus('CAPTURING');
+            captureEvidenceBurst(emergencyId, {
+              onProgress: (p) => {
+                console.log('[PanicButton Evidence Progress]', p);
+              },
+              onComplete: (res) => {
+                setEvidenceStatus(res.status);
+              },
+            }).catch((evErr) => console.warn('[Evidence Locker Error]', evErr));
           }
 
           setEmergencyActive(true);
@@ -194,6 +207,31 @@ export const PanicButton = () => {
             <span className="w-2 h-2 rounded-full bg-[#6B4355] animate-ping" />
             <span>🚨 Emergency Signal Active</span>
           </div>
+
+          {/* Evidence Locker Silent Progress Feedback */}
+          {evidenceStatus && (
+            <div className="w-full px-3 py-1.5 bg-slate-900 text-white rounded-xl border border-slate-700 flex items-center justify-between text-[11px] font-mono shadow-xs animate-fadeIn">
+              <div className="flex items-center gap-1.5">
+                <Lock className="w-3 h-3 text-amber-400" />
+                <span className="font-bold text-slate-200">Evidence Locker:</span>
+              </div>
+              <span className="text-[10px] text-amber-300 font-bold flex items-center gap-1">
+                {evidenceStatus === 'CAPTURING' ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-rose-400" />
+                    <span>Securing photos & audio...</span>
+                  </>
+                ) : evidenceStatus === 'COMPLETED' ? (
+                  <>
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-400">Vault Uploaded (Encrypted)</span>
+                  </>
+                ) : (
+                  <span>Partial Vault Saved</span>
+                )}
+              </span>
+            </div>
+          )}
 
           <button
             type="button"

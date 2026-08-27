@@ -9,10 +9,14 @@ import {
   Navigation,
   Car,
   User,
-  MapPin
+  MapPin,
+  Camera,
+  HardDrive,
+  Map as MapIcon
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import EvidenceLockerViewer from './EvidenceLockerViewer';
 
 // Helper to fix grey tiles inside a modal
 const MapResizer = ({ bounds }) => {
@@ -44,6 +48,7 @@ export const GuardianEmergencyModal = () => {
 
   const [livePos, setLivePos] = useState(null);
   const [roadRoutePoints, setRoadRoutePoints] = useState([]);
+  const [activeTab, setActiveTab] = useState('map'); // 'map' | 'evidence'
 
   // Live heartbeat position update
   useEffect(() => {
@@ -191,7 +196,7 @@ export const GuardianEmergencyModal = () => {
         </div>
 
         {/* Commuter + Vehicle Info */}
-        <div className="px-5 pt-4 pb-3 grid grid-cols-2 gap-3 text-xs">
+        <div className="px-5 pt-3 pb-2 grid grid-cols-2 gap-3 text-xs">
           <div className="space-y-0.5">
             <p className="text-[10px] font-extrabold uppercase text-slate-400 font-display">Commuter</p>
             <p className="font-extrabold text-slate-900 text-sm font-display">{commuterName}</p>
@@ -206,55 +211,102 @@ export const GuardianEmergencyModal = () => {
           </div>
         </div>
 
-        {/* Live Map — same style as commuter OngoingJourneyMap */}
-        <div className="px-5 pb-4">
-          <div className="h-56 rounded-2xl overflow-hidden border border-slate-200 relative">
-            <MapContainer
-              key={latestEmergencyAlert?.tripId || 'sos-map'}
-              center={commuterLatLng}
-              zoom={13}
-              scrollWheelZoom={false}
-              className="w-full h-full"
+        {/* View Switcher Tabs: Live GPS Map vs Evidence Locker */}
+        <div className="px-5 pb-3">
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('map')}
+              className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer font-display ${
+                activeTab === 'map'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapResizer bounds={mapBounds} />
+              <MapIcon className="w-3.5 h-3.5 text-rose-500" />
+              <span>Live GPS Route</span>
+            </button>
 
-              {/* Route Outer Glow + Inner Line — matches commuter map exactly */}
-              {activePolyline.length > 1 && (
-                <>
-                  <Polyline positions={activePolyline} pathOptions={{ color: '#F43F5E', weight: 8, opacity: 0.35 }} />
-                  <Polyline positions={activePolyline} pathOptions={{ color: '#E11D48', weight: 5, opacity: 0.9, dashArray: '10, 6' }} />
-                </>
+            <button
+              type="button"
+              onClick={() => setActiveTab('evidence')}
+              className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer font-display ${
+                activeTab === 'evidence'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <HardDrive className="w-3.5 h-3.5 text-amber-500" />
+              <span>Evidence Locker</span>
+              {latestEmergencyAlert?.evidence?.photos?.length > 0 && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
               )}
-
-              <Marker position={startLatLng} icon={startIcon}>
-                <Popup><span className="text-xs font-bold text-emerald-700">Start Location</span></Popup>
-              </Marker>
-
-              <Marker position={destLatLng} icon={destIcon}>
-                <Popup><span className="text-xs font-bold text-rose-700">Destination: {destination}</span></Popup>
-              </Marker>
-
-              <Marker position={commuterLatLng} icon={commuterIcon} zIndexOffset={1000}>
-                <Popup>
-                  <div className="p-1 text-center">
-                    <p className="text-xs font-black text-rose-600">🚨 {commuterName}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">Live GPS</p>
-                  </div>
-                </Popup>
-              </Marker>
-            </MapContainer>
-
-            {/* Live Route Badge — bottom left, same as commuter map */}
-            <div className="absolute bottom-3 left-3 z-[400] bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-[10px] font-extrabold text-white flex items-center gap-1.5 shadow-md font-display">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              <span>Tracking Commuter Live Route</span>
-            </div>
+            </button>
           </div>
         </div>
+
+        {/* Tab Content 1: Live Map */}
+        {activeTab === 'map' && (
+          <div className="px-5 pb-4">
+            <div className="h-56 rounded-2xl overflow-hidden border border-slate-200 relative">
+              <MapContainer
+                key={latestEmergencyAlert?.tripId || 'sos-map'}
+                center={commuterLatLng}
+                zoom={13}
+                scrollWheelZoom={false}
+                className="w-full h-full"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <MapResizer bounds={mapBounds} />
+
+                {/* Route Outer Glow + Inner Line — matches commuter map exactly */}
+                {activePolyline.length > 1 && (
+                  <>
+                    <Polyline positions={activePolyline} pathOptions={{ color: '#F43F5E', weight: 8, opacity: 0.35 }} />
+                    <Polyline positions={activePolyline} pathOptions={{ color: '#E11D48', weight: 5, opacity: 0.9, dashArray: '10, 6' }} />
+                  </>
+                )}
+
+                <Marker position={startLatLng} icon={startIcon}>
+                  <Popup><span className="text-xs font-bold text-emerald-700">Start Location</span></Popup>
+                </Marker>
+
+                <Marker position={destLatLng} icon={destIcon}>
+                  <Popup><span className="text-xs font-bold text-rose-700">Destination: {destination}</span></Popup>
+                </Marker>
+
+                <Marker position={commuterLatLng} icon={commuterIcon} zIndexOffset={1000}>
+                  <Popup>
+                    <div className="p-1 text-center">
+                      <p className="text-xs font-black text-rose-600">🚨 {commuterName}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">Live GPS</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              </MapContainer>
+
+              {/* Live Route Badge — bottom left */}
+              <div className="absolute bottom-3 left-3 z-[400] bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-[10px] font-extrabold text-white flex items-center gap-1.5 shadow-md font-display">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                <span>Tracking Commuter Live Route</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content 2: Evidence Locker */}
+        {activeTab === 'evidence' && (
+          <div className="px-5 pb-4 max-h-[380px] overflow-y-auto custom-scrollbar">
+            <EvidenceLockerViewer
+              emergencyId={latestEmergencyAlert?.emergencyId || latestEmergencyAlert?._id || latestEmergencyAlert?.id}
+              initialEvidence={latestEmergencyAlert?.evidence}
+              isLive={true}
+            />
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="px-5 pb-5 space-y-2.5">

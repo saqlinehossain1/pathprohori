@@ -107,14 +107,31 @@ export const SocketProvider = ({ children }) => {
       });
     };
 
+    const handleEvidenceCaptured = (data) => {
+      console.log('📸 REAL-TIME EVIDENCE CAPTURED VIA SOCKET:', data);
+      setLatestEmergencyAlert((current) => {
+        if (!current) return current;
+        const alertEmergencyId = current.emergencyId || current._id || current.id;
+        if (data.emergencyId && String(alertEmergencyId) === String(data.emergencyId)) {
+          return {
+            ...current,
+            evidence: data.evidence || current.evidence,
+          };
+        }
+        return current;
+      });
+    };
+
     socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyBroadcast);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
     socket.on('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
+    socket.on('EVIDENCE_CAPTURED', handleEvidenceCaptured);
 
     return () => {
       socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyBroadcast);
       socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
       socket.off('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
+      socket.off('EVIDENCE_CAPTURED', handleEvidenceCaptured);
     };
   }, [socket, user?._id]);
 
