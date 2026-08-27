@@ -38,18 +38,21 @@ export const SocketProvider = ({ children }) => {
     // fire-and-forget - the tab that sent it never gets a response back to update its own
     // trip state. This broadcast (same escalation pathway as the panic button) is what
     // actually flips the commuter's own screen to the EMERGENCY view for that case.
-    newSocket.on('EMERGENCY_ALERT', (alertData) => {
+    const onEmergencyAlert = (alertData) => {
       console.warn('[Socket.io Alert] EMERGENCY_ALERT received:', alertData);
       setActiveTrip((prev) => {
         if (!prev || String(prev._id) !== String(alertData.tripId)) return prev;
         return { ...prev, status: 'EMERGENCY', emergencySource: alertData.source };
       });
-    });
+    };
+
+    socket.on('EMERGENCY_ALERT', onEmergencyAlert);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('SIGNAL_LOSS_ALERT', onSignalLoss);
+      socket.off('EMERGENCY_ALERT', onEmergencyAlert);
     };
   }, []);
 
