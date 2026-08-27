@@ -40,6 +40,28 @@ export const tripApi = {
     const { data } = await API.get('/trips/history');
     return data;
   },
+
+  // Offline Memory Storage Queue: flush the whole IndexedDB queue in one batch
+  // request rather than one call per point.
+  sendCoordinateBatch: async (tripId, points) => {
+    const { data } = await API.post(`/trips/${tripId}/coordinates/batch`, { points });
+    return data;
+  },
+
+  // Dead-Battery Final Emergency Blast: navigator.sendBeacon() (not axios/fetch) so the
+  // request reliably completes even as the page unloads. sendBeacon cannot set custom
+  // headers, so the JWT rides along in the JSON body instead of an Authorization header.
+  sendBatteryEmergencyBeacon: (tripId, payload) => {
+    try {
+      const token = localStorage.getItem('pathprohori_token');
+      const body = JSON.stringify({ ...payload, token });
+      const blob = new Blob([body], { type: 'application/json' });
+      return navigator.sendBeacon(`/api/trips/${tripId}/battery-emergency`, blob);
+    } catch (err) {
+      console.error('[Battery Emergency] sendBeacon threw an error:', err);
+      return false;
+    }
+  },
 };
 
 export default tripApi;

@@ -251,12 +251,21 @@ export const resolveEmergency = async (req, res, next) => {
 // @route PUT /api/emergency/:id/resolve
 export const resolveMonitoredEmergency = async (req, res, next) => {
     try {
-        if (!['guardian', 'operator', 'admin'].includes(req.user.role)) {
-            return res.status(403).json({ message: 'Only emergency response users can resolve monitored alerts.' });
-        }
-
         const emergency = await Emergency.findById(req.params.id);
         if (!emergency) return res.status(404).json({ message: 'Emergency alert not found.' });
+
+        const isResponseRole = ['guardian', 'operator', 'admin'].includes(req.user.role);
+        const isAssignedGuardian = req.user.guardians?.some(
+            (guardian) => String(guardian.user?._id || guardian.user) === String(emergency.user)
+        );
+        const assignedByAlertUser = await User.exists({
+            _id: emergency.user,
+            'guardians.email': req.user.email,
+        });
+
+        if (!isResponseRole && !isAssignedGuardian && !assignedByAlertUser) {
+            return res.status(403).json({ message: 'You are not authorized to resolve this emergency alert.' });
+        }
 
         emergency.status = 'RESOLVED';
         emergency.resolvedAt = new Date();

@@ -161,9 +161,11 @@ const LocationName = ({ lat, lng, address }) => {
 };
 
 export const Notifications = () => {
-  const { notifications, unreadCount, markAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, markAsResolved } = useNotifications();
   const { user } = React.useContext(AuthContext);
   const [activeFilter, setActiveFilter] = useState('ALL');
+  const [resolvingId, setResolvingId] = useState(null);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const filteredNotifications = notifications.filter((notif) => {
     if (activeFilter === 'UNREAD') return notif.status !== 'RESOLVED';
@@ -175,12 +177,22 @@ export const Notifications = () => {
   const resolvedCount = notifications.filter((notif) => notif.status === 'RESOLVED').length;
 
   const resolveAlert = async (notification) => {
+    const emergencyId = notification.emergencyId || notification.id;
+    setResolvingId(String(emergencyId));
     try {
-      await API.put(`/emergency/${notification.emergencyId || notification.id}/resolve`);
-      markAsRead(notification.id);
+      await API.put(`/emergency/${emergencyId}/resolve`);
+      markAsResolved(notification.id);
     } catch (error) {
       console.error('Failed to resolve emergency alert:', error);
+    } finally {
+      setResolvingId(null);
     }
+  };
+
+  const handleMarkAllAsRead = () => {
+    setMarkingAllRead(true);
+    markAllAsRead();
+    setMarkingAllRead(false);
   };
 
   const formatDate = (dateString) => {
@@ -217,11 +229,12 @@ export const Notifications = () => {
         {notifications.length > 0 && unreadCount > 0 && (
           <div className="shrink-0">
             <button
-              onClick={() => markAsRead()}
+              onClick={handleMarkAllAsRead}
+              disabled={markingAllRead}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-2xl transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95 font-display"
             >
               <CheckCheck className="w-4 h-4 text-emerald-400" />
-              <span>Mark All as Read</span>
+              <span>{markingAllRead ? 'Marking...' : 'Mark All as Read'}</span>
             </button>
           </div>
         )}
@@ -416,14 +429,15 @@ export const Notifications = () => {
                         </a>
                       )}
 
-                      {notif.status !== 'RESOLVED' && ['guardian', 'operator', 'admin'].includes(user?.role) && (
+                      {notif.status !== 'RESOLVED' && user && (
                         <button
                           type="button"
                           onClick={() => resolveAlert(notif)}
+                          disabled={resolvingId === String(notif.emergencyId || notif.id)}
                           className="py-2 px-3.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Mark Resolved</span>
+                          <span>{resolvingId === String(notif.emergencyId || notif.id) ? 'Resolving...' : 'Mark Resolved'}</span>
                         </button>
                       )}
                     </div>

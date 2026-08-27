@@ -157,11 +157,23 @@ export const NotificationProvider = ({ children }) => {
   const markAsRead = (notificationId) => {
     setNotifications((prev) =>
       prev.map((notification) => {
-        if (!notificationId || notification.id === notificationId) {
+        if (!notificationId || String(notification.id) === String(notificationId)) {
           return { ...notification, read: true };
         }
         return notification;
       })
+    );
+  };
+
+  const markAllAsRead = () => markAsRead();
+
+  const markAsResolved = (notificationId) => {
+    setNotifications((prev) =>
+      prev.map((notification) => (
+        String(notification.id) === String(notificationId)
+          ? { ...notification, status: 'RESOLVED', read: true, resolvedAt: new Date().toISOString() }
+          : notification
+      ))
     );
   };
 
@@ -171,6 +183,8 @@ export const NotificationProvider = ({ children }) => {
         notifications,
         unreadCount,
         markAsRead,
+        markAllAsRead,
+        markAsResolved,
       }}
     >
       {children}
