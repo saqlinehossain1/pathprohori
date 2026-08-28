@@ -130,6 +130,17 @@ export const useTrip = () => {
     }
   };
 
+  const updateSafetyStatus = async (safetyStatus, coords = {}) => {
+    if (!activeTrip) return;
+    const res = await tripApi.updateSafetyStatus(activeTrip._id, {
+      safetyStatus,
+      latitude: coords.lat,
+      longitude: coords.lng,
+    });
+    setActiveTrip((prev) => (prev ? { ...prev, safetyStatus: res.safetyStatus } : prev));
+    return res;
+  };
+
   return {
     activeTrip,
     signalLossAlert,
@@ -143,6 +154,7 @@ export const useTrip = () => {
     cancelPanic,
     deactivateAlarm,
     completeTrip,
+    updateSafetyStatus,
     refreshActiveTrip: fetchActiveTrip,
   };
 };

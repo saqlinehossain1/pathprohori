@@ -15,6 +15,8 @@ import { startPrivacyCron } from './services/privacyCron.js';
 import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 
 import emergencyRoutes from './routes/emergencyRoutes.js';
+import safetyZoneRoutes from './routes/safetyZoneRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 dotenv.config();
 
@@ -54,6 +56,8 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/safety-zones', safetyZoneRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

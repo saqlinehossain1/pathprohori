@@ -591,7 +591,7 @@ export const ProfileSettings = () => {
               required
             />
             <Input
-              label={`Silent Alarm PIN ${user?.hasFakePin ? '(configured)' : '(not set)'}`}
+              label={`Silent Alarm PIN (Duress) ${user?.hasFakePin ? '(configured)' : '(not set)'}`}
               type="password"
               inputMode="numeric"
               maxLength="4"

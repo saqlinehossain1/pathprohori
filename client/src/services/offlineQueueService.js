@@ -52,7 +52,7 @@ export const flushOfflineQueue = async () => {
         try {
           await tripApi.sendCoordinateBatch(
             tripId,
-            chunk.map(({ lat, lng, timestamp }) => ({ lat, lng, timestamp }))
+            chunk.map(({ lat, lng, timestamp, trackingMode }) => ({ lat, lng, timestamp, trackingMode }))
           );
           await removeQueuedPoints(chunk.map((p) => p.id));
           console.log(`[Offline Queue] Flush succeeded: ${chunk.length} point(s) uploaded for trip ${tripId}.`);

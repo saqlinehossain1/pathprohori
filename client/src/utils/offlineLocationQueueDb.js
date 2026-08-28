@@ -34,12 +34,12 @@ const openDb = () => {
   return dbPromise;
 };
 
-export const enqueueLocationPoint = async ({ lat, lng, timestamp, tripId }) => {
+export const enqueueLocationPoint = async ({ lat, lng, timestamp, tripId, trackingMode = 'NORMAL' }) => {
   try {
     const db = await openDb();
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
-      tx.objectStore(STORE_NAME).add({ lat, lng, timestamp, tripId });
+      tx.objectStore(STORE_NAME).add({ lat, lng, timestamp, tripId, trackingMode });
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

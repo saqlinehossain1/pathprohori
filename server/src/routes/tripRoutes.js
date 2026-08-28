@@ -12,6 +12,7 @@ import {
   handleBatteryCriticalEmergency,
   addCoordinateBatch,
   getPublicTrackingData,
+  updateSafetyStatus,
 } from '../controllers/tripController.js';
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get('/track/:token', getPublicTrackingData);
 router.post('/', protect, createTrip);
 router.get('/active', protect, getActiveTrip);
 router.get('/history', protect, getUserTripHistory);
+router.patch('/:id/safety-status', protect, updateSafetyStatus);
 router.post('/:id/heartbeat', protect, sendHeartbeat);
 router.put('/:id/complete', protect, completeTrip);
 router.post('/:id/trigger-panic', protect, triggerPanic);

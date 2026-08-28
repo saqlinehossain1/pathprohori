@@ -20,7 +20,8 @@ const notificationSchema = new mongoose.Schema({
     },
     startingLocation: { type: String, default: 'N/A' },
     destination: { type: String, default: 'N/A' },
-    isRead: { type: Boolean, default: false }
+    isRead: { type: Boolean, default: false },
+    resolvedAt: { type: Date },
 }, { timestamps: true });
 
 export default mongoose.model('Notification', notificationSchema);

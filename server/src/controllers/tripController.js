@@ -6,6 +6,8 @@ import { Emergency } from '../models/Emergency.js';
 import { sendPushNotification } from '../services/pushService.js';
 import { sendEmergencySMS } from '../services/twilioService.js';
 import { getReverseGeocodedAddress } from './emergencyController.js';
+import Notification from '../models/Notification.js';
+import { evaluateTripZones } from '../services/geofenceService.js';
 
 // Shared guardian-escalation pathway for anything that raises a trip to EMERGENCY
 // priority - the 1-tap panic button and the dead-battery final blast both funnel
@@ -119,10 +121,89 @@ export const getActiveTrip = async (req, res, next) => {
   try {
     const activeTrip = await Trip.findOne({
       user: req.user._id,
-      status: { $in: ['ACTIVE', 'SIGNAL_LOST', 'EMERGENCY'] },
+      status: { $in: ['ACTIVE', 'SIGNAL_LOST', 'EMERGENCY', 'DURESS'] },
     }).sort({ createdAt: -1 });
 
     res.json(activeTrip);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Set the traveler's manual safety status
+// @route   PATCH /api/trips/:id/safety-status
+export const updateSafetyStatus = async (req, res, next) => {
+  try {
+    const { safetyStatus, latitude, longitude } = req.body || {};
+    if (!['SAFE', 'UNSAFE'].includes(safetyStatus)) {
+      return res.status(400).json({ message: 'Safety status must be SAFE or UNSAFE.' });
+    }
+
+    const trip = await Trip.findOne({ _id: req.params.id, user: req.user._id });
+    if (!trip) return res.status(404).json({ message: 'Active journey not found.' });
+    if (trip.status === 'COMPLETED') {
+      return res.status(400).json({ message: 'Completed journeys cannot change safety status.' });
+    }
+    if (['EMERGENCY', 'DURESS'].includes(trip.status)) {
+      return res.status(400).json({ message: 'Resolve the emergency state before changing safety status.' });
+    }
+
+    const hasCoordinates = typeof latitude === 'number' && typeof longitude === 'number';
+    if (hasCoordinates && (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)) {
+      return res.status(400).json({ message: 'Invalid safety status coordinates.' });
+    }
+
+    const changed = trip.safetyStatus !== safetyStatus;
+    trip.safetyStatus = safetyStatus;
+    if (changed) {
+      trip.safetyStatusChangedAt = new Date();
+      trip.safetyStatusChangedBy = req.user._id;
+    }
+    if (hasCoordinates) trip.safetyStatusLocation = { lat: latitude, lng: longitude };
+    await trip.save();
+
+    if (changed && safetyStatus === 'UNSAFE') {
+      const user = await User.findById(req.user._id).select('name guardians').populate('guardians.user', 'name email phone pushSubscription');
+      const guardianRecipients = (user?.guardians || []).map((guardian) => guardian.user?._id).filter(Boolean);
+      const operatorRecipients = await User.find({
+        role: { $in: ['operator', 'admin'] },
+        _id: { $ne: req.user._id },
+      }).select('_id');
+      const recipients = [...new Map(
+        [...guardianRecipients, ...operatorRecipients.map((operator) => operator._id)]
+          .map((recipientId) => [String(recipientId), recipientId])
+      ).values()];
+      const notificationPayload = {
+        type: 'WARNING',
+        title: 'Traveler marked journey unsafe',
+        commuterName: user?.name || 'Traveler',
+        senderName: user?.name || 'Traveler',
+        tripId: trip._id,
+        startingLocation: trip.startingLocation,
+        destination: trip.destination,
+        location: hasCoordinates ? { latitude, longitude } : undefined,
+      };
+      await Promise.all(recipients.map((recipientId) => Notification.create({
+        ...notificationPayload,
+        recipientId,
+        senderId: req.user._id,
+      })));
+
+      const io = req.app.get('io');
+      if (io) {
+        const alert = {
+          ...notificationPayload,
+          notificationType: 'MANUAL_UNSAFE',
+          senderId: req.user._id,
+          audience: 'GUARDIANS_AND_OPERATORS',
+          safetyStatus,
+          timestamp: new Date(),
+        };
+        recipients.forEach((recipientId) => io.to(`user_${recipientId}`).emit('SAFETY_WARNING', alert));
+      }
+    }
+
+    res.json({ success: true, safetyStatus: trip.safetyStatus, changed, trip });
   } catch (error) {
     next(error);
   }
@@ -137,6 +218,10 @@ export const sendHeartbeat = async (req, res, next) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
+    if (String(trip.user) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to modify this journey' });
+    }
+
     trip.lastHeartbeatAt = new Date();
     if (trip.status === 'SIGNAL_LOST') {
       trip.status = 'ACTIVE'; // Restored connection
@@ -144,7 +229,8 @@ export const sendHeartbeat = async (req, res, next) => {
     await trip.save();
 
     // Log location if passed
-    if (req.body.latitude && req.body.longitude) {
+    const hasCoordinates = typeof req.body.latitude === 'number' && typeof req.body.longitude === 'number';
+    if (hasCoordinates && req.body.latitude >= -90 && req.body.latitude <= 90 && req.body.longitude >= -180 && req.body.longitude <= 180) {
       await LocationLog.create({
         trip: trip._id,
         user: trip.user,
@@ -153,7 +239,10 @@ export const sendHeartbeat = async (req, res, next) => {
           coordinates: [req.body.longitude, req.body.latitude],
         },
         batteryLevel: req.body.batteryLevel,
+        trackingMode: req.body.trackingMode || (trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL'),
       });
+
+      await evaluateTripZones(trip, { lat: req.body.latitude, lng: req.body.longitude }, req.app.get('io'));
 
       // Real-time broadcast to public guardian tracking room
       const io = req.app.get('io');
@@ -162,12 +251,20 @@ export const sendHeartbeat = async (req, res, next) => {
           coords: { lat: req.body.latitude, lng: req.body.longitude },
           batteryLevel: req.body.batteryLevel,
           status: trip.status,
+          safetyStatus: trip.safetyStatus,
+          trackingMode: trip.status === 'EMERGENCY' || trip.status === 'DURESS' ? 'EMERGENCY' : trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL',
           updatedAt: new Date(),
         });
       }
     }
 
-    res.json({ success: true, lastHeartbeatAt: trip.lastHeartbeatAt, status: trip.status });
+    res.json({
+      success: true,
+      lastHeartbeatAt: trip.lastHeartbeatAt,
+      status: trip.status,
+      safetyStatus: trip.safetyStatus,
+      trackingMode: trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL',
+    });
   } catch (error) {
     next(error);
   }
@@ -187,6 +284,9 @@ export const completeTrip = async (req, res, next) => {
     const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
     trip.status = 'COMPLETED';
+    trip.safetyStatus = 'SAFE';
+    trip.safetyStatusChangedAt = now;
+    trip.safetyStatusChangedBy = req.user._id;
     trip.completedAt = now;
     trip.expiresAt = expiresAt;
     trip.trackingActive = false;
@@ -775,6 +875,8 @@ export const getPublicTrackingData = async (req, res, next) => {
         destinationCoords: trip.destinationCoords,
         lastHeartbeatAt: trip.lastHeartbeatAt,
         trackingExpiresAt: trip.trackingExpiresAt,
+        safetyStatus: trip.safetyStatus,
+        trackingMode: trip.status === 'EMERGENCY' || trip.status === 'DURESS' ? 'EMERGENCY' : trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL',
         createdAt: trip.createdAt,
       },
       commuter: {
