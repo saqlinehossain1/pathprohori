@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import authApi from '../api/authApi';
 
@@ -8,27 +8,37 @@ export const useVoice = () => {
   const [transcript, setTranscript] = useState('');
   const [keywordMatched, setKeywordMatched] = useState(false);
   const [savingPhrase, setSavingPhrase] = useState(false);
+  const [handsFreeActive, setHandsFreeActive] = useState(false);
+
   const [emergencyPhraseInput, setEmergencyPhraseInput] = useState(
     user?.emergencyPhrase || 'Lavender Moonlight'
   );
-  const [duressPinInput, setDuressPinInput] = useState(user?.duressPin || '');
+  const [normalPinInput, setNormalPinInput] = useState('');
+  const [fakePinInput, setFakePinInput] = useState('');
+
+  const recognitionRef = useRef(null);
+  const handsFreeRef = useRef(handsFreeActive);
+  const phraseMatchedRef = useRef(false);
+
+  useEffect(() => {
+    handsFreeRef.current = handsFreeActive;
+  }, [handsFreeActive]);
 
   useEffect(() => {
     if (user?.emergencyPhrase) {
       setEmergencyPhraseInput(user.emergencyPhrase);
     }
-    if (user?.duressPin) {
-      setDuressPinInput(user.duressPin);
-    }
   }, [user]);
 
-  const saveSettings = async (phrase, pin) => {
+  const saveSettings = async (phrase, normalPin, fakePin) => {
     try {
       setSavingPhrase(true);
-      const updatedUser = await authApi.updateProfile({
+      const settings = {
         emergencyPhrase: phrase || emergencyPhraseInput,
-        duressPin: pin || duressPinInput,
-      });
+      };
+      if (normalPin) settings.normalPin = normalPin;
+      if (fakePin) settings.fakePin = fakePin;
+      const updatedUser = await authApi.updateProfile(settings);
       setUser((prev) => ({ ...prev, ...updatedUser }));
       return updatedUser;
     } catch (err) {
@@ -39,49 +49,104 @@ export const useVoice = () => {
     }
   };
 
+  const stopListening = useCallback(() => {
+    setHandsFreeActive(false);
+    phraseMatchedRef.current = false;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore stop error
+      }
+    }
+    setIsListening(false);
+  }, []);
+
   const startListening = useCallback(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert('Speech Recognition is not supported by your browser. Please use Chrome or Edge.');
-      return;
+      console.warn('Speech Recognition is not supported by this browser.');
+      return false;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setTranscript('Listening for secret phrase...');
-    };
-
-    recognition.onresult = (event) => {
-      const current = event.resultIndex;
-      const text = event.results[current][0].transcript.toLowerCase();
-      setTranscript(text);
-
-      const target = (user?.emergencyPhrase || 'Lavender Moonlight').toLowerCase();
-      if (text.includes(target) || text.includes('help') || text.includes('emergency')) {
-        setKeywordMatched(true);
-        recognition.stop();
-        setIsListening(false);
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
       }
-    };
 
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      setIsListening(false);
-    };
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      phraseMatchedRef.current = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+      recognition.onstart = () => {
+        setIsListening(true);
+        setTranscript('Listening for secret phrase...');
+      };
 
-    recognition.start();
-  }, [user?.emergencyPhrase]);
+      recognition.onresult = (event) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
+        }
+        const text = currentTranscript.toLowerCase().trim();
+        setTranscript(text);
+
+        const target = (user?.emergencyPhrase || emergencyPhraseInput || 'Lavender Moonlight')
+          .toLowerCase()
+          .trim();
+        const normalizedText = text.replace(/[^a-z0-9]+/g, ' ').trim();
+        const normalizedTarget = target.replace(/[^a-z0-9]+/g, ' ').trim();
+
+        if (
+          normalizedTarget.length > 2 &&
+          normalizedText.includes(normalizedTarget) &&
+          !phraseMatchedRef.current
+        ) {
+          phraseMatchedRef.current = true;
+          setKeywordMatched(true);
+          setHandsFreeActive(false);
+          try {
+            recognition.stop();
+          } catch (e) {
+            // Recognition may already have ended after the phrase was heard.
+          }
+          setIsListening(false);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition status:', event.error);
+        if (event.error !== 'no-speech') {
+          setIsListening(false);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        if (handsFreeRef.current && !phraseMatchedRef.current) {
+          setTimeout(() => {
+            if (handsFreeRef.current) {
+              try {
+                recognition.start();
+              } catch (e) {}
+            }
+          }, 300);
+        }
+      };
+
+      recognition.start();
+      setHandsFreeActive(true);
+      return true;
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      return false;
+    }
+  }, [user?.emergencyPhrase, emergencyPhraseInput, keywordMatched]);
 
   return {
     isListening,
@@ -90,11 +155,16 @@ export const useVoice = () => {
     setKeywordMatched,
     emergencyPhraseInput,
     setEmergencyPhraseInput,
-    duressPinInput,
-    setDuressPinInput,
+    normalPinInput,
+    setNormalPinInput,
+    fakePinInput,
+    setFakePinInput,
     savingPhrase,
     saveSettings,
     startListening,
+    stopListening,
+    handsFreeActive,
+    setHandsFreeActive,
   };
 };
 

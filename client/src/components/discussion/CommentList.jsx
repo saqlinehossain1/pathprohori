@@ -14,10 +14,10 @@ export const CommentList = ({
 }) => {
   if (comments.length === 0) {
     return (
-      <div className="text-center py-8 bg-[#F9F8FA] rounded-2xl border border-dashed border-[#E0D5DC]">
-        <MessageSquare className="w-8 h-8 text-[#8C7A87] mx-auto mb-2 opacity-50" />
-        <p className="text-xs font-bold text-[#8C7A87]">No comments yet on this discussion thread.</p>
-        <p className="text-[11px] text-[#9A8B95] mt-0.5">Be the first to share an update or eyewitness report!</p>
+      <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200 shadow-xs">
+        <MessageSquare className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+        <p className="text-xs font-bold text-slate-800 font-display">No comments yet on this discussion thread.</p>
+        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Be the first to share an update or eyewitness report!</p>
       </div>
     );
   }

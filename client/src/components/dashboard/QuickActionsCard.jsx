@@ -11,7 +11,7 @@ export const QuickActionsCard = () => {
       path: '/log-journey',
       icon: Navigation,
       btnText: 'Start Log',
-      color: 'text-[#6B4355]',
+      color: 'text-rose-600',
     },
     {
       title: 'Danger Feed & Heatmap',
@@ -33,26 +33,26 @@ export const QuickActionsCard = () => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-extrabold text-[#2D2329]">Quick Safety Actions</h3>
+      <h3 className="text-lg font-extrabold text-slate-900 font-display">Quick Safety Actions</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {actions.map((act, idx) => {
           const Icon = act.icon;
           return (
             <Card
               key={idx}
-              className="flex flex-col justify-between space-y-4 hover:-translate-y-1 transition-transform"
+              className="flex flex-col justify-between space-y-4 hover:-translate-y-1 transition-transform border-slate-200/80 shadow-card"
             >
               <div className="space-y-3">
                 <Icon className={`w-8 h-8 ${act.color} stroke-[2.2]`} />
                 <div>
-                  <h4 className="font-extrabold text-base text-[#2D2329]">{act.title}</h4>
-                  <p className="text-xs text-[#8C7A87] font-medium leading-relaxed mt-1">{act.desc}</p>
+                  <h4 className="font-extrabold text-base text-slate-900 font-display">{act.title}</h4>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">{act.desc}</p>
                 </div>
               </div>
 
               <Link
                 to={act.path}
-                className="w-full py-2.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white text-[#6B4355] border border-[#E0D5DC] rounded-2xl text-xs font-bold transition-all text-center block"
+                className="w-full py-2.5 bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-800 border border-slate-200 rounded-2xl text-xs font-bold transition-all text-center block font-display shadow-xs"
               >
                 {act.btnText}
               </Link>

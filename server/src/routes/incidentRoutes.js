@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, authorize } from '../middleware/authMiddleware.js';
 import {
   getIncidents,
   getIncidentById,
@@ -14,11 +14,14 @@ import {
   addCommentReply,
   updateCommentReply,
   deleteCommentReply,
+  getVerifiedHighThreatIncidents,
 } from '../controllers/incidentController.js';
 
 const router = express.Router();
+const adminOnly = authorize('admin', 'operator');
 
 router.get('/', getIncidents);
+router.get('/export/high-severity', protect, adminOnly, getVerifiedHighThreatIncidents);
 router.get('/:id', getIncidentById);
 router.post('/', protect, createIncident);
 router.put('/:id', protect, updateIncident);

@@ -38,17 +38,17 @@ export const NewCommentForm = ({ onSubmit, loading }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 bg-white p-4 rounded-3xl border border-[#E0D5DC] shadow-xs">
+    <form onSubmit={handleSubmit} className="space-y-3 bg-white/95 backdrop-blur-xl p-4 rounded-3xl border border-slate-200/80 shadow-card">
       <div className="flex items-start gap-3">
         {/* User Profile Avatar next to Comment Box */}
         {user?.avatarUrl ? (
           <img
             src={user.avatarUrl}
             alt={user.name}
-            className="w-10 h-10 rounded-full object-cover border-2 border-[#6B4355] flex-shrink-0 shadow-xs mt-1"
+            className="w-10 h-10 rounded-full object-cover border-2 border-slate-900 flex-shrink-0 shadow-xs mt-1"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-[#6B4355] text-white flex-shrink-0 flex items-center justify-center font-extrabold text-sm shadow-xs mt-1">
+          <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex-shrink-0 flex items-center justify-center font-extrabold text-sm shadow-xs mt-1 font-display">
             {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
           </div>
         )}
@@ -58,30 +58,30 @@ export const NewCommentForm = ({ onSubmit, loading }) => {
           placeholder="Add an eyewitness update or community comment..."
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="flex-1 p-3.5 rounded-2xl bg-[#F9F8FA] border border-[#E0D5DC] text-xs text-[#2D2329] focus:outline-none focus:ring-2 focus:ring-[#6B4355] font-medium"
+          className="flex-1 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 focus:bg-white transition-all font-medium placeholder:text-slate-400"
           required
         />
       </div>
 
       {/* Image Thumbnail Preview inside comment box */}
       {imageUrl && (
-        <div className="rounded-2xl overflow-hidden max-h-48 border border-[#E0D5DC] bg-[#F9F8FA] p-1.5 ml-13 relative">
+        <div className="rounded-2xl overflow-hidden max-h-48 border border-slate-200 bg-slate-50 p-1.5 ml-13 relative">
           <img src={imageUrl} alt="Attached Proof" className="w-full max-h-48 object-contain rounded-xl" />
           <button
             type="button"
             onClick={() => setImageUrl('')}
-            className="absolute top-3 right-3 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"
+            className="absolute top-3 right-3 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full cursor-pointer shadow-xs"
           >
             Remove
           </button>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F0EBF0] pt-2 ml-13">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5 ml-13">
         <div className="flex items-center gap-3">
-          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-xl text-xs font-extrabold transition-all shadow-xs">
+          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-50 hover:bg-slate-900 hover:text-white border border-slate-200 text-slate-800 rounded-xl text-xs font-extrabold transition-all shadow-xs">
             <Upload className="w-3.5 h-3.5" />
-            <span>{uploadingImage ? 'Uploading photo...' : 'Attach Photo'}</span>
+            <span>{uploadingImage ? 'Uploading...' : 'Photo'}</span>
             <input
               type="file"
               accept="image/*"
@@ -98,7 +98,7 @@ export const NewCommentForm = ({ onSubmit, loading }) => {
           )}
         </div>
 
-        <Button type="submit" size="sm" loading={loading} className="font-extrabold px-5 py-2">
+        <Button type="submit" size="sm" loading={loading} className="font-extrabold px-5 py-2.5 shadow-md shadow-rose-950/20">
           <Send className="w-3.5 h-3.5 mr-1.5" />
           Post Comment
         </Button>

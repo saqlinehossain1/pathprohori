@@ -4,34 +4,28 @@ import Input from '../common/Input';
 import Button from '../common/Button';
 import { KeyRound, ShieldAlert } from 'lucide-react';
 
-export const DuressPinModal = ({ isOpen, onClose, onDeactivate, correctPin }) => {
+export const DuressPinModal = ({ isOpen, onClose, onDeactivate, title = 'Emergency Mode Active — Enter PIN', description }) => {
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (pinInput === correctPin || pinInput === '9999' || pinInput === '0000') {
-      setError('');
-      setPinInput('');
-      onDeactivate(false); // Normal deactivation
-      onClose();
-    } else if (pinInput === '8888' || pinInput === '7777') {
-      setError('');
-      setPinInput('');
-      onDeactivate(true); // Silent Duress Pin Mode activated!
-      onClose();
-    } else {
-      setError('Invalid PIN code. Please try again.');
+    if (!/^\d{4}$/.test(pinInput)) {
+      setError('Enter your 4-digit PIN.');
+      return;
     }
+    setError('');
+    onDeactivate(pinInput);
+    setPinInput('');
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Emergency Mode Active — Enter PIN">
+    <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-xs font-semibold">
           <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
           <span>
-            Enter standard PIN to disarm alarm, or enter secret Duress PIN to send silent guardian alarm.
+            {description || 'Enter your normal PIN to disarm, or your silent Duress PIN to send a covert critical alert.'}
           </span>
         </div>
 

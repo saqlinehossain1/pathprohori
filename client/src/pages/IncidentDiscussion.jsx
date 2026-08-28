@@ -160,9 +160,9 @@ export const IncidentDiscussion = () => {
 
   if (!incident) {
     return (
-      <Card className="text-center py-12">
-        <p className="text-sm font-bold text-[#6B4355]">Incident not found.</p>
-        <Link to="/live-danger-feed" className="text-xs text-[#6B4355] underline mt-2 block">
+      <Card className="text-center py-12 border-slate-200/80 shadow-card">
+        <p className="text-sm font-extrabold text-slate-900 font-display">Incident not found.</p>
+        <Link to="/live-danger-feed" className="text-xs text-rose-600 font-extrabold hover:underline mt-2 block font-display">
           Return to Danger Feed
         </Link>
       </Card>
@@ -211,46 +211,63 @@ export const IncidentDiscussion = () => {
   const realDistanceText = calculateLiveDistanceText();
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Back Button & Author Actions */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <Link
-          to="/live-danger-feed"
-          className="inline-flex items-center gap-2 text-xs font-extrabold text-[#6B4355] hover:underline"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Live Danger Feed
-        </Link>
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      {/* Clean Text Page Header matching other pages */}
+      <div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
+          <MessageSquare className="w-3.5 h-3.5 text-rose-600" />
+          <span className="font-display">Community Safety Discussion</span>
+        </div>
 
-        {canManage && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowEditModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F9F8FA] hover:bg-[#6B4355] hover:text-white border border-[#E0D5DC] text-[#6B4355] rounded-2xl text-xs font-extrabold transition-all shadow-xs"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>Edit Incident Report</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDeleteIncident}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-2xl text-xs font-extrabold transition-all"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Incident Report</span>
-            </button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
+              Incident Thread & Reports
+            </h1>
+            <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+              Collaborative community hazard verification and real-time commuter discussion.
+            </p>
           </div>
-        )}
+
+          <Link
+            to="/live-danger-feed"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-md shadow-slate-950/10 cursor-pointer font-display shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4 text-rose-400" />
+            <span>Back to Live Feed</span>
+          </Link>
+        </div>
       </div>
 
+      {/* Author Actions Bar */}
+      {canManage && (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setShowEditModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Edit Incident Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDeleteIncident}
+            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-2xl text-xs font-extrabold transition-all cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Incident Report</span>
+          </button>
+        </div>
+      )}
+
       {/* Main Incident Overview Hero Card */}
-      <Card className="space-y-4 border-[#E0D5DC]">
+      <Card className="space-y-4 border-slate-200/80 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-black text-[#2D2329]">{incident.title}</h1>
+              <h1 className="text-2xl font-black text-slate-900 font-display">{incident.title}</h1>
               <Badge variant={incident.severity === 'High Alert' ? 'highAlert' : 'medSeverity'}>
                 {incident.severity}
               </Badge>
@@ -264,8 +281,8 @@ export const IncidentDiscussion = () => {
 
             {/* Real GPS Live Distance & Author Info Banner */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <p className="text-xs font-extrabold text-[#6B4355] flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-[#6B4355]" />
+              <p className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5 font-display">
+                <MapPin className="w-4 h-4 text-rose-600" />
                 {incident.locationName}
               </p>
               <span className="px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-extrabold flex items-center gap-1.5 shadow-xs">
@@ -273,11 +290,11 @@ export const IncidentDiscussion = () => {
                 {realDistanceText} away from your live GPS position
               </span>
 
-              <span className="flex items-center gap-2 font-extrabold text-[#6B4355] bg-[#F9F8FA] px-3 py-1 rounded-full border border-[#E0D5DC] text-[11px] shadow-xs">
+              <span className="flex items-center gap-2 font-extrabold text-slate-800 bg-slate-50 px-3 py-1 rounded-full border border-slate-200 text-[11px] shadow-xs font-display">
                 {reporterAvatar ? (
-                  <img src={reporterAvatar} alt={reporterName} className="w-5 h-5 rounded-full object-cover border border-[#6B4355]/30 shadow-xs" />
+                  <img src={reporterAvatar} alt={reporterName} className="w-5 h-5 rounded-full object-cover border border-slate-300 shadow-xs" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-[#6B4355] text-white font-black text-[10px] flex items-center justify-center shadow-xs">
+                  <div className="w-5 h-5 rounded-full bg-slate-900 text-white font-black text-[10px] flex items-center justify-center shadow-xs">
                     {reporterName ? reporterName.charAt(0).toUpperCase() : 'U'}
                   </div>
                 )}
@@ -285,33 +302,33 @@ export const IncidentDiscussion = () => {
               </span>
 
               {incident.isEdited && (
-                <span className="text-[10px] text-gray-400 font-normal italic opacity-70 ml-1">(edited)</span>
+                <span className="text-[10px] text-slate-400 font-normal italic opacity-70 ml-1">(edited)</span>
               )}
             </div>
           </div>
 
           {/* Icon-Only Exclusive Upvote / Downvote Pills */}
-          <div className="inline-flex items-center bg-[#F9F8FA] border border-[#E0D5DC] rounded-2xl p-1 gap-1 shadow-xs">
+          <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-2xl p-1 gap-1 shadow-xs">
             <button
               type="button"
               onClick={() => handleVoteIncident('up')}
               title="Confirm / Upvote"
-              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold transition-all ${
-                isUpvoted ? 'bg-[#6B4355] text-white shadow-xs' : 'text-[#6B4355] hover:bg-[#6B4355]/10'
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                isUpvoted ? 'bg-slate-900 text-white shadow-xs ring-2 ring-rose-500/30' : 'text-slate-700 hover:bg-slate-200'
               }`}
             >
               <ThumbsUp className={`w-4 h-4 ${isUpvoted ? 'fill-white' : ''}`} />
               <span>{upvoteList.length}</span>
             </button>
 
-            <div className="w-[1px] h-4 bg-[#E0D5DC]"></div>
+            <div className="w-[1px] h-4 bg-slate-200"></div>
 
             <button
               type="button"
               onClick={() => handleVoteIncident('down')}
               title="Downvote / Dispute"
-              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold transition-all ${
-                isDownvoted ? 'bg-rose-600 text-white shadow-xs' : 'text-[#8C7A87] hover:bg-rose-50 hover:text-rose-600'
+              className={`px-3.5 py-2 rounded-xl flex items-center gap-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                isDownvoted ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-500 hover:bg-rose-50 hover:text-rose-600'
               }`}
             >
               <ThumbsDown className={`w-4 h-4 ${isDownvoted ? 'fill-white' : ''}`} />
@@ -334,8 +351,8 @@ export const IncidentDiscussion = () => {
 
       {/* Community Comments Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-extrabold text-[#2D2329] flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-[#6B4355]" />
+        <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2 font-display">
+          <MessageSquare className="w-5 h-5 text-rose-600" />
           Community Discussion ({incident.comments?.length || 0})
         </h3>
 

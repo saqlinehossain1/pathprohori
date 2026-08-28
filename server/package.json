@@ -17,6 +17,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.1",
     "node-cron": "^3.0.3",
-    "socket.io": "^4.7.5"
+    "nodemailer": "^6.9.13",
+    "socket.io": "^4.7.5",
+    "twilio": "^5.0.0",
+    "web-push": "^3.6.7"
   }
 }

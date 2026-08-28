@@ -21,10 +21,6 @@ export const tripApi = {
     return data;
   },
 
-<<<<<<< Updated upstream
-  triggerPanic: async (tripId) => {
-    const { data } = await API.post(`/trips/${tripId}/trigger-panic`);
-=======
   triggerPanic: async (tripId, isDuress = false, coords = {}) => {
     const { data } = await API.post(`/trips/${tripId}/trigger-panic`, { isDuress, ...coords });
     return data;
@@ -42,7 +38,31 @@ export const tripApi = {
 
   getTripHistory: async () => {
     const { data } = await API.get('/trips/history');
->>>>>>> Stashed changes
+    return data;
+  },
+
+  // Offline Memory Storage Queue: flush the whole IndexedDB queue in one batch
+  sendCoordinateBatch: async (tripId, points) => {
+    const { data } = await API.post(`/trips/${tripId}/coordinates/batch`, { points });
+    return data;
+  },
+
+  // Dead-Battery Final Emergency Blast
+  sendBatteryEmergencyBeacon: (tripId, payload) => {
+    try {
+      const token = localStorage.getItem('pathprohori_token');
+      const body = JSON.stringify({ ...payload, token });
+      const blob = new Blob([body], { type: 'application/json' });
+      return navigator.sendBeacon(`/api/trips/${tripId}/battery-emergency`, blob);
+    } catch (err) {
+      console.error('[Battery Emergency] sendBeacon threw an error:', err);
+      return false;
+    }
+  },
+
+  // Self-Destructing Public Tracking Link (No JWT needed)
+  getPublicTracking: async (trackingToken) => {
+    const { data } = await API.get(`/trips/track/${trackingToken}`);
     return data;
   },
 };

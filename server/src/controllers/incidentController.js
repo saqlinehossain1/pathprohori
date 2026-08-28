@@ -5,23 +5,67 @@ import { deleteCloudinaryImage } from '../config/cloudinary.js';
 
 // Helper to fetch populated incident
 const fetchPopulatedIncident = async (id) => {
-  return await Incident.findById(id)
+  const incident = await Incident.findById(id)
     .populate('reportedBy', 'name avatarUrl role')
     .populate('comments.author', 'name avatarUrl role')
     .populate('comments.replies.author', 'name avatarUrl role');
+
+  if (incident?.comments) {
+    incident.comments.sort((first, second) => (
+      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+    ));
+  }
+
+  return incident;
 };
 
 // @desc    Get all danger feed incidents
 // @route   GET /api/incidents
 export const getIncidents = async (req, res, next) => {
   try {
-    await seedInitialIncidents();
     const incidents = await Incident.find()
       .populate('reportedBy', 'name avatarUrl role')
       .populate('comments.author', 'name avatarUrl role')
       .populate('comments.replies.author', 'name avatarUrl role')
       .sort({ createdAt: -1 });
     res.json(incidents);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get high-severity validated incidents for Law Enforcement PDF Export (Admin Only)
+// @route   GET /api/incidents/export/high-severity
+// @access  Private/Admin
+export const getVerifiedHighThreatIncidents = async (req, res, next) => {
+  try {
+    const { area, severity, limit } = req.query;
+
+    const filter = {};
+
+    // Filter by high severity
+    if (severity) {
+      filter.severity = severity;
+    } else {
+      filter.severity = { $in: ['High Alert', 'Critical', 'Emergency'] };
+    }
+
+    // Optional area filter
+    if (area && area !== 'All Neighborhoods') {
+      filter.locationName = { $regex: area, $options: 'i' };
+    }
+
+    const incidents = await Incident.find(filter)
+      .populate('reportedBy', 'name email phone avatarUrl role')
+      .populate('comments.author', 'name avatarUrl role')
+      .sort({ createdAt: -1 })
+      .limit(Number(limit) || 100);
+
+    res.json({
+      success: true,
+      count: incidents.length,
+      data: incidents,
+    });
   } catch (error) {
     next(error);
   }
@@ -45,7 +89,28 @@ export const getIncidentById = async (req, res, next) => {
 // @route   POST /api/incidents
 export const createIncident = async (req, res, next) => {
   try {
-    const { title, description, locationName, longitude, latitude, severity, imageUrl } = req.body;
+    const {
+      title,
+      description,
+      locationName,
+      longitude,
+      latitude,
+      severity,
+      imageUrl,
+      durationHours,
+      durationSelected,
+    } = req.body;
+
+    // Calculate expiration: if 'Don't Know' / unscheduled / invalid, default to 24 hours (1 Day)
+    let hours = parseInt(durationHours, 10);
+    if (isNaN(hours) || hours <= 0) {
+      hours = 24; // Default 1 Day (24 hours)
+    }
+    if (hours > 168) {
+      hours = 168; // Max 1 Week (168 hours)
+    }
+
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
     const newIncident = await Incident.create({
       title,
@@ -58,6 +123,8 @@ export const createIncident = async (req, res, next) => {
       severity: severity || 'Med Severity',
       reportedBy: req.user._id,
       imageUrl,
+      durationSelected: durationSelected || `${hours} Hours`,
+      expiresAt,
     });
 
     const populated = await fetchPopulatedIncident(newIncident._id);

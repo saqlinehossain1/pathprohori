@@ -17,20 +17,21 @@ If a traveler encounters a threat, loses internet connection, or faces an emerge
 
 ## 👥 Project Team (Group No. 4 - Lab Section 1)
 
-| SL | Student ID | Name | Role Assignment |
-| :-: | :--- | :--- | :--- |
-| 1 | **23101243** | **Md Saqline Hossain** | Lead Developer & System Analyst |
-| 2 | **23101017** | **Badrunnaher Pantho** | Developer & UI/UX Specialist |
-| 3 | **22201850** | **Mehedi Hasan Shovon** | Backend Developer & QA Specialist |
-| 4 | **22201680** | **Jamshedul Alam Khan Hridoy** | System Architect & Security Lead |
+| SL | Student ID | Name |
+| :-: | :--- | :--- |
+| 1 | **23101243** | **Md Saqline Hossain** |
+| 2 | **23101017** | **Badrunnaher Pantho** |
+| 3 | **22201850** | **Mehedi Hasan Shovon** |
+| 4 | **22201680** | **Jamshedul Alam Khan Hridoy** |
 
 ---
 
 ## 🛠️ Tech Stack & Dependencies
 
 - **Frontend**: React.js (Vite PWA), TailwindCSS, Leaflet.js & OpenStreetMap (OSM), Lucide Icons, Socket.io Client, Axios.
-- **Backend**: Node.js, Express.js, Socket.io (WebSockets for live streaming), `node-cron` (automated task scheduler), `jsonwebtoken`, `bcryptjs`.
+- **Backend**: Node.js, Express.js, Socket.io (WebSockets for live streaming), `node-cron` (automated task scheduler), `jsonwebtoken`, `bcryptjs`, Cloudinary SDK (image upload & management).
 - **Database & ORM**: MongoDB Atlas & Mongoose (with `2dsphere` geospatial indexing for location coordinates).
+- **Media Storage**: Cloudinary Cloud Storage API for incident photo evidence and user profile avatars.
 - **Architecture**: Decoupled Client-Server MERN Architecture with root workspace concurrent execution.
 
 ---
@@ -150,6 +151,9 @@ You can test the application using the pre-seeded team and test user accounts:
    MONGO_URI=mongodb+srv://<username>:<password>@cluster0.lgfmhge.mongodb.net/pathprohori?retryWrites=true&w=majority
    JWT_SECRET=your_jwt_secret_key_here
    CLIENT_URL=http://localhost:5173
+   CLOUD_NAME=your_cloudinary_cloud_name
+   CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
    ```
 
 4. **Launch Application (Server + Client Concurrently)**:

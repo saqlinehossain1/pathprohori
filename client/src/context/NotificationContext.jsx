@@ -57,12 +57,15 @@ export const NotificationProvider = ({ children }) => {
       const newNotification = {
         id: data.emergencyId || data.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         emergencyId: data.emergencyId || data.id,
+        trackingToken: data.trackingToken,
+        trackingUrl: data.trackingUrl,
         type: data.type || 'EMERGENCY',
         title: data.title || '🚨 Emergency Alert',
         message: data.message || `${data.user?.name || 'A commuter'} has triggered an emergency alert!`,
         user: data.user || null,
         location: data.location || null,
         timestamp: data.timestamp || new Date().toISOString(),
+        status: data.status || 'ACTIVE',
         read: false,
       };
 
@@ -77,22 +80,23 @@ export const NotificationProvider = ({ children }) => {
       console.log('[NotificationContext] EMERGENCY_RESOLVED received:', data);
       setNotifications((prev) =>
         prev.map((n) => {
-          if (n.id === data.emergencyId || n.emergencyId === data.emergencyId) {
-            return { ...n, read: true };
+          const resolvedIds = data.emergencyIds || [data.emergencyId];
+          if (resolvedIds.some((id) => String(id) === String(n.id) || String(id) === String(n.emergencyId))) {
+            return { ...n, status: 'RESOLVED', read: true, resolvedAt: data.resolvedAt || new Date().toISOString() };
           }
           return n;
         })
       );
     };
 
-<<<<<<< Updated upstream
-=======
     const handleEmergencyAlertBroadcast = (data) => {
       if (String(data.commuterId) === String(userId)) return;
 
       const newNotif = {
         id: data.emergencyId || data.tripId || `notif_${Date.now()}`,
         emergencyId: data.emergencyId || data.tripId,
+        trackingToken: data.trackingToken,
+        trackingUrl: data.trackingUrl,
         type: 'EMERGENCY',
         title: '🚨 CRITICAL PANIC ALERT',
         message: `${data.commuterName} activated CRITICAL PANIC mode in ${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}). Destination: ${data.destination || 'In Transit'}`,
@@ -120,32 +124,41 @@ export const NotificationProvider = ({ children }) => {
 
     const handleDuressEscalated = (data) => {
       const escalatedIds = data.emergencyIds || [data.emergencyId];
-      setNotifications((prev) => prev.map((notification) => (
-        escalatedIds.some((id) => String(id) === String(notification.id) || String(id) === String(notification.emergencyId))
-          ? {
-              ...notification,
-              status: 'ACTIVE',
-              severity: 'CRITICAL',
-              alertType: 'SILENT_DURESS',
-              title: 'SILENT DURESS ALERT',
-              message: data.message || 'Silent duress PIN entered. Contact police immediately.',
-              location: data.location || notification.location,
-              read: false,
-            }
-          : notification
-      )));
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          escalatedIds.some(
+            (id) =>
+              String(id) === String(notification.id) ||
+              String(id) === String(notification.emergencyId)
+          )
+            ? {
+                ...notification,
+                status: 'ACTIVE',
+                severity: 'CRITICAL',
+                alertType: 'SILENT_DURESS',
+                title: '🚨 SILENT DURESS ALERT',
+                message: data.message || 'Silent duress PIN entered. Contact police immediately.',
+                location: data.location || notification.location,
+                read: false,
+              }
+            : notification
+        )
+      );
     };
 
->>>>>>> Stashed changes
     socket.on('connect', handleConnect);
     socket.on('EMERGENCY_ALERT', handleEmergencyAlert);
+    socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
+    socket.on('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
 
     return () => {
       console.log('[NotificationContext] Cleaning up Socket.IO listeners');
       socket.off('connect', handleConnect);
       socket.off('EMERGENCY_ALERT', handleEmergencyAlert);
+      socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
       socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
+      socket.off('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
     };
   }, [user?._id]);
 
@@ -154,11 +167,23 @@ export const NotificationProvider = ({ children }) => {
   const markAsRead = (notificationId) => {
     setNotifications((prev) =>
       prev.map((notification) => {
-        if (!notificationId || notification.id === notificationId) {
+        if (!notificationId || String(notification.id) === String(notificationId)) {
           return { ...notification, read: true };
         }
         return notification;
       })
+    );
+  };
+
+  const markAllAsRead = () => markAsRead();
+
+  const markAsResolved = (notificationId) => {
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        String(notification.id) === String(notificationId)
+          ? { ...notification, status: 'RESOLVED', read: true, resolvedAt: new Date().toISOString() }
+          : notification
+      )
     );
   };
 
@@ -168,6 +193,8 @@ export const NotificationProvider = ({ children }) => {
         notifications,
         unreadCount,
         markAsRead,
+        markAllAsRead,
+        markAsResolved,
       }}
     >
       {children}

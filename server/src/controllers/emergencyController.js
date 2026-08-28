@@ -1,6 +1,8 @@
 import { Emergency } from '../models/Emergency.js';
 import { User } from '../models/User.js';
 import { getIO } from '../socket.js';
+import cloudinary from '../config/cloudinary.js';
+import { dispatchMultiChannelEmergencyAlert } from '../services/emergencyBroadcaster.js';
 
 const translateLocation = (str) => {
     if (!str) return '';
@@ -26,7 +28,7 @@ const translateLocation = (str) => {
     return result.replace(/[\u0980-\u09FF]+/g, '').trim();
 };
 
-const getReverseGeocodedAddress = async (lat, lng) => {
+export const getReverseGeocodedAddress = async (lat, lng) => {
     try {
         // 1. Primary: Nominatim with accept-language=en for pure English translations
         const response = await fetch(
@@ -247,6 +249,46 @@ export const resolveEmergency = async (req, res, next) => {
     }
 };
 
+// @desc Resolve a monitored emergency from the guardian notification panel
+// @route PUT /api/emergency/:id/resolve
+export const resolveMonitoredEmergency = async (req, res, next) => {
+    try {
+        const emergency = await Emergency.findById(req.params.id);
+        if (!emergency) return res.status(404).json({ message: 'Emergency alert not found.' });
+
+        const isResponseRole = ['guardian', 'operator', 'admin'].includes(req.user.role);
+        const isAssignedGuardian = req.user.guardians?.some(
+            (guardian) => String(guardian.user?._id || guardian.user) === String(emergency.user)
+        );
+        const assignedByAlertUser = await User.exists({
+            _id: emergency.user,
+            'guardians.email': req.user.email,
+        });
+
+        if (!isResponseRole && !isAssignedGuardian && !assignedByAlertUser) {
+            return res.status(403).json({ message: 'You are not authorized to resolve this emergency alert.' });
+        }
+
+        emergency.status = 'RESOLVED';
+        emergency.resolvedAt = new Date();
+        await emergency.save();
+
+        const io = getIO();
+        io.emit('EMERGENCY_RESOLVED', {
+            emergencyIds: [emergency._id],
+            userId: emergency.user,
+            resolvedBy: req.user._id,
+            resolvedAt: emergency.resolvedAt,
+            message: 'Emergency response user marked this alert resolved.',
+        });
+
+        return res.json({ success: true, emergencyId: emergency._id, status: emergency.status });
+    } catch (error) {
+        console.error('[Resolve Monitored Emergency Error]', error);
+        next(error);
+    }
+};
+
 // @desc    Get recent emergency alerts for guardians & response monitor
 // @route   GET /api/emergency
 export const getEmergencies = async (req, res, next) => {
@@ -305,17 +347,29 @@ export const getEmergencies = async (req, res, next) => {
         const formatted = filtered.map((e) => ({
             id: e._id,
             emergencyId: e._id,
-            type: 'EMERGENCY',
-            title: '🚨 Emergency Alert',
-            message: `${e.user?.name || 'Commuter'} has triggered an emergency.`,
+            trackingToken: e.trackingToken,
+            tripId: e.trip,
+            type: e.alertType,
+            severity: e.severity,
+            title: e.alertType === 'SILENT_DURESS' ? '🚨 SILENT DURESS ALERT' : '🚨 Emergency Alert',
+            message: e.status === 'RESOLVED'
+                ? e.alertType === 'SILENT_DURESS'
+                    ? `Duress response for ${e.user?.name || 'Commuter'} was marked resolved by a response user.`
+                    : `${e.user?.name || 'Commuter'} confirmed safe. False alarm resolved and journey resumed.`
+                : e.alertType === 'SILENT_DURESS'
+                    ? `${e.user?.name || 'Commuter'} entered a silent duress PIN. Contact police immediately. Last seen coordinates are attached.`
+                    : `${e.user?.name || 'Commuter'} has an active emergency alert.`,
             user: {
                 id: e.user?._id,
                 name: e.user?.name || 'Commuter',
                 email: e.user?.email,
                 phone: e.user?.phone,
+                avatarUrl: e.user?.avatarUrl,
             },
             location: e.location,
             timestamp: e.triggeredAt || e.createdAt,
+            status: e.status,
+            resolvedAt: e.resolvedAt,
             read: e.status === 'RESOLVED',
         }));
 
@@ -325,3 +379,214 @@ export const getEmergencies = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Upload captured silent photo burst frame to emergency evidence locker
+// @route   POST /api/emergency/:id/evidence/photo
+export const uploadEmergencyPhoto = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { image, sequenceIndex, sizeBytes } = req.body;
+
+        if (!image) {
+            return res.status(400).json({ message: 'No photo data provided.' });
+        }
+
+        const emergency = await Emergency.findById(id);
+        if (!emergency) {
+            return res.status(404).json({ message: 'Emergency session not found.' });
+        }
+
+        // Upload compressed photo to dedicated secure evidence locker folder
+        const uploadResponse = await cloudinary.uploader.upload(image, {
+            folder: 'pathprohori_evidence/photos',
+            resource_type: 'image',
+        });
+
+        const photoObj = {
+            url: uploadResponse.secure_url,
+            public_id: uploadResponse.public_id,
+            capturedAt: new Date(),
+            sizeBytes: sizeBytes || uploadResponse.bytes || 0,
+            sequenceIndex: Number(sequenceIndex) || 0,
+        };
+
+        if (!emergency.evidence) {
+            emergency.evidence = { photos: [], audioClips: [], captureStatus: 'CAPTURING', totalSizeBytes: 0 };
+        }
+
+        emergency.evidence.photos.push(photoObj);
+        emergency.evidence.totalSizeBytes = (emergency.evidence.totalSizeBytes || 0) + (photoObj.sizeBytes || 0);
+        emergency.evidence.captureStatus = 'CAPTURING';
+
+        await emergency.save();
+
+        // Broadcast real-time evidence update to guardians & operators
+        try {
+            const io = getIO();
+            const payload = {
+                emergencyId: emergency._id,
+                tripId: emergency.trip,
+                userId: emergency.user,
+                type: 'PHOTO',
+                photo: photoObj,
+                evidence: emergency.evidence,
+            };
+            io.emit('EVIDENCE_CAPTURED', payload);
+            if (emergency.trip) {
+                io.to(`trip_${emergency.trip}`).emit('EVIDENCE_CAPTURED', payload);
+            }
+        } catch (socketErr) {
+            console.warn('[Socket Evidence Broadcast Warning]', socketErr.message);
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: 'Evidence photo saved to secure locker.',
+            photo: photoObj,
+            totalPhotos: emergency.evidence.photos.length,
+            totalSizeBytes: emergency.evidence.totalSizeBytes,
+        });
+    } catch (error) {
+        console.error('[Upload Emergency Photo Error]', error);
+        next(error);
+    }
+};
+
+// @desc    Upload captured silent ambient audio clip to emergency evidence locker
+// @route   POST /api/emergency/:id/evidence/audio
+export const uploadEmergencyAudio = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { audio, durationSec, sizeBytes } = req.body;
+
+        if (!audio) {
+            return res.status(400).json({ message: 'No audio data provided.' });
+        }
+
+        const emergency = await Emergency.findById(id);
+        if (!emergency) {
+            return res.status(404).json({ message: 'Emergency session not found.' });
+        }
+
+        // Sanitize audio data URI for Cloudinary:
+        // Cloudinary parser errors on parameters like ';codecs=opus' or unrecognized MIME prefixes.
+        // Cloudinary handles all audio formats under 'resource_type: video' or 'auto'.
+        let formattedAudio = audio;
+        if (typeof formattedAudio === 'string' && formattedAudio.startsWith('data:')) {
+            formattedAudio = formattedAudio.replace(
+                /^data:audio\/[a-zA-Z0-9.-]+(;codecs=[^;]+)?;base64,/i,
+                'data:video/webm;base64,'
+            );
+        }
+
+        // Upload compressed audio to dedicated secure evidence locker folder
+        const uploadResponse = await cloudinary.uploader.upload(formattedAudio, {
+            folder: 'pathprohori_evidence/audio',
+            resource_type: 'video',
+        });
+
+        const audioObj = {
+            url: uploadResponse.secure_url,
+            public_id: uploadResponse.public_id,
+            capturedAt: new Date(),
+            durationSec: Number(durationSec) || 5,
+            sizeBytes: sizeBytes || uploadResponse.bytes || 0,
+        };
+
+        if (!emergency.evidence) {
+            emergency.evidence = { photos: [], audioClips: [], captureStatus: 'CAPTURING', totalSizeBytes: 0 };
+        }
+
+        emergency.evidence.audioClips.push(audioObj);
+        emergency.evidence.totalSizeBytes = (emergency.evidence.totalSizeBytes || 0) + (audioObj.sizeBytes || 0);
+        emergency.evidence.captureStatus = 'COMPLETED';
+
+        await emergency.save();
+
+        // Broadcast real-time evidence update to guardians & operators
+        try {
+            const io = getIO();
+            const payload = {
+                emergencyId: emergency._id,
+                tripId: emergency.trip,
+                userId: emergency.user,
+                type: 'AUDIO',
+                audioClip: audioObj,
+                evidence: emergency.evidence,
+            };
+            io.emit('EVIDENCE_CAPTURED', payload);
+            if (emergency.trip) {
+                io.to(`trip_${emergency.trip}`).emit('EVIDENCE_CAPTURED', payload);
+            }
+        } catch (socketErr) {
+            console.warn('[Socket Evidence Broadcast Warning]', socketErr.message);
+        }
+
+        return res.status(201).json({
+            success: true,
+            message: 'Evidence audio clip saved to secure locker.',
+            audioClip: audioObj,
+            totalAudioClips: emergency.evidence.audioClips.length,
+            totalSizeBytes: emergency.evidence.totalSizeBytes,
+        });
+    } catch (error) {
+        console.error('[Upload Emergency Audio Error]', error);
+        next(error);
+    }
+};
+
+// @desc    Retrieve Evidence Locker for an emergency
+// @route   GET /api/emergency/:id/evidence
+export const getEmergencyEvidence = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const emergency = await Emergency.findById(id).populate('user', 'name email phone avatarUrl');
+
+        if (!emergency) {
+            return res.status(404).json({ message: 'Emergency session not found.' });
+        }
+
+        return res.json({
+            success: true,
+            emergencyId: emergency._id,
+            user: emergency.user,
+            status: emergency.status,
+            evidence: emergency.evidence || {
+                photos: [],
+                audioClips: [],
+                captureStatus: 'PENDING',
+                totalSizeBytes: 0,
+            },
+        });
+    } catch (error) {
+        console.error('[Get Emergency Evidence Error]', error);
+        next(error);
+    }
+};
+
+// @desc    Update evidence capture status (e.g. failed hardware permissions)
+// @route   PUT /api/emergency/:id/evidence/status
+export const updateEvidenceStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const emergency = await Emergency.findById(id);
+        if (!emergency) {
+            return res.status(404).json({ message: 'Emergency session not found.' });
+        }
+
+        if (!emergency.evidence) {
+            emergency.evidence = { photos: [], audioClips: [], captureStatus: status || 'PARTIAL', totalSizeBytes: 0 };
+        } else {
+            emergency.evidence.captureStatus = status || emergency.evidence.captureStatus;
+        }
+
+        await emergency.save();
+        return res.json({ success: true, evidence: emergency.evidence });
+    } catch (error) {
+        console.error('[Update Evidence Status Error]', error);
+        next(error);
+    }
+};
+

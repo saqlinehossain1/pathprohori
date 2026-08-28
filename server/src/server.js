@@ -15,7 +15,9 @@ import { startPrivacyCron } from './services/privacyCron.js';
 import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 
 import emergencyRoutes from './routes/emergencyRoutes.js';
+import geocodeRoutes from './routes/geocodeRoutes.js';
 
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -29,6 +31,9 @@ const io = new Server(server, {
   },
 });
 
+// Make the Socket.io instance reachable from controllers (req.app.get('io')) so the
+// shared emergency-escalation pathway can broadcast without a circular import.
+app.set('io', io);
 setIO(io);
 // Middlewares with larger payload limit for base64 Cloudinary image uploads
 app.use(cors());
@@ -37,8 +42,12 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
 // Database Connection & Initial Seeding
 connectDB().then(async () => {
-  await seedDemoUsers();
-  await seedInitialIncidents();
+  const seedEnabled = process.env.SEED_DB === 'true';
+  if (seedEnabled) {
+    await seedDemoUsers();
+    await seedInitialIncidents();
+    console.log('[Database Seed] Completed');
+  }
 });
 
 // API Endpoints
@@ -47,6 +56,7 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -93,6 +103,13 @@ io.on('connection', (socket) => {
     );
   });
 
+  // Join public guardian live tracking room
+  socket.on('JOIN_PUBLIC_TRACKING', (tripId) => {
+    if (!tripId) return;
+    socket.join(`track_${tripId}`);
+    console.log(`[Socket.io] Guardian client ${socket.id} joined live tracking for trip: track_${tripId}`);
+  });
+
   // Client heartbeat ping event
   socket.on('CLIENT_HEARTBEAT_PING', (data) => {
     if (!data?.tripId) return;
@@ -101,6 +118,15 @@ io.on('connection', (socket) => {
       tripId: data.tripId,
       timestamp: new Date(),
     });
+
+    if (data.coords) {
+      io.to(`track_${data.tripId}`).emit('TRACKING_LOCATION_UPDATE', {
+        coords: data.coords,
+        batteryLevel: data.batteryLevel,
+        status: data.status || 'ACTIVE',
+        updatedAt: new Date(),
+      });
+    }
   });
 
   socket.on('disconnect', () => {
@@ -124,6 +150,15 @@ server.on('error', (error) => {
   } else {
     console.error('[Server Error]', error);
   }
+});
+
+// Process-level unhandled rejection/exception guards to prevent abrupt connection resets
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process Warning: Unhandled Rejection]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process Warning: Uncaught Exception]', err);
 });
 
 server.listen(PORT, '0.0.0.0', () => {

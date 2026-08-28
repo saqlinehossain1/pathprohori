@@ -8,6 +8,15 @@ const emergencySchema = new mongoose.Schema(
             required: true,
         },
 
+        trip: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Trip',
+        },
+
+        trackingToken: {
+            type: String,
+        },
+
         location: {
             latitude: {
                 type: Number,
@@ -29,6 +38,18 @@ const emergencySchema = new mongoose.Schema(
             default: 'ACTIVE',
         },
 
+        alertType: {
+            type: String,
+            enum: ['PANIC', 'FALSE_ALARM', 'SILENT_DURESS'],
+            default: 'PANIC',
+        },
+
+        severity: {
+            type: String,
+            enum: ['HIGH', 'CRITICAL'],
+            default: 'HIGH',
+        },
+
         triggeredAt: {
             type: Date,
             default: Date.now,
@@ -36,6 +57,36 @@ const emergencySchema = new mongoose.Schema(
 
         resolvedAt: {
             type: Date,
+        },
+
+        evidence: {
+            photos: [
+                {
+                    url: { type: String, required: true },
+                    public_id: { type: String },
+                    capturedAt: { type: Date, default: Date.now },
+                    sizeBytes: { type: Number, default: 0 },
+                    sequenceIndex: { type: Number, default: 0 },
+                },
+            ],
+            audioClips: [
+                {
+                    url: { type: String, required: true },
+                    public_id: { type: String },
+                    capturedAt: { type: Date, default: Date.now },
+                    durationSec: { type: Number, default: 0 },
+                    sizeBytes: { type: Number, default: 0 },
+                },
+            ],
+            captureStatus: {
+                type: String,
+                enum: ['PENDING', 'CAPTURING', 'COMPLETED', 'PARTIAL', 'FAILED'],
+                default: 'PENDING',
+            },
+            totalSizeBytes: {
+                type: Number,
+                default: 0,
+            },
         },
     },
     {

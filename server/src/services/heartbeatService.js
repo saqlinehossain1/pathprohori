@@ -12,7 +12,14 @@ export const startHeartbeatMonitor = (io) => {
       const timedOutTrips = await Trip.find({
         status: 'ACTIVE',
         lastHeartbeatAt: { $lt: cutoffTime },
-      }).populate('user', 'name email phone guardians');
+      }).populate({
+        path: 'user',
+        select: 'name email phone guardians',
+        populate: {
+          path: 'guardians.user',
+          select: 'name email phone avatarUrl',
+        },
+      });
 
       for (const trip of timedOutTrips) {
         trip.status = 'SIGNAL_LOST';
@@ -22,13 +29,24 @@ export const startHeartbeatMonitor = (io) => {
           `[SIGNAL LOSS ALERT] User ${trip.user?.name} (Trip ID: ${trip._id}) dropped signal for > 2 minutes!`
         );
 
+        // Dynamically resolve live updated phone numbers for guardians
+        const liveGuardians = Array.isArray(trip.user?.guardians)
+          ? trip.user.guardians.map((g) => ({
+              _id: g._id,
+              name: g.user?.name || g.name,
+              phone: g.user?.phone !== undefined && g.user?.phone !== '' ? g.user.phone : g.phone,
+              email: g.user?.email || g.email,
+              relationship: g.relationship || 'Guardian',
+            }))
+          : [];
+
         // Broadcast Socket.io emergency alert to Guardians and Safety Operators
         io.emit('SIGNAL_LOSS_ALERT', {
           tripId: trip._id,
           userId: trip.user?._id,
           userName: trip.user?.name,
           userPhone: trip.user?.phone,
-          guardians: trip.user?.guardians,
+          guardians: liveGuardians,
           lastHeartbeatAt: trip.lastHeartbeatAt,
           destination: trip.destination,
           vehicleType: trip.vehicleType,
