@@ -984,6 +984,10 @@ export const updateEvidenceStatus = async (req, res, next) => {
   }
 };
 
+export const addCoordinateBatch = handleCoordinateBatch;
+export const handleBatteryCriticalEmergency = reportDeadBattery;
+export const getPublicTrackingData = getTripByTrackingToken;
+
 export default {
   createTrip,
   getActiveTrip,
@@ -994,8 +998,11 @@ export default {
   deactivateAlarm,
   getUserTripHistory,
   getTripByTrackingToken,
+  getPublicTrackingData,
   handleCoordinateBatch,
+  addCoordinateBatch,
   reportDeadBattery,
+  handleBatteryCriticalEmergency,
   updateBatteryTelemetry,
   uploadEvidencePhoto,
   uploadEvidenceAudio,
