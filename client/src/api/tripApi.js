@@ -47,7 +47,7 @@ export const tripApi = {
     return data;
   },
 
-  // Dead-Battery Final Emergency Blast
+  // Dead-Battery Final Emergency Blast: navigator.sendBeacon()
   sendBatteryEmergencyBeacon: (tripId, payload) => {
     try {
       const token = localStorage.getItem('pathprohori_token');

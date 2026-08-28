@@ -441,6 +441,47 @@ const LiveDangerFeedContent = () => {
           <MapPin className="w-3.5 h-3.5" />
           <span>Safety Map ({incidents.length} Pins)</span>
         </button>
+=======
+        <Button
+          onClick={() => {
+            setSelectedCoords(null);
+            setShowReportModal(true);
+          }}
+          size="sm"
+          className="font-extrabold hidden sm:inline-flex shrink-0 shadow-sm text-xs py-2.5 px-4"
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Report Street Hazard
+        </Button>
+      </div>
+
+      {/* Mobile Segmented View Switcher (Feed List vs Interactive Map) */}
+      <div className="flex items-center p-1 bg-white border border-slate-200 rounded-2xl shadow-xs lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab('feed')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'feed'
+              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5" />
+          <span>Feed List ({incidents.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileTab('map')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'map'
+              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Safety Map ({incidents.length} Pins)</span>
+        </button>
       </div>
 
       {/* Main Grid: Feed List (Left 7 Cols) + Interactive Heatmap (Right 5 Cols) */}
