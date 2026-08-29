@@ -4,6 +4,23 @@ import tripApi from '../api/tripApi';
 import { clearBatteryAlertFlag } from '../utils/batteryAlertStorage';
 import { captureEvidenceBurst } from '../services/evidenceLockerService';
 
+const getBestEffortCoords = async () => {
+  if (!navigator.geolocation) return {};
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+      },
+      () => resolve({}),
+      { timeout: 3000, enableHighAccuracy: true }
+    );
+  });
+};
+
 export const useTrip = () => {
   const { activeTrip, setActiveTrip, signalLossAlert } = useContext(SocketContext);
   const [loading, setLoading] = useState(true);
@@ -33,9 +50,6 @@ export const useTrip = () => {
     try {
       setLoading(true);
       const newTrip = await tripApi.createTrip(tripForm);
-      // Dead-Battery Final Emergency Blast: a new trip starting is one of the two
-      // conditions (the other being charging back above 15%) that resets the
-      // one-time low-battery alert flag - clear whatever the previous trip left behind.
       if (activeTrip?._id) {
         clearBatteryAlertFlag(activeTrip._id);
         console.log(`[Battery Emergency] New trip started (${newTrip._id}) - low-battery alert flag reset.`);
@@ -50,12 +64,13 @@ export const useTrip = () => {
     }
   };
 
-  const triggerPanic = async (isDuress = false) => {
+  const triggerPanic = async (isDuress = false, customCoords = null) => {
     if (!activeTrip) return;
     try {
       setPanicLoading(true);
-      const res = await tripApi.triggerPanic(activeTrip._id, isDuress);
-      setActiveTrip(res.trip);
+      const coords = customCoords || (await getBestEffortCoords());
+      const res = await tripApi.triggerPanic(activeTrip._id, isDuress, coords);
+      setActiveTrip(res.trip || res);
 
       // Low-Bandwidth Evidence Locker: silently capture photo burst and audio
       const emergencyId = res.emergencyId || res.emergency?._id;
@@ -65,7 +80,7 @@ export const useTrip = () => {
         );
       }
 
-      return res.trip;
+      return res.trip || res;
     } catch (err) {
       console.error('Failed to trigger panic alarm:', err);
       throw err;
@@ -77,30 +92,18 @@ export const useTrip = () => {
   const cancelPanic = async (pinCode = '') => {
     if (!activeTrip) return;
     try {
+      setPanicLoading(true);
       const res = await tripApi.cancelPanic(activeTrip._id, pinCode);
-      setActiveTrip(res.trip);
-      return res.trip;
+      setActiveTrip(res.trip || res);
+      return res.trip || res;
     } catch (err) {
-      console.error('Failed to cancel panic alarm:', err);
+      console.error('Failed to cancel panic:', err);
       throw err;
+    } finally {
+      setPanicLoading(false);
     }
   };
 
-  // Best-effort current position for the deactivation location snapshot -
-  // never blocks the PIN flow if location is unavailable or denied.
-  const getBestEffortCoords = () =>
-    new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve({});
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-        () => resolve({}),
-        { enableHighAccuracy: true, timeout: 3000, maximumAge: 10000 }
-      );
-    });
-
-  // Dual-PIN Silent Duress Deactivation: entering either the normal PIN or the
-  // secret fake PIN always resolves the same way here - the backend alone knows
-  // which branch actually ran, and the local trip state is simply reset to ACTIVE.
   const deactivateAlarm = async (pin, finishJourney = false) => {
     if (!activeTrip) return;
     try {

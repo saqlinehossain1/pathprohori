@@ -79,8 +79,8 @@ const createEmergencyMarkerIcon = () => {
 };
 
 const LocationDisplay = ({ location, commuterName }) => {
-    const lat = location?.latitude || 23.773315;
-    const lng = location?.longitude || 90.424371;
+    const lat = location?.latitude ?? location?.lat ?? 23.773315;
+    const lng = location?.longitude ?? location?.lng ?? 90.424371;
     const resolvedAddress = location?.address || 'Live GPS Coordinates Attached';
     const [showMap, setShowMap] = useState(true);
 

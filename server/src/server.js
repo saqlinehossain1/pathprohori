@@ -17,7 +17,9 @@ import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 import emergencyRoutes from './routes/emergencyRoutes.js';
 import safetyZoneRoutes from './routes/safetyZoneRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import geocodeRoutes from './routes/geocodeRoutes.js';
 
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -58,6 +60,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/safety-zones', safetyZoneRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -151,6 +154,15 @@ server.on('error', (error) => {
   } else {
     console.error('[Server Error]', error);
   }
+});
+
+// Process-level unhandled rejection/exception guards to prevent abrupt connection resets
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process Warning: Unhandled Rejection]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process Warning: Uncaught Exception]', err);
 });
 
 server.listen(PORT, '0.0.0.0', () => {

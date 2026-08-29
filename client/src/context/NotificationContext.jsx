@@ -125,9 +125,9 @@ export const NotificationProvider = ({ children }) => {
           avatarUrl: data.avatarUrl,
         },
         location: {
-          latitude: data.startCoords?.lat || 23.7808875,
-          longitude: data.startCoords?.lng || 90.4068305,
-          address: `${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}) -> Dest: ${data.destination || 'In Transit'}`,
+          latitude: data.location?.latitude ?? data.location?.lat ?? data.startCoords?.lat ?? 23.7808875,
+          longitude: data.location?.longitude ?? data.location?.lng ?? data.startCoords?.lng ?? 90.4068305,
+          address: data.location?.address || `${data.vehicleType || 'Vehicle'} (${data.numberPlate || ''}) -> Dest: ${data.destination || 'In Transit'}`,
         },
         timestamp: data.timestamp || new Date().toISOString(),
         status: 'ACTIVE',
@@ -142,20 +142,26 @@ export const NotificationProvider = ({ children }) => {
 
     const handleDuressEscalated = (data) => {
       const escalatedIds = data.emergencyIds || [data.emergencyId];
-      setNotifications((prev) => prev.map((notification) => (
-        escalatedIds.some((id) => String(id) === String(notification.id) || String(id) === String(notification.emergencyId))
-          ? {
-              ...notification,
-              status: 'ACTIVE',
-              severity: 'CRITICAL',
-              alertType: 'SILENT_DURESS',
-              title: 'SILENT DURESS ALERT',
-              message: data.message || 'Silent duress PIN entered. Contact police immediately.',
-              location: data.location || notification.location,
-              read: false,
-            }
-          : notification
-      )));
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          escalatedIds.some(
+            (id) =>
+              String(id) === String(notification.id) ||
+              String(id) === String(notification.emergencyId)
+          )
+            ? {
+                ...notification,
+                status: 'ACTIVE',
+                severity: 'CRITICAL',
+                alertType: 'SILENT_DURESS',
+                title: '🚨 SILENT DURESS ALERT',
+                message: data.message || 'Silent duress PIN entered. Contact police immediately.',
+                location: data.location || notification.location,
+                read: false,
+              }
+            : notification
+        )
+      );
     };
 
     const handleSafetyWarning = (data) => {
@@ -212,11 +218,11 @@ export const NotificationProvider = ({ children }) => {
 
   const markAsResolved = (notificationId) => {
     setNotifications((prev) =>
-      prev.map((notification) => (
+      prev.map((notification) =>
         String(notification.id) === String(notificationId)
           ? { ...notification, status: 'RESOLVED', read: true, resolvedAt: new Date().toISOString() }
           : notification
-      ))
+      )
     );
   };
 

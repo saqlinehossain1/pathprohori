@@ -9,10 +9,12 @@ import IncidentCard from '../components/incidents/IncidentCard';
 import IncidentFilterBar from '../components/incidents/IncidentFilterBar';
 import NewIncidentModal from '../components/incidents/NewIncidentModal';
 import EditIncidentModal from '../components/incidents/EditIncidentModal';
+import AdminPdfExportModal from '../components/admin/AdminPdfExportModal';
+import { exportLawEnforcementPDF } from '../services/lawEnforcementPdfService';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Card from '../components/common/Card';
-import { ShieldAlert, Plus, MapPin, Radio, LocateFixed, Pin, Navigation, MessageSquare, AlertTriangle, RefreshCw, Info, Lightbulb, Maximize2, Minimize2, X } from 'lucide-react';
+import { ShieldAlert, Plus, MapPin, Radio, LocateFixed, Pin, Navigation, MessageSquare, AlertTriangle, RefreshCw, FileText, Info, Lightbulb, Maximize2, Minimize2, X } from 'lucide-react';
 
 // Error Boundary for page level safety
 class FeedErrorBoundary extends Component {
@@ -318,6 +320,7 @@ const LiveDangerFeedContent = () => {
   } = useIncidents();
 
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showAdminPdfModal, setShowAdminPdfModal] = useState(false);
   const [editingIncident, setEditingIncident] = useState(null);
   const [selectedCoords, setSelectedCoords] = useState(null);
   const [mobileTab, setMobileTab] = useState('feed'); // 'feed' | 'map'
@@ -364,6 +367,8 @@ const LiveDangerFeedContent = () => {
     return <LoadingSpinner label="Fetching your real-time GPS location & nearby danger feed..." />;
   }
 
+  const isAdminOrOperator = ['admin', 'operator'].includes(user?.role);
+
   return (
     <div className="space-y-4 sm:space-y-6 h-full pb-16 lg:pb-0">
       {/* Clean Text Page Header */}
@@ -382,6 +387,61 @@ const LiveDangerFeedContent = () => {
           </p>
         </div>
 
+        <div className="flex items-center gap-3">
+          {isAdminOrOperator && (
+            <Button
+              onClick={() => setShowAdminPdfModal(true)}
+              variant="outline"
+              size="md"
+              className="border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold flex items-center gap-1.5 shadow-xs text-xs py-2 px-3.5"
+            >
+              <FileText className="w-4 h-4 text-rose-600" />
+              <span>Law Enforcement PDF</span>
+            </Button>
+          )}
+
+          <Button
+            onClick={() => {
+              setSelectedCoords(null);
+              setShowReportModal(true);
+            }}
+            size="sm"
+            className="font-extrabold hidden sm:inline-flex shrink-0 shadow-sm text-xs py-2.5 px-4"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Report Street Hazard
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Segmented View Switcher (Feed List vs Interactive Map) */}
+      <div className="flex items-center p-1 bg-white border border-slate-200 rounded-2xl shadow-xs lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab('feed')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'feed'
+              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5" />
+          <span>Feed List ({incidents.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileTab('map')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            mobileTab === 'map'
+              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Safety Map ({incidents.length} Pins)</span>
+        </button>
+=======
         <Button
           onClick={() => {
             setSelectedCoords(null);
@@ -690,6 +750,19 @@ const LiveDangerFeedContent = () => {
         incident={editingIncident}
       />
 
+      {/* Admin Law Enforcement PDF Export Modal */}
+      <AdminPdfExportModal
+        isOpen={showAdminPdfModal}
+        onClose={() => setShowAdminPdfModal(false)}
+        onExport={({ incidents: filteredList, options }) => {
+          exportLawEnforcementPDF({
+            incidents: filteredList,
+            generatedBy: user || { name: 'Platform Administrator', role: 'admin' },
+            filterArea: options?.selectedArea || 'All Neighborhoods',
+          });
+        }}
+        allIncidents={incidents}
+      />
       {/* Fullscreen Map Modal via React Portal to blur complete page */}
       {isExpandedMap &&
         createPortal(

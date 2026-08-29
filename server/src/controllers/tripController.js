@@ -3,68 +3,52 @@ import { Trip } from '../models/Trip.js';
 import { LocationLog } from '../models/LocationLog.js';
 import { User } from '../models/User.js';
 import { Emergency } from '../models/Emergency.js';
+import cloudinary from '../config/cloudinary.js';
+import { getIO } from '../socket.js';
 import { sendPushNotification } from '../services/pushService.js';
-import { sendEmergencySMS } from '../services/twilioService.js';
+import {
+  sendEmergencySMS,
+  buildEmergencySMSBody,
+  makeEmergencyCall,
+} from '../services/twilioService.js';
+import { sendEmergencyEmail } from '../services/emailService.js';
 import { getReverseGeocodedAddress } from './emergencyController.js';
 import Notification from '../models/Notification.js';
 import { evaluateTripZones } from '../services/geofenceService.js';
 
 // Shared guardian-escalation pathway for anything that raises a trip to EMERGENCY
-// priority - the 1-tap panic button and the dead-battery final blast both funnel
-// through here so there is exactly one place that flips trip status, logs the
-// location, and broadcasts the Socket.io alert to guardians/operators.
+// priority - the 1-tap panic button, silent duress, and the dead-battery final blast
+// all funnel through here.
 const escalateToEmergency = async (trip, { source, io, batteryLevel, coords, isDuress } = {}) => {
   trip.status = isDuress ? 'DURESS' : 'EMERGENCY';
-  trip.emergencySource = source;
-
-  if (source === 'BATTERY_CRITICAL') {
-    trip.batteryCriticalTriggeredAt = new Date();
-    if (typeof batteryLevel === 'number') trip.batteryLevelAtTrigger = batteryLevel;
-    if (coords) trip.batteryCriticalLastLocation = coords;
-  }
-
+  if (batteryLevel !== undefined) trip.batteryLevel = batteryLevel;
   await trip.save();
 
   if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
     await LocationLog.create({
       trip: trip._id,
       user: trip.user,
-      location: { type: 'Point', coordinates: [coords.lng, coords.lat] },
-      batteryLevel: typeof batteryLevel === 'number' ? Math.round(batteryLevel * 100) : undefined,
+      location: {
+        type: 'Point',
+        coordinates: [coords.lng, coords.lat],
+      },
+      latitude: coords.lat,
+      longitude: coords.lng,
+      batteryLevel: batteryLevel ?? trip.batteryLevel,
+      networkStrength: coords.networkStrength ?? trip.networkStrength ?? 100,
+      trackingMode: 'EMERGENCY',
+      timestamp: new Date(),
     });
   }
 
   if (io) {
-    const populatedUser = await User.findById(trip.user)
-      .select('name email phone guardians')
-      .populate('guardians.user', 'name email phone avatarUrl');
-
-    const guardians = Array.isArray(populatedUser?.guardians)
-      ? populatedUser.guardians.map((g) => ({
-          name: g.user?.name || g.name,
-          phone: g.user?.phone || g.phone,
-          email: g.user?.email || g.email,
-          relationship: g.relationship || 'Guardian',
-        }))
-      : [];
-
-    io.emit('EMERGENCY_ALERT', {
+    io.emit('TRIP_STATUS_UPDATED', {
       tripId: trip._id,
-      userId: trip.user,
-      userName: populatedUser?.name,
-      userPhone: populatedUser?.phone,
-      guardians,
-      source,
-      priority: 'CRITICAL',
-      lastLocation: coords,
-      batteryLevel,
-      alertTime: new Date(),
+      status: trip.status,
+      source: source || 'MANUAL_PANIC',
+      isDuress: Boolean(isDuress),
+      batteryLevel: trip.batteryLevel,
     });
-
-    console.log(
-      `[Emergency Escalation] Trip ${trip._id} escalated via ${source}. ` +
-      'Socket.io EMERGENCY_ALERT broadcast to guardians/operators.'
-    );
   }
 };
 
@@ -79,15 +63,15 @@ export const createTrip = async (req, res, next) => {
       estimatedTimeMinutes,
       startingLocation,
       destination,
-      startCoords,
-      destinationCoords,
       driverDescription,
       journeyNotes,
       photoUrl,
+      startCoords,
+      destinationCoords,
     } = req.body;
 
     const trackingToken = crypto.randomBytes(20).toString('hex');
-    const trackingExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4-hour self-destruct window
+    const trackingExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4 hours valid
 
     const trip = await Trip.create({
       user: req.user._id,
@@ -97,16 +81,16 @@ export const createTrip = async (req, res, next) => {
       estimatedTimeMinutes: estimatedTimeMinutes || 30,
       startingLocation: startingLocation || 'Current GPS Location',
       destination,
-      startCoords: startCoords && startCoords.lat && startCoords.lng ? startCoords : undefined,
-      destinationCoords: destinationCoords && destinationCoords.lat && destinationCoords.lng ? destinationCoords : undefined,
       driverDescription,
       journeyNotes,
       photoUrl,
-      status: 'ACTIVE',
-      lastHeartbeatAt: new Date(),
+      startCoords,
+      destinationCoords,
       trackingToken,
       trackingExpiresAt,
       trackingActive: true,
+      status: 'ACTIVE',
+      lastHeartbeatAt: new Date(),
     });
 
     res.status(201).json(trip);
@@ -209,10 +193,12 @@ export const updateSafetyStatus = async (req, res, next) => {
   }
 };
 
-// @desc    Update heartbeat ping for active trip
+// @desc    Receive telemetry heartbeat from commuter device
 // @route   POST /api/trips/:id/heartbeat
 export const sendHeartbeat = async (req, res, next) => {
   try {
+    const { latitude, longitude, batteryLevel, networkStrength, isBackground } = req.body;
+
     const trip = await Trip.findById(req.params.id);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
@@ -222,44 +208,67 @@ export const sendHeartbeat = async (req, res, next) => {
       return res.status(403).json({ message: 'Not authorized to modify this journey' });
     }
 
+    if (trip.status === 'COMPLETED') {
+      return res.status(400).json({ message: 'Cannot update a completed trip' });
+    }
+
     trip.lastHeartbeatAt = new Date();
     if (trip.status === 'SIGNAL_LOST') {
       trip.status = 'ACTIVE'; // Restored connection
     }
+
+    if (batteryLevel !== undefined) trip.batteryLevel = batteryLevel;
+    if (networkStrength !== undefined) trip.networkStrength = networkStrength;
     await trip.save();
 
     // Log location if passed
-    const hasCoordinates = typeof req.body.latitude === 'number' && typeof req.body.longitude === 'number';
-    if (hasCoordinates && req.body.latitude >= -90 && req.body.latitude <= 90 && req.body.longitude >= -180 && req.body.longitude <= 180) {
+    const hasCoordinates = typeof latitude === 'number' && typeof longitude === 'number';
+    if (hasCoordinates && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) {
       await LocationLog.create({
         trip: trip._id,
         user: trip.user,
         location: {
           type: 'Point',
-          coordinates: [req.body.longitude, req.body.latitude],
+          coordinates: [longitude, latitude],
         },
-        batteryLevel: req.body.batteryLevel,
+        latitude,
+        longitude,
+        batteryLevel: batteryLevel ?? trip.batteryLevel,
+        networkStrength: networkStrength ?? trip.networkStrength ?? 100,
+        isBackground: Boolean(isBackground),
         trackingMode: req.body.trackingMode || (trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL'),
+        timestamp: new Date(),
       });
 
-      await evaluateTripZones(trip, { lat: req.body.latitude, lng: req.body.longitude }, req.app.get('io'));
+      await evaluateTripZones(trip, { lat: latitude, lng: longitude }, req.app.get('io'));
 
-      // Real-time broadcast to public guardian tracking room
+      // Real-time broadcast to public guardian tracking room & global listeners
       const io = req.app.get('io');
       if (io) {
         io.to(`track_${trip._id}`).emit('TRACKING_LOCATION_UPDATE', {
-          coords: { lat: req.body.latitude, lng: req.body.longitude },
-          batteryLevel: req.body.batteryLevel,
+          coords: { lat: latitude, lng: longitude },
+          batteryLevel: batteryLevel ?? trip.batteryLevel,
           status: trip.status,
           safetyStatus: trip.safetyStatus,
           trackingMode: trip.status === 'EMERGENCY' || trip.status === 'DURESS' ? 'EMERGENCY' : trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL',
           updatedAt: new Date(),
+        });
+
+        io.emit('LOCATION_UPDATED', {
+          tripId: trip._id,
+          trackingToken: trip.trackingToken,
+          latitude,
+          longitude,
+          batteryLevel: batteryLevel ?? trip.batteryLevel,
+          networkStrength: networkStrength ?? trip.networkStrength,
+          timestamp: new Date(),
         });
       }
     }
 
     res.json({
       success: true,
+      message: 'Heartbeat acknowledged',
       lastHeartbeatAt: trip.lastHeartbeatAt,
       status: trip.status,
       safetyStatus: trip.safetyStatus,
@@ -270,7 +279,7 @@ export const sendHeartbeat = async (req, res, next) => {
   }
 };
 
-// @desc    Mark trip as completed safely
+// @desc    Complete a trip safely (Commuter arrived)
 // @route   PUT /api/trips/:id/complete
 export const completeTrip = async (req, res, next) => {
   try {
@@ -280,43 +289,28 @@ export const completeTrip = async (req, res, next) => {
     }
 
     const now = new Date();
-    // Calculate 48 Hours TTL expiration timestamp from now
     const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
     trip.status = 'COMPLETED';
     trip.safetyStatus = 'SAFE';
     trip.safetyStatusChangedAt = now;
-    trip.safetyStatusChangedBy = req.user._id;
+    trip.safetyStatusChangedBy = req.user?._id;
     trip.completedAt = now;
     trip.expiresAt = expiresAt;
     trip.trackingActive = false;
     await trip.save();
 
-    // Mark location logs as completed safe trip and apply 48-hour expiration TTL
     await LocationLog.updateMany(
       { trip: trip._id },
-      { isSafeTripCompleted: true, expiresAt: expiresAt }
+      { isSafeTripCompleted: true }
     );
 
-    const resolvedEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
-    await Emergency.updateMany(
-      { user: req.user._id, status: 'ACTIVE' },
-      { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: now } }
-    );
     const io = req.app.get('io');
     if (io) {
-      if (resolvedEmergencies.length > 0) {
-        io.emit('EMERGENCY_RESOLVED', {
-          emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
-          userId: req.user._id,
-          resolvedAt: now,
-          message: `${req.user.name} completed the journey safely.`,
-        });
-      }
-      // Broadcast tracking expiration to any active guardian map sessions
-      io.to(`track_${trip._id}`).emit('TRACKING_EXPIRED', {
-        reason: 'TRIP_COMPLETED',
-        message: 'The journey has ended safely.',
+      io.emit('TRIP_STATUS_UPDATED', {
+        tripId: trip._id,
+        status: 'COMPLETED',
+        completedAt: trip.completedAt,
       });
     }
 
@@ -326,7 +320,7 @@ export const completeTrip = async (req, res, next) => {
   }
 };
 
-// @desc    One-Tap Instant Panic Button & Emergency Broadcast
+// @desc    One-Tap Instant Panic Button & Multi-Channel Emergency Dispatch
 // @route   POST /api/trips/:id/trigger-panic
 export const triggerPanic = async (req, res, next) => {
   try {
@@ -342,63 +336,44 @@ export const triggerPanic = async (req, res, next) => {
     if (!trip.trackingToken) {
       trip.trackingToken = crypto.randomBytes(20).toString('hex');
     }
-    trip.trackingExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000); // 4h from panic trigger
+    trip.trackingExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
     trip.trackingActive = true;
     await trip.save();
 
-    // Fetch user and linked guardians for Web Push & Twilio SMS broadcast
-    const user = await User.findById(trip.user).populate('guardians.user');
+    // Fetch user and linked guardians
+    const user = trip.user ? await User.findById(trip.user).populate('guardians.user') : null;
     const commuterName = user?.name || 'Commuter';
     const vehicleInfo = `${trip.vehicleType || 'Vehicle'} (${trip.numberPlate || 'No Plate'})`;
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const trackingUrl = `${clientUrl}/track/${trip.trackingToken}`;
 
-    const emergencyTitle = isDuress
-      ? `🚨 SILENT DURESS ALARM: ${commuterName}`
-      : `🚨 CRITICAL EMERGENCY ALARM: ${commuterName}`;
-    const smsMessage = `[PATHPROHORI EMERGENCY ALERT] ${commuterName} activated ${isDuress ? 'SILENT DURESS' : 'CRITICAL PANIC'} mode in ${vehicleInfo}. Destination: ${trip.destination}. LIVE TRACKING LINK: ${trackingUrl} (Expires in 4 hrs).`;
+    const panicLat =
+      req.body?.latitude && typeof req.body.latitude === 'number'
+        ? req.body.latitude
+        : req.body?.lat && typeof req.body.lat === 'number'
+        ? req.body.lat
+        : trip.startCoords && typeof trip.startCoords.lat === 'number'
+        ? trip.startCoords.lat
+        : 23.7808875;
 
-    // 1. Send Twilio SMS with Self-Destructing Tracking Link to explicit linked guardians
-    if (user && Array.isArray(user.guardians)) {
-      for (const guardian of user.guardians) {
-        const phone = guardian.phone || (guardian.user && guardian.user.phone);
-        if (phone) {
-          sendEmergencySMS(phone, smsMessage).catch((e) => console.error('Twilio SMS error:', e));
-        }
-      }
-    }
-
-    // 2. Broadcast Web Push Notifications to all active push subscriptions (except the commuter themselves)
-    const targetPushUsers = await User.find({
-      _id: { $ne: user?._id },
-      'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
-    });
-
-    console.log(`🔔 Sending Web Push Notification to ${targetPushUsers.length} active guardian/user subscriptions with Live Tracking URL...`);
-
-    for (const pushUser of targetPushUsers) {
-      if (pushUser.pushSubscription) {
-        sendPushNotification(pushUser.pushSubscription, {
-          title: emergencyTitle,
-          body: `🚨 Tap to open 4h live emergency tracking stream! Vehicle: ${vehicleInfo} | Destination: ${trip.destination}`,
-          icon: '/pwa-192x192.png',
-          url: `/track/${trip.trackingToken}`,
-        }).catch((e) => console.error('Push notification error:', e));
-      }
-    }
-
-    // 3. Create Emergency Record in Database for Guardian Notification Panel
-    const panicLat = (req.body.latitude && typeof req.body.latitude === 'number')
-      ? req.body.latitude
-      : (trip.startCoords && typeof trip.startCoords.lat === 'number') ? trip.startCoords.lat : 23.7808875;
-    const panicLng = (req.body.longitude && typeof req.body.longitude === 'number')
-      ? req.body.longitude
-      : (trip.startCoords && typeof trip.startCoords.lng === 'number') ? trip.startCoords.lng : 90.4068305;
+    const panicLng =
+      req.body?.longitude && typeof req.body.longitude === 'number'
+        ? req.body.longitude
+        : req.body?.lng && typeof req.body.lng === 'number'
+        ? req.body.lng
+        : trip.startCoords && typeof trip.startCoords.lng === 'number'
+        ? trip.startCoords.lng
+        : 90.4068305;
 
     const panicAddress = await getReverseGeocodedAddress(panicLat, panicLng);
 
+    const emergencyTitle = isDuress
+      ? `🚨 SILENT DURESS ALARM: ${commuterName}`
+      : `🚨 CRITICAL EMERGENCY ALARM: ${commuterName}`;
+
+    // 1. Create and confirm Emergency Record in Database
     const emergencyRecord = await Emergency.create({
-      user: user._id,
+      user: user?._id || trip.user,
       trip: trip._id,
       trackingToken: trip.trackingToken,
       location: {
@@ -412,7 +387,102 @@ export const triggerPanic = async (req, res, next) => {
       triggeredAt: new Date(),
     });
 
-    // 4. Emit Real-Time Socket.io Emergency Broadcast & Alert to all open Guardian browser tabs
+    // 2. Multi-Channel Channel A & B: Twilio SMS & Automated Voice Call (IVR)
+    if (user && Array.isArray(user.guardians)) {
+      const validGuardianPhones = user.guardians
+        .map((guardian) => guardian.phone || (guardian.user && guardian.user.phone))
+        .filter((phone) => typeof phone === 'string' && phone.replace(/\D/g, '').length >= 8);
+
+      const uniquePhones = [...new Set(validGuardianPhones)];
+
+      for (const phone of uniquePhones) {
+        // Channel A: Emergency SMS
+        sendEmergencySMS({
+          toPhoneNumber: phone,
+          userName: commuterName,
+          alertType: isDuress ? 'SILENT_DURESS' : 'PANIC',
+          activationTime: emergencyRecord.triggeredAt || new Date(),
+          location: {
+            latitude: panicLat,
+            longitude: panicLng,
+            address: panicAddress,
+          },
+          customMessage: `${vehicleInfo} -> ${trip.destination || 'Unspecified'} | Live: ${trackingUrl}`,
+        }).catch((e) => console.error('Twilio SMS error:', e));
+
+        // Channel B: Emergency Voice Call (IVR)
+        makeEmergencyCall({
+          guardianPhone: phone,
+          userName: commuterName,
+          location: {
+            latitude: panicLat,
+            longitude: panicLng,
+            address: panicAddress,
+          },
+          emergencyMessage: isDuress
+            ? `Silent duress alarm activated by ${commuterName} in ${vehicleInfo}.`
+            : `Critical panic alarm activated by ${commuterName} in ${vehicleInfo}.`,
+        }).catch((e) => console.error('Twilio Voice Call error:', e));
+      }
+    }
+
+    // 3. Channel C: Automated Emergency Email to Linked Guardians, Operators & Admins
+    const guardianEmails =
+      user && Array.isArray(user.guardians)
+        ? user.guardians
+            .map((g) => g.email || (g.user && g.user.email))
+            .filter((e) => typeof e === 'string' && e.trim().length > 3)
+        : [];
+
+    const operatorAndAdminUsers = await User.find({
+      role: { $in: ['operator', 'admin'] },
+      _id: { $ne: user?._id },
+    }).select('email name role');
+
+    const staffEmails = operatorAndAdminUsers
+      .map((u) => u.email)
+      .filter((e) => typeof e === 'string' && e.trim().length > 3);
+
+    const allRecipientEmails = [...new Set([...guardianEmails, ...staffEmails])];
+
+    if (allRecipientEmails.length > 0) {
+      sendEmergencyEmail({
+        toEmail: allRecipientEmails,
+        commuter: user,
+        location: {
+          latitude: panicLat,
+          longitude: panicLng,
+          address: panicAddress,
+        },
+        trip,
+        emergencyId: emergencyRecord._id,
+        trackingUrl,
+        alertType: isDuress ? 'SILENT_DURESS' : 'PANIC',
+        emergencyMessage: isDuress
+          ? `🚨 SILENT DURESS ALERT: ${commuterName} activated silent duress mode in ${vehicleInfo}. Destination: ${trip.destination || 'Unspecified'}.`
+          : `🚨 CRITICAL PANIC ALARM: ${commuterName} pressed the Emergency Panic button during their journey in ${vehicleInfo}. Destination: ${trip.destination || 'Unspecified'}.`,
+        activationTime: emergencyRecord.triggeredAt || new Date(),
+      }).catch((e) => console.error('Emergency Email error:', e));
+    }
+
+    // 4. Channel D: Web Push Notifications to Active Subscribers
+    const targetPushUsers = await User.find({
+      _id: { $ne: user?._id },
+      'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
+    });
+
+    for (const pushUser of targetPushUsers) {
+      if (pushUser.pushSubscription) {
+        sendPushNotification(pushUser.pushSubscription, {
+          title: emergencyTitle,
+          body: `🚨 4h live emergency tracking stream! Vehicle: ${vehicleInfo} | Destination: ${trip.destination || 'Destination'}`,
+          icon: '/pwa-192x192.png',
+          url: `/track/${trip.trackingToken}`,
+        }).catch((e) => console.error('Push notification error:', e));
+      }
+    }
+
+    // 5. Channel E: Real-Time Socket.io Emergency Broadcast
     const io = req.app.get('io');
     if (io) {
       io.emit('EMERGENCY_ALERT_BROADCAST', {
@@ -420,7 +490,7 @@ export const triggerPanic = async (req, res, next) => {
         tripId: trip._id,
         trackingToken: trip.trackingToken,
         trackingUrl,
-        commuterId: user?._id,
+        commuterId: user?._id || trip.user,
         commuterName,
         commuterPhone: user?.phone,
         avatarUrl: user?.avatarUrl,
@@ -433,7 +503,7 @@ export const triggerPanic = async (req, res, next) => {
         location: {
           latitude: panicLat,
           longitude: panicLng,
-          address: panicAddress,
+          address: panicAddress || `${trip.vehicleType} -> ${trip.destination}`,
         },
         status: trip.status,
         timestamp: new Date(),
@@ -441,28 +511,20 @@ export const triggerPanic = async (req, res, next) => {
 
       io.emit('EMERGENCY_ALERT', {
         emergencyId: emergencyRecord._id,
-        tripId: trip._id,
-        trackingToken: trip.trackingToken,
-        trackingUrl,
         type: 'EMERGENCY',
-        title: '🚨 CRITICAL PANIC ALERT',
-        message: `${commuterName} activated CRITICAL PANIC mode in ${trip.vehicleType} (${trip.numberPlate || ''}). Destination: ${trip.destination}`,
+        title: emergencyTitle,
+        message: `${commuterName} activated ${isDuress ? 'SILENT DURESS' : 'CRITICAL PANIC'} mode in ${trip.vehicleType} (${trip.numberPlate || ''}). Destination: ${trip.destination}`,
         user: {
-          id: user._id,
+          id: user?._id || trip.user,
           name: commuterName,
-          email: user.email,
-          phone: user.phone,
-          avatarUrl: user.avatarUrl,
+          email: user?.email,
+          phone: user?.phone,
+          avatarUrl: user?.avatarUrl,
         },
         location: {
           latitude: panicLat,
           longitude: panicLng,
-          address: panicAddress,
-        },
-        transit: {
-          vehicleType: trip.vehicleType,
-          numberPlate: trip.numberPlate,
-          destination: trip.destination,
+          address: panicAddress || `${trip.vehicleType} -> ${trip.destination}`,
         },
         timestamp: new Date().toISOString(),
         status: 'ACTIVE',
@@ -476,7 +538,7 @@ export const triggerPanic = async (req, res, next) => {
       trip,
       status: trip.status,
       emergencyId: emergencyRecord._id,
-      emergency: emergencyRecord,
+      trackingToken: trip.trackingToken,
     });
   } catch (error) {
     next(error);
@@ -493,305 +555,154 @@ export const cancelPanic = async (req, res, next) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    const user = await User.findById(req.user._id).populate('guardians.user');
-    // If entered pin matches user's duress pin, maintain duress alarm
-    if (user && user.duressPin && pinCode === user.duressPin) {
-      trip.status = 'DURESS';
-      await trip.save();
-      return res.json({ message: 'Emergency status maintained', trip, status: trip.status });
+    const user = await User.findById(trip.user);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    // Revert trip status back to ACTIVE
+    const trimmedInput = String(pinCode || '').trim();
+    const isAuthentic = user.safetyPin && trimmedInput === String(user.safetyPin).trim();
+    const isDuress = user.duressPin && trimmedInput === String(user.duressPin).trim();
+
+    if (!isAuthentic && !isDuress) {
+      return res.status(401).json({ message: 'Incorrect Safety PIN. Cancellation rejected.' });
+    }
+
+    const io = req.app.get('io');
+
+    if (isDuress) {
+      trip.status = 'DURESS';
+      await trip.save();
+
+      const activeEmergencies = await Emergency.find({
+        trip: trip._id,
+        status: 'ACTIVE',
+      });
+
+      for (const emg of activeEmergencies) {
+        emg.alertType = 'SILENT_DURESS';
+        emg.severity = 'CRITICAL';
+        await emg.save();
+      }
+
+      if (io) {
+        io.emit('EMERGENCY_DURESS_ESCALATED', {
+          tripId: trip._id,
+          emergencyIds: activeEmergencies.map((e) => e._id),
+          userId: user._id,
+          message: 'Silent duress PIN entered. Contact police immediately.',
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Panic alarm deactivated successfully.',
+        status: 'ACTIVE',
+      });
+    }
+
+    // Authentic cancellation
     trip.status = 'ACTIVE';
     await trip.save();
 
-    // Mark active emergency records as RESOLVED in database
-    const resolvedEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
     await Emergency.updateMany(
-      { user: req.user._id, status: 'ACTIVE' },
-      { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: new Date() } }
+      { trip: trip._id, status: 'ACTIVE' },
+      { status: 'RESOLVED', resolvedAt: new Date() }
     );
 
-    const io = req.app.get('io');
     if (io) {
       io.emit('EMERGENCY_RESOLVED', {
-        emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
-        userId: req.user._id,
-        message: `${user?.name || 'Commuter'} resolved false alarm safely.`,
+        tripId: trip._id,
+        userId: user._id,
+        message: `${user.name} confirmed safe. False alarm resolved.`,
       });
     }
 
-    // Broadcast Web Push to linked Guardians letting them know false alarm was resolved
-    const commuterName = user?.name || 'Commuter';
-    if (user && Array.isArray(user.guardians)) {
-      for (const guardian of user.guardians) {
-        if (guardian.user && guardian.user.pushSubscription) {
-          sendPushNotification(guardian.user.pushSubscription, {
-            title: `🟢 FALSE ALARM RESOLVED: ${commuterName}`,
-            body: `${commuterName} confirmed safe. False alarm has been cancelled and journey resumed.`,
-            icon: '/pwa-192x192.png',
-            url: `/notifications`,
-          }).catch((e) => console.error('Push notification resolution error:', e));
-        }
-      }
-    }
-
-    res.json({ message: 'False alarm resolved safely. Journey resumed.', trip, status: trip.status });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Dead-Battery Final Emergency Blast - fired once by the client via
-//          navigator.sendBeacon() the moment battery.level drops to <= 5%. Reuses the
-//          same EMERGENCY escalation pathway as the panic button (see escalateToEmergency).
-// @route   POST /api/trips/:id/battery-emergency
-export const handleBatteryCriticalEmergency = async (req, res, next) => {
-  try {
-    const { latitude, longitude, batteryLevel } = req.body;
-
-    const trip = await Trip.findById(req.params.id);
-    if (!trip) {
-      return res.status(404).json({ message: 'Trip not found' });
-    }
-
-    if (String(trip.user) !== String(req.user._id)) {
-      return res.status(403).json({ message: 'Not authorized to modify this journey' });
-    }
-
-    const coords =
-      typeof latitude === 'number' && typeof longitude === 'number'
-        ? { lat: latitude, lng: longitude }
-        : undefined;
-
-    await escalateToEmergency(trip, {
-      source: 'BATTERY_CRITICAL',
-      io: req.app.get('io'),
-      batteryLevel,
-      coords,
+    return res.json({
+      success: true,
+      message: 'Panic alarm cancelled and safe tracking resumed.',
+      trip,
     });
-
-    console.log(
-      `[Battery Emergency] Trip ${trip._id}: critical battery ` +
-      `(${typeof batteryLevel === 'number' ? Math.round(batteryLevel * 100) : '?'}%) beacon received ` +
-      `at ${coords ? `${coords.lat}, ${coords.lng}` : 'unknown location'}.`
-    );
-
-    res.status(201).json({ success: true, status: 'EMERGENCY' });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Deactivate an active emergency alarm using the normal or secret duress PIN
+// @desc    Deactivate alarm (Dual-PIN safety check)
 // @route   POST /api/trips/:id/deactivate-alarm
 export const deactivateAlarm = async (req, res, next) => {
   try {
-    const { pin, latitude, longitude, finishJourney } = req.body;
-
-    if (!pin || !/^\d{4}$/.test(String(pin))) {
-      return res.status(400).json({ message: 'A valid 4-digit PIN is required.' });
-    }
+    const { enteredPin, pin, finishJourney, latitude, longitude } = req.body;
+    const pinToVerify = String(enteredPin || pin || '').trim();
 
     const trip = await Trip.findById(req.params.id);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    if (String(trip.user) !== String(req.user._id)) {
-      return res.status(403).json({ message: 'Not authorized to modify this journey' });
+    const user = await User.findById(req.user._id);
+    const isNormalMatch = user.safetyPin && pinToVerify === String(user.safetyPin).trim();
+    const isDuressMatch = user.duressPin && pinToVerify === String(user.duressPin).trim();
+
+    if (!isNormalMatch && !isDuressMatch) {
+      return res.status(400).json({ message: 'Invalid safety PIN.' });
     }
 
-    if (!['ACTIVE', 'EMERGENCY', 'DURESS'].includes(trip.status) || (!finishJourney && trip.status === 'ACTIVE')) {
-      return res.status(400).json({ message: 'No active alarm to deactivate for this journey' });
-    }
-
-    // Explicitly select the hashed PINs (excluded by default via `select: false`)
-    const user = await User.findById(req.user._id).select('+normalPin +fakePin');
-
-    // Always evaluate both PINs (rather than short-circuiting) so the response
-    // timing and shape never hint at which PIN branch was taken.
-    const [isNormalMatch, isFakeMatch] = await Promise.all([
-      user.matchNormalPin(pin),
-      user.matchFakePin(pin),
-    ]);
-    const legacyNormalMatch = !user.normalPin && String(pin) === String(user.duressPin || '');
-
-    if (!isNormalMatch && !isFakeMatch && !legacyNormalMatch) {
-      return res.status(400).json({ message: 'Incorrect PIN. Please try again.' });
-    }
-
-    // Best-effort location snapshot at the moment of deactivation, logged for both
-    // branches so a silent escalation can't be inferred from whether a log was written.
-    let locationCoords;
-    if (typeof latitude === 'number' && typeof longitude === 'number') {
-      locationCoords = { lat: latitude, lng: longitude };
-      await LocationLog.create({
-        trip: trip._id,
-        user: req.user._id,
-        location: { type: 'Point', coordinates: [longitude, latitude] },
+    if (isDuressMatch) {
+      await escalateToEmergency(trip, {
+        source: 'SILENT_DURESS_PIN',
+        io: req.app.get('io'),
+        isDuress: true,
+        coords: latitude && longitude ? { lat: latitude, lng: longitude } : undefined,
       });
-    }
 
-    if (isFakeMatch) {
-      // Silent duress: secretly upgrade the alarm to the highest priority instead
-      // of disarming it. The trip status intentionally falls out of the
-      // getActiveTrip() query so it disappears from the user's view entirely.
-      trip.status = 'DURESS';
-      trip.duressTriggeredAt = new Date();
-      if (locationCoords) trip.duressLastLocation = locationCoords;
+      const duressAlerts = await Emergency.find({ trip: trip._id, status: 'ACTIVE' });
+      for (const emg of duressAlerts) {
+        emg.alertType = 'SILENT_DURESS';
+        emg.severity = 'CRITICAL';
+        await emg.save();
+      }
     } else {
-      // Genuine deactivation: alarm turns off, journey tracking continues normally.
-      trip.status = finishJourney ? 'COMPLETED' : 'ACTIVE';
       if (finishJourney) {
+        trip.status = 'COMPLETED';
         trip.completedAt = new Date();
-        trip.expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-        await LocationLog.updateMany(
-          { trip: trip._id },
-          { isSafeTripCompleted: true, expiresAt: trip.expiresAt }
-        );
+        trip.trackingActive = false;
+      } else {
+        trip.status = 'ACTIVE';
       }
-    }
+      await trip.save();
 
-    await trip.save();
+      const resolvedEmergencies = await Emergency.find({
+        trip: trip._id,
+        status: 'ACTIVE',
+      });
 
-    if (isFakeMatch) {
-      const duressLocation = locationCoords || {
-        lat: trip.startCoords?.lat || 23.7808875,
-        lng: trip.startCoords?.lng || 90.4068305,
-      };
       await Emergency.updateMany(
-        { user: req.user._id, status: 'ACTIVE' },
-        {
-          $set: {
-            alertType: 'SILENT_DURESS',
-            severity: 'CRITICAL',
-            'location.latitude': duressLocation.lat,
-            'location.longitude': duressLocation.lng,
-            'location.address': `LAST SEEN: ${duressLocation.lat.toFixed(5)}, ${duressLocation.lng.toFixed(5)}`,
-          },
-        }
-      );
-      let duressEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
-      if (duressEmergencies.length === 0) {
-        const duressRecord = await Emergency.create({
-          user: req.user._id,
-          location: {
-            latitude: duressLocation.lat,
-            longitude: duressLocation.lng,
-            address: `${trip.vehicleType || 'Vehicle'} -> Dest: ${trip.destination || 'In Transit'}`,
-          },
-          status: 'ACTIVE',
-          alertType: 'SILENT_DURESS',
-          severity: 'CRITICAL',
-          triggeredAt: new Date(),
-        });
-        duressEmergencies = [{ _id: duressRecord._id }];
-      }
-      const io = req.app.get('io');
-      if (io) {
-        io.emit('EMERGENCY_DURESS_ESCALATED', {
-          emergencyId: duressEmergencies[0]?._id,
-          emergencyIds: duressEmergencies.map((emergency) => emergency._id),
-          userId: req.user._id,
-          location: { latitude: duressLocation.lat, longitude: duressLocation.lng },
-          message: `${user?.name || 'Commuter'} entered the silent duress PIN. Contact police immediately.`,
-        });
-      }
-      if (user && Array.isArray(user.guardians)) {
-        for (const guardian of user.guardians) {
-          if (guardian.user?.pushSubscription) {
-            sendPushNotification(guardian.user.pushSubscription, {
-              title: `🚨 SILENT DURESS: ${user.name}`,
-              body: `Contact police immediately. Last seen: ${duressLocation.lat.toFixed(5)}, ${duressLocation.lng.toFixed(5)}`,
-              icon: '/pwa-192x192.png',
-              url: '/notifications',
-            }).catch((error) => console.error('Duress push notification error:', error));
-          }
-        }
-      }
-    }
-
-    if (!isFakeMatch) {
-      const resolvedEmergencies = await Emergency.find({ user: req.user._id, status: 'ACTIVE' }).select('_id');
-      await Emergency.updateMany(
-        { user: req.user._id, status: 'ACTIVE' },
-        { $set: { status: 'RESOLVED', alertType: 'FALSE_ALARM', resolvedAt: new Date() } }
+        { trip: trip._id, status: 'ACTIVE' },
+        { status: 'RESOLVED', resolvedAt: new Date() }
       );
 
       const io = req.app.get('io');
       if (io) {
         io.emit('EMERGENCY_RESOLVED', {
-          emergencyIds: resolvedEmergencies.map((emergency) => emergency._id),
+          emergencyIds: resolvedEmergencies.map((e) => e._id),
           userId: req.user._id,
           message: `${user?.name || 'Commuter'} confirmed a false alarm and is safe.`,
         });
       }
     }
 
-    // Identical response for both branches - never reveals which PIN matched.
     return res.json({
       success: true,
       message: 'Alarm deactivated successfully.',
-      status: 'ACTIVE',
+      status: trip.status,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Offline Memory Storage Queue - bulk-ingest GPS points captured locally in
-//          IndexedDB while the device was offline, flushed as one batch the moment
-//          connectivity returns. Original client-side timestamps are preserved rather
-//          than using the upload time, so the path history stays chronologically correct.
-// @route   POST /api/trips/:id/coordinates/batch
-export const addCoordinateBatch = async (req, res, next) => {
-  try {
-    const { points } = req.body;
-
-    if (!Array.isArray(points) || points.length === 0) {
-      return res.status(400).json({ message: 'A non-empty points array is required.' });
-    }
-
-    const trip = await Trip.findById(req.params.id);
-    if (!trip) {
-      return res.status(404).json({ message: 'Trip not found' });
-    }
-
-    if (String(trip.user) !== String(req.user._id)) {
-      return res.status(403).json({ message: 'Not authorized to modify this journey' });
-    }
-
-    const docs = points
-      .filter((p) => typeof p?.lat === 'number' && typeof p?.lng === 'number')
-      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      .map((p) => ({
-        trip: trip._id,
-        user: req.user._id,
-        location: { type: 'Point', coordinates: [p.lng, p.lat] },
-        recordedAt: p.timestamp ? new Date(p.timestamp) : new Date(),
-        isSafeTripCompleted: trip.status === 'COMPLETED',
-        expiresAt: trip.expiresAt || undefined,
-      }));
-
-    if (docs.length === 0) {
-      return res.status(400).json({ message: 'No valid coordinate points supplied.' });
-    }
-
-    await LocationLog.insertMany(docs, { ordered: true });
-
-    console.log(
-      `[Offline Queue] Flushed ${docs.length} queued coordinate point(s) into trip ${trip._id} ` +
-      '(chronological order preserved via original client timestamps).'
-    );
-
-    res.status(201).json({ success: true, inserted: docs.length });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get user's safe journey history (available within 48-hour privacy window)
+// @desc    Get user's safe journey history
 // @route   GET /api/trips/history
 export const getUserTripHistory = async (req, res, next) => {
   try {
@@ -808,16 +719,20 @@ export const getUserTripHistory = async (req, res, next) => {
   }
 };
 
-// @desc    Public Live Tracking Feed for Guardians (Self-Destructing 4h Link)
+// @desc    Get public tracking stream by self-destructing token
 // @route   GET /api/trips/track/:token
-export const getPublicTrackingData = async (req, res, next) => {
+export const getTripByTrackingToken = async (req, res, next) => {
   try {
     const { token } = req.params;
     if (!token) {
       return res.status(400).json({ valid: false, reason: 'INVALID_TOKEN', message: 'Tracking token is required.' });
     }
 
-    const trip = await Trip.findOne({ trackingToken: token }).populate('user', 'name phone avatarUrl');
+    const trip = await Trip.findOne({ trackingToken: token }).populate(
+      'user',
+      'name avatarUrl phone'
+    );
+
     if (!trip) {
       return res.status(404).json({ valid: false, reason: 'NOT_FOUND', message: 'This emergency tracking link does not exist.' });
     }
@@ -843,15 +758,15 @@ export const getPublicTrackingData = async (req, res, next) => {
 
     // Fetch recent location logs (up to last 150 points for live breadcrumb trail)
     const logs = await LocationLog.find({ trip: trip._id })
-      .sort({ recordedAt: 1 })
+      .sort({ recordedAt: 1, timestamp: 1 })
       .limit(150)
-      .select('location batteryLevel recordedAt');
+      .select('location latitude longitude batteryLevel recordedAt timestamp');
 
     const breadcrumbs = logs.map((log) => ({
-      lat: log.location.coordinates[1],
-      lng: log.location.coordinates[0],
+      lat: log.location?.coordinates ? log.location.coordinates[1] : log.latitude,
+      lng: log.location?.coordinates ? log.location.coordinates[0] : log.longitude,
       batteryLevel: log.batteryLevel,
-      recordedAt: log.recordedAt,
+      recordedAt: log.recordedAt || log.timestamp,
     }));
 
     const lastCoord = breadcrumbs.length > 0
@@ -886,6 +801,10 @@ export const getPublicTrackingData = async (req, res, next) => {
       },
       currentLocation: lastCoord,
       breadcrumbs,
+      latestLocation: lastCoord,
+      locationLogs: breadcrumbs,
+      expiresAt: trip.trackingExpiresAt,
+      isActive: trip.trackingActive,
       expiresInSeconds: Math.max(0, Math.floor((new Date(trip.trackingExpiresAt).getTime() - now.getTime()) / 1000)),
     });
   } catch (error) {
@@ -893,3 +812,387 @@ export const getPublicTrackingData = async (req, res, next) => {
   }
 };
 
+// @desc    Receive a batch of offline-queued GPS coordinate points
+// @route   POST /api/trips/:id/coordinates/batch
+export const handleCoordinateBatch = async (req, res, next) => {
+  try {
+    const { points } = req.body;
+
+    if (!Array.isArray(points) || points.length === 0) {
+      return res.status(400).json({ message: 'No coordinate points provided.' });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found.' });
+    }
+
+    if (trip.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to submit coordinates for this trip.' });
+    }
+
+    const docsToInsert = points
+      .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
+      .map((p) => ({
+        trip: trip._id,
+        latitude: p.lat,
+        longitude: p.lng,
+        batteryLevel: typeof p.batteryLevel === 'number' ? p.batteryLevel : trip.batteryLevel,
+        networkStrength: typeof p.networkStrength === 'number' ? p.networkStrength : 0,
+        isBackground: Boolean(p.isBackground),
+        timestamp: p.timestamp ? new Date(p.timestamp) : new Date(),
+      }));
+
+    if (docsToInsert.length === 0) {
+      return res.status(400).json({ message: 'All points in batch had invalid coordinates.' });
+    }
+
+    await LocationLog.insertMany(docsToInsert, { ordered: false });
+
+    const sortedByTime = [...docsToInsert].sort((a, b) => b.timestamp - a.timestamp);
+    const freshest = sortedByTime[0];
+
+    if (freshest && freshest.timestamp > trip.lastHeartbeatAt) {
+      trip.lastHeartbeatAt = freshest.timestamp;
+      trip.batteryLevel = freshest.batteryLevel;
+      if (trip.status === 'SIGNAL_LOST') {
+        trip.status = 'ACTIVE';
+      }
+      await trip.save();
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('LOCATION_BATCH_RECEIVED', {
+        tripId: trip._id,
+        count: docsToInsert.length,
+        freshestPoint: {
+          latitude: freshest.latitude,
+          longitude: freshest.longitude,
+          timestamp: freshest.timestamp,
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully flushed ${docsToInsert.length} queued location points to server.`,
+      count: docsToInsert.length,
+      tripStatus: trip.status,
+    });
+  } catch (error) {
+    console.error('[Coordinate Batch Error]', error);
+    next(error);
+  }
+};
+
+// @desc    Dead-Battery Final Emergency Blast
+// @route   POST /api/trips/:id/battery-emergency
+export const reportDeadBattery = async (req, res, next) => {
+  try {
+    const { batteryLevel, lastKnownCoords } = req.body;
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found.' });
+    }
+
+    if (trip.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized for this trip.' });
+    }
+
+    await escalateToEmergency(trip, {
+      source: 'BATTERY_CRITICAL',
+      io: req.app.get('io'),
+      batteryLevel: typeof batteryLevel === 'number' ? batteryLevel : 0,
+      coords: lastKnownCoords,
+    });
+
+    const populatedUser = await User.findById(trip.user).select('name phone guardians');
+    const commuterName = populatedUser?.name || 'Your commuter';
+    const vehicleInfo = `${trip.vehicleType || 'vehicle'} (${trip.numberPlate || 'no plate'})`;
+    const destination = trip.destination || 'their destination';
+
+    const coordsStr = lastKnownCoords?.lat && lastKnownCoords?.lng
+      ? ` Last coordinates: ${lastKnownCoords.lat.toFixed(4)}, ${lastKnownCoords.lng.toFixed(4)}.`
+      : '';
+
+    const alertMessage =
+      `[PATHPROHORI CRITICAL ALERT] ${commuterName}'s phone battery has died during their journey in ${vehicleInfo} to ${destination}.${coordsStr} Emergency mode activated.`;
+
+    if (populatedUser?.guardians && Array.isArray(populatedUser.guardians)) {
+      for (const guardian of populatedUser.guardians) {
+        if (guardian.phone) {
+          sendEmergencySMS(guardian.phone, alertMessage).catch((e) =>
+            console.error('[Battery Emergency SMS failed]', e)
+          );
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Dead-battery emergency alert broadcast to guardians.',
+      tripStatus: trip.status,
+    });
+  } catch (error) {
+    console.error('[Battery Emergency Error]', error);
+    next(error);
+  }
+};
+
+// @desc    Update battery telemetry
+// @route   PUT /api/trips/:id/battery
+export const updateBatteryTelemetry = async (req, res, next) => {
+  try {
+    const { batteryLevel, isCharging } = req.body;
+
+    if (typeof batteryLevel !== 'number' || batteryLevel < 0 || batteryLevel > 100) {
+      return res.status(400).json({ message: 'batteryLevel must be a number between 0 and 100.' });
+    }
+
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found.' });
+    }
+
+    if (trip.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized for this trip.' });
+    }
+
+    trip.batteryLevel = batteryLevel;
+    trip.isCharging = Boolean(isCharging);
+    await trip.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('BATTERY_UPDATED', {
+        tripId: trip._id,
+        batteryLevel,
+        isCharging: trip.isCharging,
+        timestamp: new Date(),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      batteryLevel: trip.batteryLevel,
+      isCharging: trip.isCharging,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Upload captured photo to evidence locker
+// @route   POST /api/trips/:id/evidence/photo
+export const uploadEvidencePhoto = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { image, sequenceIndex, sizeBytes } = req.body;
+
+    if (!image) {
+      return res.status(400).json({ message: 'No photo data provided.' });
+    }
+
+    const trip = await Trip.findById(id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip session not found.' });
+    }
+
+    const uploadResponse = await cloudinary.uploader.upload(image, {
+      folder: 'pathprohori_evidence/photos',
+      resource_type: 'image',
+    });
+
+    const photoObj = {
+      url: uploadResponse.secure_url,
+      public_id: uploadResponse.public_id,
+      capturedAt: new Date(),
+      sizeBytes: sizeBytes || uploadResponse.bytes || 0,
+      sequenceIndex: Number(sequenceIndex) || 0,
+    };
+
+    if (!trip.evidence) {
+      trip.evidence = { photos: [], audioClips: [], captureStatus: 'CAPTURING', totalSizeBytes: 0 };
+    }
+
+    trip.evidence.photos.push(photoObj);
+    trip.evidence.totalSizeBytes = (trip.evidence.totalSizeBytes || 0) + (photoObj.sizeBytes || 0);
+    trip.evidence.captureStatus = 'CAPTURING';
+
+    await trip.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('EVIDENCE_CAPTURED', {
+        tripId: trip._id,
+        type: 'PHOTO',
+        photo: photoObj,
+        evidence: trip.evidence,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Evidence photo saved to secure locker.',
+      photo: photoObj,
+      totalPhotos: trip.evidence.photos.length,
+      totalSizeBytes: trip.evidence.totalSizeBytes,
+    });
+  } catch (error) {
+    console.error('[Upload Trip Photo Error]', error);
+    next(error);
+  }
+};
+
+// @desc    Upload captured audio clip to evidence locker
+// @route   POST /api/trips/:id/evidence/audio
+export const uploadEvidenceAudio = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { audio, durationSec, sizeBytes } = req.body;
+
+    if (!audio) {
+      return res.status(400).json({ message: 'No audio data provided.' });
+    }
+
+    const trip = await Trip.findById(id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip session not found.' });
+    }
+
+    let formattedAudio = audio;
+    if (typeof formattedAudio === 'string' && formattedAudio.startsWith('data:')) {
+      formattedAudio = formattedAudio.replace(
+        /^data:audio\/[a-zA-Z0-9.-]+(;codecs=[^;]+)?;base64,/i,
+        'data:video/webm;base64,'
+      );
+    }
+
+    const uploadResponse = await cloudinary.uploader.upload(formattedAudio, {
+      folder: 'pathprohori_evidence/audio',
+      resource_type: 'video',
+    });
+
+    const audioObj = {
+      url: uploadResponse.secure_url,
+      public_id: uploadResponse.public_id,
+      capturedAt: new Date(),
+      durationSec: Number(durationSec) || 5,
+      sizeBytes: sizeBytes || uploadResponse.bytes || 0,
+    };
+
+    if (!trip.evidence) {
+      trip.evidence = { photos: [], audioClips: [], captureStatus: 'CAPTURING', totalSizeBytes: 0 };
+    }
+
+    trip.evidence.audioClips.push(audioObj);
+    trip.evidence.totalSizeBytes = (trip.evidence.totalSizeBytes || 0) + (audioObj.sizeBytes || 0);
+    trip.evidence.captureStatus = 'COMPLETED';
+
+    await trip.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('EVIDENCE_CAPTURED', {
+        tripId: trip._id,
+        type: 'AUDIO',
+        audioClip: audioObj,
+        evidence: trip.evidence,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Evidence audio clip saved to secure locker.',
+      audioClip: audioObj,
+      totalAudioClips: trip.evidence.audioClips.length,
+      totalSizeBytes: trip.evidence.totalSizeBytes,
+    });
+  } catch (error) {
+    console.error('[Upload Trip Audio Error]', error);
+    next(error);
+  }
+};
+
+// @desc    Retrieve Evidence Locker for a trip
+// @route   GET /api/trips/:id/evidence
+export const getTripEvidence = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const trip = await Trip.findById(id).populate('user', 'name email phone avatarUrl');
+
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip session not found.' });
+    }
+
+    return res.json({
+      success: true,
+      tripId: trip._id,
+      user: trip.user,
+      status: trip.status,
+      evidence: trip.evidence || {
+        photos: [],
+        audioClips: [],
+        captureStatus: 'PENDING',
+        totalSizeBytes: 0,
+      },
+    });
+  } catch (error) {
+    console.error('[Get Trip Evidence Error]', error);
+    next(error);
+  }
+};
+
+// @desc    Update evidence capture status
+// @route   PUT /api/trips/:id/evidence/status
+export const updateEvidenceStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const trip = await Trip.findById(id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip session not found.' });
+    }
+
+    if (!trip.evidence) {
+      trip.evidence = { photos: [], audioClips: [], captureStatus: status || 'PARTIAL', totalSizeBytes: 0 };
+    } else {
+      trip.evidence.captureStatus = status || trip.evidence.captureStatus;
+    }
+
+    await trip.save();
+    return res.json({ success: true, evidence: trip.evidence });
+  } catch (error) {
+    console.error('[Update Evidence Status Error]', error);
+    next(error);
+  }
+};
+
+export const addCoordinateBatch = handleCoordinateBatch;
+export const handleBatteryCriticalEmergency = reportDeadBattery;
+export const getPublicTrackingData = getTripByTrackingToken;
+
+export default {
+  createTrip,
+  getActiveTrip,
+  updateSafetyStatus,
+  sendHeartbeat,
+  completeTrip,
+  triggerPanic,
+  cancelPanic,
+  deactivateAlarm,
+  getUserTripHistory,
+  getTripByTrackingToken,
+  getPublicTrackingData,
+  handleCoordinateBatch,
+  addCoordinateBatch,
+  reportDeadBattery,
+  handleBatteryCriticalEmergency,
+  updateBatteryTelemetry,
+  uploadEvidencePhoto,
+  uploadEvidenceAudio,
+  getTripEvidence,
+  updateEvidenceStatus,
+};

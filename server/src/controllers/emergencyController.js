@@ -2,6 +2,7 @@ import { Emergency } from '../models/Emergency.js';
 import { User } from '../models/User.js';
 import { getIO } from '../socket.js';
 import cloudinary from '../config/cloudinary.js';
+import { dispatchMultiChannelEmergencyAlert } from '../services/emergencyBroadcaster.js';
 
 const translateLocation = (str) => {
     if (!str) return '';

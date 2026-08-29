@@ -110,6 +110,43 @@ export const getIncidents = async (req, res, next) => {
   }
 };
 
+// @desc    Get high-severity validated incidents for Law Enforcement PDF Export (Admin Only)
+// @route   GET /api/incidents/export/high-severity
+// @access  Private/Admin
+export const getVerifiedHighThreatIncidents = async (req, res, next) => {
+  try {
+    const { area, severity, limit } = req.query;
+
+    const filter = {};
+
+    // Filter by high severity
+    if (severity) {
+      filter.severity = severity;
+    } else {
+      filter.severity = { $in: ['High Alert', 'Critical', 'Emergency'] };
+    }
+
+    // Optional area filter
+    if (area && area !== 'All Neighborhoods') {
+      filter.locationName = { $regex: area, $options: 'i' };
+    }
+
+    const incidents = await Incident.find(filter)
+      .populate('reportedBy', 'name email phone avatarUrl role')
+      .populate('comments.author', 'name avatarUrl role')
+      .sort({ createdAt: -1 })
+      .limit(Number(limit) || 100);
+
+    res.json({
+      success: true,
+      count: incidents.length,
+      data: incidents,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get single incident details & discussion thread
 // @route   GET /api/incidents/:id
 export const getIncidentById = async (req, res, next) => {

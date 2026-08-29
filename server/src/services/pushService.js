@@ -19,10 +19,18 @@ if (vapidPublicKey && vapidPrivateKey) {
   }
 }
 
-export const sendPushNotification = async (subscription, payload) => {
-  if (!subscription || !subscription.endpoint) return false;
+/**
+ * Sends a Web Push browser notification to a given subscription.
+ *
+ * @param {Object} subscription - Web push subscription object { endpoint, keys: { auth, p256dh } }
+ * @param {Object} payload - Notification payload { title, body, icon, data }
+ * @returns {Promise<boolean>}
+ */
+export const sendPushNotification = async (subscription, payload = {}) => {
+  if (!subscription || !subscription.endpoint) {
+    return false;
+  }
 
-  // If VAPID keys were dynamically loaded, attempt setup
   if (!isConfigured && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     try {
       webpush.setVapidDetails(
@@ -35,14 +43,29 @@ export const sendPushNotification = async (subscription, payload) => {
   }
 
   try {
-    const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const payloadString = typeof payload === 'string' ? payload : JSON.stringify({
+      title: payload.title || '🚨 PATHPROHORI EMERGENCY ALERT',
+      body: payload.body || 'A high-priority emergency alert requires your attention.',
+      icon: payload.icon || '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: 'emergency-alert',
+      vibrate: [300, 100, 300, 100, 300],
+      data: payload.data || { url: payload.url || '/notifications' },
+    });
+
     await webpush.sendNotification(subscription, payloadString);
     console.log('🔔 Web Push Notification sent to endpoint:', subscription.endpoint.slice(0, 30) + '...');
     return true;
-  } catch (err) {
-    console.error('❌ Failed to send Web Push Notification:', err.message);
+  } catch (error) {
+    if (error.statusCode === 410 || error.statusCode === 404) {
+      console.warn('⚠️ [Web Push] Expired or invalid push subscription.');
+    } else {
+      console.warn('⚠️ [Web Push Error]:', error.message);
+    }
     return false;
   }
 };
 
-export default { sendPushNotification };
+export default {
+  sendPushNotification,
+};
