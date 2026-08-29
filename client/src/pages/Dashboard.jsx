@@ -26,6 +26,7 @@ export const Dashboard = () => {
     triggerPanic,
     deactivateAlarm,
     completeTrip,
+    updateSafetyStatus,
   } = useTrip();
 
   const [recentSafeTrip, setRecentSafeTrip] = useState(null);
@@ -111,6 +112,7 @@ export const Dashboard = () => {
           onComplete={completeTrip}
           onDeactivateAlarm={deactivateAlarm}
           deactivating={deactivating}
+          onSafetyStatusChange={updateSafetyStatus}
         />
       )}
 

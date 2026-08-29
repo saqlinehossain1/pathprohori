@@ -16,6 +16,7 @@ export const ActiveTripBanner = ({
   onPanic,
   onComplete,
   onDeactivateAlarm,
+  onSafetyStatusChange,
   deactivating,
 }) => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export const ActiveTripBanner = ({
   const [showFinishPinModal, setShowFinishPinModal] = useState(false);
   const [showPanicGraceModal, setShowPanicGraceModal] = useState(false);
   const [panicCountdown, setPanicCountdown] = useState(10);
+  const [safetySaving, setSafetySaving] = useState(false);
   const panicTimerRef = useRef(null);
 
   if (!activeTrip) return null;
@@ -62,6 +64,18 @@ export const ActiveTripBanner = ({
   const handleFinishWithPin = async (pin) => {
     await onDeactivateAlarm(pin, true);
     setShowFinishPinModal(false);
+  };
+
+  const handleSafetyStatus = async (nextStatus) => {
+    if (nextStatus === 'UNSAFE' && !window.confirm('Mark this journey Unsafe? Linked guardians will receive a warning.')) return;
+    try {
+      setSafetySaving(true);
+      await onSafetyStatusChange(nextStatus);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not update journey safety status.');
+    } finally {
+      setSafetySaving(false);
+    }
   };
 
   return (
@@ -120,6 +134,20 @@ export const ActiveTripBanner = ({
       </div>
 
       {/* Signal Loss Warning Alert */}
+      {!isEmergencyActive && (
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${activeTrip.safetyStatus === 'UNSAFE' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+            <span className="text-xs font-extrabold text-slate-800">Journey status: {activeTrip.safetyStatus || 'SAFE'}</span>
+            <span className="text-[11px] text-slate-500">Separate from Panic SOS</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={safetySaving || activeTrip.safetyStatus !== 'UNSAFE'} onClick={() => handleSafetyStatus('SAFE')} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-extrabold text-emerald-800 disabled:opacity-50 cursor-pointer">Mark Safe</button>
+            <button type="button" disabled={safetySaving || activeTrip.safetyStatus === 'UNSAFE'} onClick={() => handleSafetyStatus('UNSAFE')} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-extrabold text-amber-800 disabled:opacity-50 cursor-pointer">Mark Unsafe</button>
+          </div>
+        </div>
+      )}
+
       {signalLossAlert && (
         <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-bold animate-bounce shadow-xs">
           <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />

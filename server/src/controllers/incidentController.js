@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import PDFDocument from 'pdfkit';
 import { Incident } from '../models/Incident.js';
 import { seedInitialIncidents } from '../config/seedData.js';
 import { deleteCloudinaryImage } from '../config/cloudinary.js';
@@ -17,6 +18,81 @@ const fetchPopulatedIncident = async (id) => {
   }
 
   return incident;
+};
+
+const pdfValue = (value, fallback = 'Not provided') => {
+  if (value === undefined || value === null || value === '') return fallback;
+  return String(value);
+};
+
+// @desc    Export an incident and its discussion as a law-enforcement PDF
+// @route   GET /api/incidents/:id/pdf
+export const exportIncidentPdf = async (req, res, next) => {
+  try {
+    const incident = await fetchPopulatedIncident(req.params.id);
+    if (!incident) return res.status(404).json({ message: 'Incident not found' });
+
+    const document = new PDFDocument({
+      margin: 48,
+      info: { Title: `PATHPROHORI Incident Report - ${incident.title}` },
+    });
+    const filename = `pathprohori-incident-${incident._id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    document.pipe(res);
+
+    document.fontSize(20).fillColor('#7f1d1d').text('PATHPROHORI', { align: 'center' });
+    document.fontSize(14).fillColor('#111827').text('LAW-ENFORCEMENT INCIDENT REPORT', { align: 'center' });
+    document.moveDown(1);
+    document.fontSize(9).fillColor('#4b5563').text(`Generated: ${new Date().toISOString()}`, { align: 'right' });
+
+    const writeField = (label, value) => {
+      document.fontSize(10).fillColor('#111827').font('Helvetica-Bold').text(`${label}: `, { continued: true });
+      document.font('Helvetica').fillColor('#374151').text(pdfValue(value));
+    };
+
+    document.moveDown(0.5).fontSize(13).fillColor('#7f1d1d').font('Helvetica-Bold').text('Incident Details');
+    document.moveDown(0.3);
+    writeField('Report ID', incident._id);
+    writeField('Title', incident.title);
+    writeField('Severity', incident.severity);
+    writeField('Status', incident.isVerified ? 'Community Verified' : 'Unverified');
+    writeField('Location', incident.locationName);
+    writeField('Coordinates', incident.location?.coordinates?.join(', '));
+    writeField('Reported By', incident.reportedBy?.name);
+    writeField('Reporter Role', incident.reportedBy?.role);
+    writeField('Created At', incident.createdAt && new Date(incident.createdAt).toISOString());
+    writeField('Expires At', incident.expiresAt && new Date(incident.expiresAt).toISOString());
+    writeField('Community Votes', `${incident.upvotes?.length || 0} up / ${incident.downvotes?.length || 0} down`);
+
+    document.moveDown(0.6).fontSize(13).fillColor('#7f1d1d').font('Helvetica-Bold').text('Description');
+    document.moveDown(0.3).font('Helvetica').fontSize(10).fillColor('#374151').text(pdfValue(incident.description));
+    if (incident.imageUrl) writeField('Incident Evidence', incident.imageUrl);
+
+    document.moveDown(0.8).fontSize(13).fillColor('#7f1d1d').font('Helvetica-Bold').text(`Discussion and Updates (${incident.comments?.length || 0})`);
+    document.moveDown(0.3);
+    if (!incident.comments?.length) {
+      document.font('Helvetica').fontSize(10).fillColor('#374151').text('No discussion updates were recorded.');
+    } else {
+      incident.comments.forEach((comment, index) => {
+        document.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text(`${index + 1}. ${pdfValue(comment.authorName, comment.author?.name)}`);
+        document.font('Helvetica').fillColor('#374151').text(`${pdfValue(comment.createdAt && new Date(comment.createdAt).toISOString())} - ${pdfValue(comment.text)}`);
+        if (comment.imageUrl) document.text(`Attached image: ${comment.imageUrl}`);
+        (comment.replies || []).forEach((reply) => {
+          document.font('Helvetica-Oblique').fillColor('#4b5563').text(`Reply by ${pdfValue(reply.authorName, reply.author?.name)}: ${pdfValue(reply.text)}`);
+        });
+        document.moveDown(0.35);
+      });
+    }
+
+    document.moveDown(0.5).font('Helvetica').fontSize(8).fillColor('#6b7280').text(
+      'Generated from PATHPROHORI records for authorized operational and law-enforcement use.',
+      { align: 'center' }
+    );
+    document.end();
+  } catch (error) {
+    next(error);
+  }
 };
 
 // @desc    Get all danger feed incidents

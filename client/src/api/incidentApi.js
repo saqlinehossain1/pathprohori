@@ -26,6 +26,11 @@ export const incidentApi = {
     return data;
   },
 
+  exportIncidentPdf: async (id) => {
+    const { data } = await API.get(`/incidents/${id}/pdf`, { responseType: 'blob' });
+    return data;
+  },
+
   voteIncident: async (id, voteType) => {
     const { data } = await API.post(`/incidents/${id}/vote`, { voteType });
     return data;

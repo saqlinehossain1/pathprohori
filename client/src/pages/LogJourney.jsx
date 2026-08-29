@@ -37,7 +37,8 @@ export const LogJourney = () => {
     triggerPanic,
     cancelPanic,
     deactivateAlarm,
-    completeTrip
+    completeTrip,
+    updateSafetyStatus,
   } = useTrip();
 
   // Clean empty initial form state (NO hardcoded values)
@@ -127,31 +128,30 @@ export const LogJourney = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Clean Text Page Header with "My Safe Journeys" Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 pb-8">
+      {/* Compact journey workspace header */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-slate-200/70 pb-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
+          <div className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-rose-700 mb-2">
             <Navigation className="w-3.5 h-3.5 text-rose-600" />
-            <span className="font-display">
+            <span>
               {activeTrip ? 'Active Live Monitoring' : 'Journey Safety Logger'}
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display leading-none">
             {activeTrip ? 'Live Journey Tracking Progress' : 'Log New Journey'}
           </h1>
-          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+          <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed max-w-2xl">
             {activeTrip
               ? 'Your journey is currently monitored by PATHPROHORI emergency guardians. Keep your phone connected.'
               : 'Keep your commute secure. Search starting & destination map locations before starting your trip.'}
           </p>
         </div>
 
-        {/* My Safe Journeys Button */}
         <div className="shrink-0">
           <button
             onClick={handleOpenHistoryModal}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-2xl transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 font-display"
+            className="w-full sm:w-auto px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 text-xs font-extrabold rounded-xl transition-all border border-slate-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 font-display"
           >
             <History className="w-4 h-4 text-emerald-400" />
             <span>My Safe Journeys</span>
@@ -175,12 +175,30 @@ export const LogJourney = () => {
           panicLoading={panicLoading}
           onDeactivateAlarm={deactivateAlarm}
           deactivating={deactivating}
+          onSafetyStatusChange={updateSafetyStatus}
         />
       ) : (
         /* Render Journey Log Form if no activeTrip */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2 Columns: Main Form */}
-          <Card className="lg:col-span-2 shadow-card border-slate-200/80">
+        <div className="space-y-4">
+          <div className="bg-slate-900 text-white rounded-2xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-rose-300 font-extrabold">Safety setup</p>
+                <p className="text-sm font-extrabold font-display">Create a monitored journey in under a minute</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              Secure connection
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Main setup panel */}
+          <Card className="lg:col-span-8 shadow-card border-slate-200/80 p-4 sm:p-5">
             <JourneyForm
               formData={formData}
               setFormData={setFormData}
@@ -189,12 +207,12 @@ export const LogJourney = () => {
             />
           </Card>
 
-          {/* Right Column: Safety Guidelines */}
-          <div className="space-y-6">
-            <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200/80 space-y-4 shadow-card">
+          {/* Journey summary rail */}
+          <div className="lg:col-span-4 space-y-4">
+            <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200/80 space-y-4 shadow-card p-4 sm:p-5">
               <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm font-display">
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <span>Real-Time Protection Features</span>
+                <span>What gets monitored</span>
               </div>
 
               <ul className="space-y-3 text-xs text-slate-600 font-medium">
@@ -213,7 +231,7 @@ export const LogJourney = () => {
               </ul>
             </Card>
 
-            <Card className="space-y-3 shadow-card border-slate-200/80">
+            <Card className="space-y-3 shadow-card border-slate-200/80 p-4 sm:p-5">
               <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm font-display">
                 <Lightbulb className="w-5 h-5 text-amber-500" />
                 <span>Commuter Safety Tip</span>
@@ -222,6 +240,16 @@ export const LogJourney = () => {
                 Always verify vehicle number plates match before boarding CNGs, buses, or ride-share cars.
               </p>
             </Card>
+
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wider font-extrabold text-rose-700">Privacy window</span>
+                <Clock className="w-4 h-4 text-rose-600" />
+              </div>
+              <p className="text-xl font-black text-slate-900 font-display">48 hours</p>
+              <p className="text-[11px] leading-relaxed text-slate-600">Location logs and check-in photos are automatically removed after your safety window.</p>
+            </div>
+          </div>
           </div>
         </div>
       )}

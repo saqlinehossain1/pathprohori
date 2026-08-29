@@ -7,16 +7,24 @@ import { KeyRound, ShieldAlert } from 'lucide-react';
 export const DuressPinModal = ({ isOpen, onClose, onDeactivate, title = 'Emergency Mode Active — Enter PIN', description }) => {
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!/^\d{4}$/.test(pinInput)) {
       setError('Enter your 4-digit PIN.');
       return;
     }
-    setError('');
-    onDeactivate(pinInput);
-    setPinInput('');
+    try {
+      setSubmitting(true);
+      setError('');
+      await onDeactivate(pinInput);
+      setPinInput('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'PIN verification failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -25,7 +33,7 @@ export const DuressPinModal = ({ isOpen, onClose, onDeactivate, title = 'Emergen
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-xs font-semibold">
           <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
           <span>
-            {description || 'Enter your normal PIN to disarm, or your silent Duress PIN to send a covert critical alert.'}
+            {description || 'Enter your 4-digit deactivation PIN. Your separate silent alarm PIN sends a covert critical alert.'}
           </span>
         </div>
 
@@ -33,14 +41,14 @@ export const DuressPinModal = ({ isOpen, onClose, onDeactivate, title = 'Emergen
           label="Enter 4-Digit PIN"
           type="password"
           maxLength="4"
-          placeholder="••••"
+          placeholder="0000"
           value={pinInput}
           onChange={(e) => setPinInput(e.target.value)}
           error={error}
           required
         />
 
-        <Button type="submit" className="w-full py-3 font-bold">
+        <Button type="submit" loading={submitting} disabled={submitting} className="w-full py-3 font-bold">
           <KeyRound className="w-4 h-4 mr-2" />
           Confirm & Submit PIN
         </Button>

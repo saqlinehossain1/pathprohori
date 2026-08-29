@@ -57,6 +57,29 @@ const tripSchema = new mongoose.Schema(
       enum: ['ACTIVE', 'COMPLETED', 'SIGNAL_LOST', 'EMERGENCY', 'DURESS'],
       default: 'ACTIVE',
     },
+    safetyStatus: {
+      type: String,
+      enum: ['SAFE', 'UNSAFE'],
+      default: 'SAFE',
+    },
+    safetyStatusChangedAt: {
+      type: Date,
+    },
+    safetyStatusChangedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    safetyStatusLocation: {
+      lat: { type: Number, min: -90, max: 90 },
+      lng: { type: Number, min: -180, max: 180 },
+    },
+    zoneStates: [
+      {
+        zone: { type: mongoose.Schema.Types.ObjectId, ref: 'SafetyZone' },
+        inside: { type: Boolean, default: false },
+        lastAlertAt: Date,
+      },
+    ],
     lastHeartbeatAt: {
       type: Date,
       default: Date.now,

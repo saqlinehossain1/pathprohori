@@ -275,13 +275,25 @@ export const JourneyForm = ({
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-rose-700 font-extrabold">Journey details</p>
+          <h2 className="text-lg font-black text-slate-900 font-display mt-1">Where are you going?</h2>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium">Add your route and vehicle details for your guardians.</p>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+          <ShieldAlert className="w-3.5 h-3.5" />
+          Protected
+        </div>
+      </div>
+
       {/* Vehicle Type Selection */}
       <div className="space-y-2">
         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-display">
           Select Vehicle / Transport Type
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {vehicleOptions.map((v) => {
             const Icon = v.icon;
             const isSelected = formData.vehicleType === v.value;
@@ -290,7 +302,7 @@ export const JourneyForm = ({
                 type="button"
                 key={v.value}
                 onClick={() => setFormData((prev) => ({ ...prev, vehicleType: v.value }))}
-                className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all duration-200 cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all duration-200 cursor-pointer ${
                   isSelected
                     ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-950/20 ring-2 ring-rose-500/40'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
@@ -305,7 +317,7 @@ export const JourneyForm = ({
       </div>
 
       {/* Starting Location with Interactive Map Search & GPS Button */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="relative space-y-1" ref={startRef}>
           <div className="flex flex-col items-start gap-1">
             <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider font-display">
@@ -469,7 +481,7 @@ export const JourneyForm = ({
       />
 
       {/* Number Plate & Color */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input
           label="Vehicle Number Plate (Optional)"
           labelClassName="min-h-[32px]"
@@ -489,7 +501,7 @@ export const JourneyForm = ({
       </div>
 
       {/* Est Duration & Driver Description */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input
           label="Est. Travel Time (Minutes) *"
           labelClassName="min-h-[32px]"
@@ -512,7 +524,7 @@ export const JourneyForm = ({
       </div>
 
       {/* Optional Vehicle / Journey Photo Upload Button */}
-      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+      <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <label className="text-xs font-extrabold text-slate-900 block font-display">

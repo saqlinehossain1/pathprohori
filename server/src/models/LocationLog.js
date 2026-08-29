@@ -31,6 +31,11 @@ const locationLogSchema = new mongoose.Schema(
       type: Number,
       default: 100,
     },
+    trackingMode: {
+      type: String,
+      enum: ['NORMAL', 'UNSAFE', 'EMERGENCY'],
+      default: 'NORMAL',
+    },
     isSafeTripCompleted: {
       type: Boolean,
       default: false,

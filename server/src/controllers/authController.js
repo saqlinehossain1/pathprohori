@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
 
 const generateToken = (id) => {
@@ -86,6 +87,12 @@ export const getUserWithLiveGuardians = async (userId) => {
 export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: 'Database unavailable. Start MongoDB or update server/.env with a reachable MONGO_URI.',
+      });
+    }
 
     const user = await User.findOne({ email });
     if (user && (await user.matchPassword(password))) {

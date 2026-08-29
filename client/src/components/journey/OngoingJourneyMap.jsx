@@ -122,6 +122,7 @@ export const OngoingJourneyMap = ({
   panicLoading,
   onDeactivateAlarm,
   deactivating,
+  onSafetyStatusChange,
 }) => {
   const { user } = useContext(AuthContext);
   const [currentPos, setCurrentPos] = useState(null);
@@ -134,6 +135,7 @@ export const OngoingJourneyMap = ({
   const estimatedDurationSeconds = Math.max(1, Number(trip.estimatedTimeMinutes) || 30) * 60;
   const [remainingSeconds, setRemainingSeconds] = useState(estimatedDurationSeconds);
   const [timerActive, setTimerActive] = useState(false);
+  const [safetySaving, setSafetySaving] = useState(false);
 
   useEffect(() => {
     setRemainingSeconds(estimatedDurationSeconds);
@@ -422,19 +424,32 @@ export const OngoingJourneyMap = ({
     }
   };
 
-  // AUTOMATIC Heartbeat Ping Interval (Every 30 Seconds with Battery Status) - also the cadence the
-  // Offline Queue captures points at while connectivity is down, so it reuses this
-  // same interval/GPS reading instead of a separate loop.
+  const trackingMode = isEmergencyActive ? 'EMERGENCY' : trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL';
+  const trackingInterval = trackingMode === 'NORMAL' ? 30000 : 15000;
+
+  const handleSafetyStatusChange = async (nextStatus) => {
+    if (nextStatus === 'UNSAFE' && !window.confirm('Mark this journey Unsafe? Linked guardians will receive a warning.')) return;
+    try {
+      setSafetySaving(true);
+      await onSafetyStatusChange(nextStatus, currentPosRef.current || {});
+    } catch (err) {
+      alert(err.response?.data?.message || 'Could not update journey safety status.');
+    } finally {
+      setSafetySaving(false);
+    }
+  };
+
+  // One adaptive location upload loop. Offline capture uses the same cadence.
   useEffect(() => {
     if (!trip || !trip._id) return;
 
     const interval = setInterval(async () => {
-      const coords = currentPos;
+      const coords = currentPosRef.current;
       const timestamp = new Date().toISOString();
 
       if (isOfflineRef.current) {
         if (coords) {
-          await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id });
+          await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id, trackingMode });
           console.log(
             `[Offline Queue] Captured GPS point while offline for trip ${trip._id}: ` +
             `(${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})`
@@ -446,7 +461,9 @@ export const OngoingJourneyMap = ({
       }
 
       const batteryLevel = await getBatteryLevel();
-      const payload = coords ? { latitude: coords.lat, longitude: coords.lng, batteryLevel } : { batteryLevel };
+      const payload = coords
+        ? { latitude: coords.lat, longitude: coords.lng, batteryLevel, trackingMode }
+        : { batteryLevel, trackingMode };
       try {
         await tripApi.sendHeartbeat(trip._id, payload);
       } catch (err) {
@@ -457,13 +474,13 @@ export const OngoingJourneyMap = ({
         isOfflineRef.current = true;
         setIsOffline(true);
         if (coords) {
-          await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id });
+          await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id, trackingMode });
         }
       }
-    }, 30000);
+    }, trackingInterval);
 
     return () => clearInterval(interval);
-  }, [trip, currentPos]);
+  }, [trip._id, trackingInterval, trackingMode]);
 
   // Build Map Route Points & Bounds with safe LatLng validation
   const startLatLng =
@@ -494,23 +511,23 @@ export const OngoingJourneyMap = ({
   const secretPhrase = user?.emergencyPhrase || 'Lavender Moonlight';
 
   return (
-    <div className="space-y-6">
-      {/* Live Monitoring Top Bar Card - Flashes Red when Emergency */}
+    <div className="space-y-4">
+      {/* Live Monitoring Command Bar */}
       <Card className={`border transition-all duration-300 ${
         isEmergencyActive
           ? 'bg-rose-950 text-white border-rose-500/60 shadow-xl ring-2 ring-rose-500/20'
           : 'bg-white text-slate-900 border-slate-200 shadow-card'
-      } p-4 sm:p-5`}>
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+      } p-4 sm:p-4`}>
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           {/* Header Info */}
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className={`w-11 h-11 rounded-xl ${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-600 text-white'} flex items-center justify-center shrink-0 shadow-md`}>
-              {isEmergencyActive ? <Siren className="w-7 h-7" /> : <Activity className="w-6 h-6" />}
+            <div className={`w-10 h-10 rounded-xl ${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-600 text-white'} flex items-center justify-center shrink-0 shadow-md`}>
+              {isEmergencyActive ? <Siren className="w-6 h-6" /> : <Activity className="w-5 h-5" />}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-black font-display tracking-wide truncate">
-                  {isEmergencyActive ? 'Emergency alarm active' : 'Live guardian tracking'}
+                <h2 className="text-base sm:text-lg font-black font-display tracking-tight truncate">
+                  {isEmergencyActive ? 'Emergency alarm active' : `Journey ${trip._id?.slice(-6).toUpperCase() || 'LIVE'}`}
                 </h2>
                 <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-800 border border-rose-200'} border-0 text-[10px] uppercase font-extrabold px-2.5`}>
                   {trip.status}
@@ -532,7 +549,7 @@ export const OngoingJourneyMap = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full xl:w-auto shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto shrink-0">
             <button
               onClick={handleSendPing}
               disabled={pingSending}
@@ -562,7 +579,7 @@ export const OngoingJourneyMap = ({
         </div>
 
         {/* HANDS-FREE VOICE TRIGGER BAR */}
-        <div className={`mt-4 pt-3.5 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${isEmergencyActive ? 'border-white/10' : 'border-slate-100'}`}>
+        <div className={`mt-3 pt-3 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs ${isEmergencyActive ? 'border-white/10' : 'border-slate-100'}`}>
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={handleToggleVoiceMic}
@@ -603,14 +620,28 @@ export const OngoingJourneyMap = ({
         </div>
       </Card>
 
+      {!isEmergencyActive && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${trip.safetyStatus === 'UNSAFE' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+            <span className="text-xs font-extrabold text-slate-800">Safety status: {trip.safetyStatus || 'SAFE'}</span>
+            <span className="text-[11px] text-slate-500">{trackingMode} tracking · {trackingInterval / 1000}s updates</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:w-auto">
+            <button type="button" disabled={safetySaving || trip.safetyStatus !== 'UNSAFE'} onClick={() => handleSafetyStatusChange('SAFE')} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-extrabold text-emerald-800 disabled:opacity-50 cursor-pointer">Mark Safe</button>
+            <button type="button" disabled={safetySaving || trip.safetyStatus === 'UNSAFE'} onClick={() => handleSafetyStatusChange('UNSAFE')} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-extrabold text-amber-800 disabled:opacity-50 cursor-pointer">Mark Unsafe</button>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Interactive Map (8 Cols) & Trip Details (4 Cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Interactive Map View */}
-        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-3 shadow-card space-y-3">
+        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-card space-y-2">
           <div className="flex items-center justify-between px-2 pt-1">
             <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900 font-display">
               <Navigation className="w-4 h-4 text-rose-600" />
-              <span>Live Road Route Map (Google Maps Style)</span>
+              <span>Live route map</span>
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
               <span className={`w-2.5 h-2.5 rounded-full ${isEmergencyActive ? 'bg-rose-600 animate-ping' : 'bg-cyan-500 animate-ping'}`} />
@@ -618,7 +649,7 @@ export const OngoingJourneyMap = ({
             </div>
           </div>
 
-          <div className="h-[440px] rounded-2xl overflow-hidden border border-slate-200 relative">
+          <div className="h-[440px] lg:h-[calc(100vh-310px)] min-h-[380px] rounded-xl overflow-hidden border border-slate-200 relative">
             <MapContainer
               center={startLatLng}
               zoom={13}
@@ -702,9 +733,9 @@ export const OngoingJourneyMap = ({
         </div>
 
         {/* Right Column: Journey Log Card Details */}
-        <div className="lg:col-span-4 space-y-4">
-          <Card className="border-slate-200/80 space-y-4 shadow-card">
-            <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2 font-display">
+        <div className="lg:col-span-4 space-y-3">
+          <Card className="border-slate-200/80 space-y-3 shadow-card p-4">
+            <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2 font-display">
               <Car className="w-4 h-4 text-rose-600" />
               Journey Safety Telemetry
             </h3>

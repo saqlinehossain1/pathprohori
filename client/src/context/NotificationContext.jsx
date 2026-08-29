@@ -23,6 +23,24 @@ export const NotificationProvider = ({ children }) => {
           );
           setNotifications(guardianAlerts);
         }
+        const warningResponse = await API.get('/notifications');
+        if (Array.isArray(warningResponse.data)) {
+          const warnings = warningResponse.data.map((item) => ({
+            id: item._id,
+            emergencyId: item._id,
+            tripId: item.tripId,
+            type: item.type || 'WARNING',
+            alertType: item.type === 'WARNING' ? 'MANUAL_UNSAFE' : item.type,
+            title: item.title,
+            message: `${item.commuterName || 'A traveler'} has a safety warning for ${item.destination || 'their journey'}.`,
+            user: { name: item.commuterName, id: item.senderId },
+            location: item.location,
+            timestamp: item.createdAt,
+            status: item.resolvedAt ? 'RESOLVED' : 'ACTIVE',
+            read: item.isRead,
+          }));
+          setNotifications((current) => [...warnings, ...current]);
+        }
       } catch (err) {
         console.warn('[NotificationContext] Initial emergency fetch error:', err.message);
       }
@@ -140,11 +158,31 @@ export const NotificationProvider = ({ children }) => {
       )));
     };
 
+    const handleSafetyWarning = (data) => {
+      if (String(data.senderId || data.userId) === String(userId)) return;
+      const warning = {
+        id: data.notificationId || data.tripId || `warning_${Date.now()}`,
+        emergencyId: data.notificationId,
+        tripId: data.tripId,
+        type: 'WARNING',
+        alertType: 'MANUAL_UNSAFE',
+        title: data.title || 'Traveler marked journey unsafe',
+        message: `${data.commuterName || 'A traveler'} needs attention on the journey to ${data.destination || 'their destination'}.`,
+        user: { id: data.senderId || data.userId, name: data.commuterName },
+        location: data.location,
+        timestamp: data.timestamp || new Date().toISOString(),
+        status: 'ACTIVE',
+        read: false,
+      };
+      setNotifications((prev) => (prev.some((item) => item.id === warning.id) ? prev : [warning, ...prev]));
+    };
+
     socket.on('connect', handleConnect);
     socket.on('EMERGENCY_ALERT', handleEmergencyAlert);
     socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
     socket.on('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
+    socket.on('SAFETY_WARNING', handleSafetyWarning);
 
     return () => {
       console.log('[NotificationContext] Cleaning up Socket.IO listeners');
@@ -153,6 +191,7 @@ export const NotificationProvider = ({ children }) => {
       socket.off('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
       socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
       socket.off('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
+      socket.off('SAFETY_WARNING', handleSafetyWarning);
     };
   }, [user?._id]);
 

@@ -16,6 +16,11 @@ export const tripApi = {
     return data;
   },
 
+  updateSafetyStatus: async (tripId, payload) => {
+    const { data } = await API.patch(`/trips/${tripId}/safety-status`, payload);
+    return data;
+  },
+
   completeTrip: async (tripId) => {
     const { data } = await API.put(`/trips/${tripId}/complete`);
     return data;

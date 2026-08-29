@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
-import { ThumbsUp, ThumbsDown, MessageSquare, MapPin, CheckCircle2, Trash2, Edit3, User, Clock } from 'lucide-react';
+import incidentApi from '../../api/incidentApi';
+import { ThumbsUp, ThumbsDown, MessageSquare, MapPin, CheckCircle2, Trash2, Edit3, User, Clock, FileDown } from 'lucide-react';
 
 export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
   const { user } = useContext(AuthContext);
@@ -34,6 +35,22 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
   const isOwner = Boolean(userIdStr && reportedByStr && userIdStr === reportedByStr);
   const isAdminOrOperator = ['admin', 'operator'].includes(user?.role);
   const canManage = isOwner || isAdminOrOperator;
+
+  const handleExportPdf = async (event) => {
+    event.stopPropagation();
+    try {
+      const blob = await incidentApi.exportIncidentPdf(incident._id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pathprohori-incident-${incident._id}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export incident PDF:', error);
+      window.alert(error.response?.data?.message || 'Unable to export this incident report.');
+    }
+  };
 
   // Real-time instant avatar & name resolution for incident reporter
   const reporterAvatar = (isOwner ? user?.avatarUrl : null) || reportedByObj?.avatarUrl || '';
@@ -151,6 +168,17 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
                 className="p-1.5 sm:p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
               >
                 <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            )}
+
+            {isAdminOrOperator && (
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                title="Download law-enforcement PDF report"
+                className="p-1.5 sm:p-2 text-sky-700 hover:bg-sky-50 rounded-xl transition-all"
+              >
+                <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             )}
           </div>
