@@ -303,7 +303,7 @@ export const updateUserSafetyStatus = async (req, res, next) => {
       const message = `${user.name} reported feeling unsafe. Please check out on them immediately with their location.`;
 
       // Save notification to DB for all guardians
-      await Promise.all(
+      const createdNotifications = await Promise.all(
         recipients.map((recipientId) =>
           Notification.create({
             recipientId,
@@ -325,28 +325,27 @@ export const updateUserSafetyStatus = async (req, res, next) => {
         )
       );
 
-      const alertPayload = {
-        type: 'WARNING',
-        notificationType: 'FEELING_UNSAFE',
-        title,
-        message,
-        commuterName: user.name,
-        senderName: user.name,
-        senderId: user._id,
-        tripId: activeTrip?._id,
-        safetyStatus: 'UNSAFE',
-        location: {
-          latitude: latitude || user.safetyStatusLocation?.latitude,
-          longitude: longitude || user.safetyStatusLocation?.longitude,
-          address: address || user.safetyStatusLocation?.address || 'Current commuter position',
-        },
-        timestamp: now,
-      };
-
       if (io) {
-        recipients.forEach((recipientId) => {
-          io.to(`user_${recipientId}`).emit('COMMUTER_FEELING_UNSAFE', alertPayload);
-          io.to(`user_${recipientId}`).emit('SAFETY_WARNING', alertPayload);
+        createdNotifications.forEach((notif) => {
+          const payload = {
+            id: notif._id,
+            notificationId: notif._id,
+            type: 'WARNING',
+            notificationType: 'FEELING_UNSAFE',
+            title,
+            message,
+            commuterName: user.name,
+            senderName: user.name,
+            senderId: user._id,
+            tripId: activeTrip?._id,
+            safetyStatus: 'UNSAFE',
+            location: notif.location,
+            timestamp: notif.createdAt || now,
+          };
+
+          // Emit exactly one notification event to the recipient's room
+          io.to(`user_${notif.recipientId}`).emit('COMMUTER_FEELING_UNSAFE', payload);
+          io.to(`user:${notif.recipientId}`).emit('COMMUTER_FEELING_UNSAFE', payload);
         });
       }
     } else {

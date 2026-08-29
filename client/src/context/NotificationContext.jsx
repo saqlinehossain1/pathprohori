@@ -188,7 +188,21 @@ export const NotificationProvider = ({ children }) => {
         status: 'ACTIVE',
         read: false,
       };
-      setNotifications((prev) => (prev.some((item) => item.id === warning.id) ? prev : [warning, ...prev]));
+      setNotifications((prev) => {
+        const isDuplicate = prev.some((item) => {
+          if (item.id === warning.id) return true;
+          if (
+            (item.user?.id === warning.user?.id || String(item.senderId) === String(warning.user?.id)) &&
+            item.type === warning.type &&
+            item.status !== 'RESOLVED' &&
+            Math.abs(new Date(item.timestamp).getTime() - new Date(warning.timestamp).getTime()) < 5000
+          ) {
+            return true;
+          }
+          return false;
+        });
+        return isDuplicate ? prev : [warning, ...prev];
+      });
     };
 
     const handleCommuterMarkedSafe = (data) => {
