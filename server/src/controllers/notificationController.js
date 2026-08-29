@@ -26,11 +26,11 @@ export const markNotificationRead = async (req, res, next) => {
 export const resolveNotification = async (req, res, next) => {
   try {
     const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipientId: req.user._id, type: 'WARNING' },
+      { _id: req.params.id, recipientId: req.user._id },
       { isRead: true, resolvedAt: new Date() },
       { new: true }
     );
-    if (!notification) return res.status(404).json({ message: 'Warning notification not found.' });
+    if (!notification) return res.status(404).json({ message: 'Notification not found.' });
     res.json(notification);
   } catch (error) {
     next(error);

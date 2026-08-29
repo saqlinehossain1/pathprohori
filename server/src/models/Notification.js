@@ -20,6 +20,8 @@ const notificationSchema = new mongoose.Schema({
     },
     startingLocation: { type: String, default: 'N/A' },
     destination: { type: String, default: 'N/A' },
+    notificationType: { type: String, default: 'EMERGENCY' },
+    message: { type: String, default: '' },
     isRead: { type: Boolean, default: false },
     resolvedAt: { type: Date },
 }, { timestamps: true });

@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { Trip } from '../models/Trip.js';
+import Notification from '../models/Notification.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
@@ -232,4 +234,158 @@ export const subscribePush = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Update commuter's standalone safe/unsafe status & alert guardians
+// @route   POST /api/auth/safety-status
+export const updateUserSafetyStatus = async (req, res, next) => {
+  try {
+    const { safetyStatus, latitude, longitude, address } = req.body || {};
+    if (!['SAFE', 'UNSAFE'].includes(safetyStatus)) {
+      return res.status(400).json({ message: 'Safety status must be SAFE or UNSAFE.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const now = new Date();
+    user.safetyStatus = safetyStatus;
+    user.safetyStatusChangedAt = now;
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      user.safetyStatusLocation = {
+        latitude,
+        longitude,
+        address: address || '',
+      };
+    }
+    await user.save();
+
+    // Also sync with active trip if running
+    const activeTrip = await Trip.findOne({
+      user: user._id,
+      status: { $in: ['ACTIVE', 'SIGNAL_LOST', 'EMERGENCY', 'DURESS'] },
+    }).sort({ createdAt: -1 });
+
+    if (activeTrip) {
+      activeTrip.safetyStatus = safetyStatus;
+      activeTrip.safetyStatusChangedAt = now;
+      activeTrip.safetyStatusChangedBy = user._id;
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        activeTrip.safetyStatusLocation = { lat: latitude, lng: longitude };
+      }
+      await activeTrip.save();
+    }
+
+    // Guardian and Operator notification dispatch
+    const guardianRecipients = (user.guardians || [])
+      .map((g) => g.user?._id || g.user)
+      .filter(Boolean);
+
+    const operatorRecipients = await User.find({
+      role: { $in: ['operator', 'admin'] },
+      _id: { $ne: user._id },
+    }).select('_id');
+
+    const recipients = [
+      ...new Map(
+        [...guardianRecipients, ...operatorRecipients.map((op) => op._id)].map((rId) => [
+          String(rId),
+          rId,
+        ])
+      ).values(),
+    ];
+
+    const io = req.app.get('io');
+
+    if (safetyStatus === 'UNSAFE') {
+      const title = `⚠️ Commuter Feeling Unsafe: ${user.name}`;
+      const message = `${user.name} reported feeling unsafe. Please check out on them immediately with their location.`;
+
+      // Save notification to DB for all guardians
+      await Promise.all(
+        recipients.map((recipientId) =>
+          Notification.create({
+            recipientId,
+            senderId: user._id,
+            tripId: activeTrip?._id,
+            type: 'WARNING',
+            notificationType: 'FEELING_UNSAFE',
+            title,
+            message,
+            commuterName: user.name,
+            senderName: user.name,
+            destination: activeTrip?.destination || 'N/A',
+            location: {
+              latitude: latitude || user.safetyStatusLocation?.latitude || 23.7808,
+              longitude: longitude || user.safetyStatusLocation?.longitude || 90.4068,
+              address: address || user.safetyStatusLocation?.address || 'Commuter current location',
+            },
+          })
+        )
+      );
+
+      const alertPayload = {
+        type: 'WARNING',
+        notificationType: 'FEELING_UNSAFE',
+        title,
+        message,
+        commuterName: user.name,
+        senderName: user.name,
+        senderId: user._id,
+        tripId: activeTrip?._id,
+        safetyStatus: 'UNSAFE',
+        location: {
+          latitude: latitude || user.safetyStatusLocation?.latitude,
+          longitude: longitude || user.safetyStatusLocation?.longitude,
+          address: address || user.safetyStatusLocation?.address || 'Current commuter position',
+        },
+        timestamp: now,
+      };
+
+      if (io) {
+        recipients.forEach((recipientId) => {
+          io.to(`user_${recipientId}`).emit('COMMUTER_FEELING_UNSAFE', alertPayload);
+          io.to(`user_${recipientId}`).emit('SAFETY_WARNING', alertPayload);
+        });
+      }
+    } else {
+      // Marked SAFE - Resolve all unresolved warning/emergency notifications for this commuter
+      await Notification.updateMany(
+        { senderId: user._id, resolvedAt: { $exists: false } },
+        { $set: { resolvedAt: now, isRead: true } }
+      );
+
+      const safePayload = {
+        commuterName: user.name,
+        userId: user._id,
+        safetyStatus: 'SAFE',
+        timestamp: now,
+        message: `${user.name} marked themselves safe.`,
+      };
+
+      if (io) {
+        recipients.forEach((recipientId) => {
+          io.to(`user_${recipientId}`).emit('COMMUTER_MARKED_SAFE', safePayload);
+          io.to(`user_${recipientId}`).emit('EMERGENCY_RESOLVED', {
+            userId: user._id,
+            resolvedAt: now.toISOString(),
+            message: `${user.name} marked themselves safe.`,
+          });
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      safetyStatus: user.safetyStatus,
+      safetyStatusLocation: user.safetyStatusLocation,
+      safetyStatusChangedAt: user.safetyStatusChangedAt,
+      activeTrip: activeTrip || null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

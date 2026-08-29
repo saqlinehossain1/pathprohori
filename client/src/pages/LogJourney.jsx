@@ -167,35 +167,35 @@ export const LogJourney = () => {
 
       {/* Render Ongoing Journey Map if activeTrip exists */}
       {activeTrip ? (
-        <OngoingJourneyMap
-          trip={activeTrip}
-          onComplete={handleCompleteTrip}
-          onPanic={triggerPanic}
-          onCancelPanic={cancelPanic}
-          panicLoading={panicLoading}
-          onDeactivateAlarm={deactivateAlarm}
-          deactivating={deactivating}
-          onSafetyStatusChange={updateSafetyStatus}
-        />
-      ) : (
-        /* Render Journey Log Form if no activeTrip */
         <div className="space-y-4">
-          <div className="bg-slate-900 text-white rounded-2xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.16em] text-rose-300 font-extrabold">Safety setup</p>
-                <p className="text-sm font-extrabold font-display">Create a monitored journey in under a minute</p>
-              </div>
+          <div className="flex items-center gap-3 p-3.5 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+              <Navigation className="w-4 h-4" />
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              Secure connection
+            <div>
+              <p className="text-xs font-black text-amber-950 font-display">
+                Journey in progress ({activeTrip.startingLocation || 'Start'} → {activeTrip.destination || 'Destination'})
+              </p>
+              <p className="text-[11px] text-amber-800 font-medium">
+                Live monitoring active. You can finish this journey safely using your PIN below.
+              </p>
             </div>
           </div>
 
+          <OngoingJourneyMap
+            trip={activeTrip}
+            onComplete={handleCompleteTrip}
+            onPanic={triggerPanic}
+            onCancelPanic={cancelPanic}
+            panicLoading={panicLoading}
+            onDeactivateAlarm={deactivateAlarm}
+            deactivating={deactivating}
+            onSafetyStatusChange={updateSafetyStatus}
+          />
+        </div>
+      ) : (
+        /* Render Journey Log Form if no activeTrip */
+        <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* Main setup panel */}
           <Card className="lg:col-span-8 shadow-card border-slate-200/80 p-4 sm:p-5">

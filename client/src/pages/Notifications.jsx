@@ -225,10 +225,22 @@ export const Notifications = () => {
   const resolvedCount = notifications.filter((notif) => notif.status === 'RESOLVED').length;
 
   const resolveAlert = async (notification) => {
-    const emergencyId = notification.emergencyId || notification.id;
-    setResolvingId(String(emergencyId));
+    const alertId = notification.emergencyId || notification.id;
+    setResolvingId(String(alertId));
     try {
-      await API.put(`/emergency/${emergencyId}/resolve`);
+      if (notification.type === 'WARNING' || notification.notificationType === 'FEELING_UNSAFE') {
+        try {
+          await API.put(`/notifications/${notification.id}/resolve`);
+        } catch {
+          await API.put(`/emergency/${alertId}/resolve`);
+        }
+      } else {
+        try {
+          await API.put(`/emergency/${alertId}/resolve`);
+        } catch {
+          await API.put(`/notifications/${notification.id}/resolve`);
+        }
+      }
       markAsResolved(notification.id);
     } catch (error) {
       console.error('Failed to resolve emergency alert:', error);
@@ -382,14 +394,32 @@ export const Notifications = () => {
                           notif.status !== 'RESOLVED'
                             ? notif.alertType === 'SILENT_DURESS'
                               ? 'bg-red-700 text-white shadow-xs'
+                              : notif.alertType === 'FEELING_UNSAFE'
+                              ? 'bg-amber-500 text-slate-950 shadow-xs'
+                              : notif.alertType === 'HAZARD_PROXIMITY'
+                              ? 'bg-orange-600 text-white shadow-xs'
                               : 'bg-rose-600 text-white shadow-xs'
                             : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         }`}
                       >
-                        {notif.status !== 'RESOLVED' ? <Siren className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+                        {notif.status !== 'RESOLVED' ? (
+                          notif.alertType === 'FEELING_UNSAFE' ? <AlertTriangle className="w-3.5 h-3.5" /> : <Siren className="w-3.5 h-3.5" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        )}
                         <span>{notif.status !== 'RESOLVED'
-                          ? notif.alertType === 'SILENT_DURESS' ? 'SILENT DURESS - CONTACT POLICE' : 'ACTIVE SOS ALERT'
-                          : notif.alertType === 'SILENT_DURESS' ? 'DURESS RESPONSE RESOLVED' : 'FALSE ALARM RESOLVED'}</span>
+                          ? notif.alertType === 'SILENT_DURESS'
+                            ? 'SILENT DURESS - CONTACT POLICE'
+                            : notif.alertType === 'FEELING_UNSAFE'
+                            ? 'COMMUTER FEELING UNSAFE'
+                            : notif.alertType === 'HAZARD_PROXIMITY'
+                            ? 'NEAR VERIFIED HAZARD (500M)'
+                            : 'ACTIVE SOS ALERT'
+                          : notif.alertType === 'FEELING_UNSAFE'
+                          ? 'COMMUTER MARKED SAFE'
+                          : notif.alertType === 'SILENT_DURESS'
+                          ? 'DURESS RESPONSE RESOLVED'
+                          : 'FALSE ALARM RESOLVED'}</span>
                       </span>
 
                       {isUnread && (

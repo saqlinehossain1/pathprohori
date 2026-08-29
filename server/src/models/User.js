@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '9999',
     },
+    safetyPin: {
+      type: String,
+      default: '1234',
+    },
     // Dual-PIN Silent Duress Deactivation: genuine alarm deactivation PIN.
     normalPin: {
       type: String,
@@ -79,6 +83,20 @@ const userSchema = new mongoose.Schema(
         p256dh: String,
         auth: String,
       },
+    },
+    safetyStatus: {
+      type: String,
+      enum: ['SAFE', 'UNSAFE'],
+      default: 'SAFE',
+    },
+    safetyStatusChangedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    safetyStatusLocation: {
+      latitude: Number,
+      longitude: Number,
+      address: String,
     },
   },
   { timestamps: true }

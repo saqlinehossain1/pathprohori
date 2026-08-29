@@ -96,10 +96,17 @@ export const NotificationProvider = ({ children }) => {
 
     const handleEmergencyResolved = (data) => {
       console.log('[NotificationContext] EMERGENCY_RESOLVED received:', data);
+      const resolvedIds = (data.emergencyIds || [data.emergencyId]).map(String).filter(Boolean);
+      const tripIdStr = data.tripId ? String(data.tripId) : null;
+      const userIdStr = data.userId ? String(data.userId) : null;
+
       setNotifications((prev) =>
         prev.map((n) => {
-          const resolvedIds = data.emergencyIds || [data.emergencyId];
-          if (resolvedIds.some((id) => String(id) === String(n.id) || String(id) === String(n.emergencyId))) {
+          const isIdMatch = resolvedIds.includes(String(n.id)) || resolvedIds.includes(String(n.emergencyId));
+          const isTripMatch = tripIdStr && n.tripId && String(n.tripId) === tripIdStr;
+          const isUserMatch = userIdStr && (String(n.user?.id) === userIdStr || String(n.user?._id) === userIdStr || String(n.senderId) === userIdStr);
+
+          if (isIdMatch || isTripMatch || isUserMatch) {
             return { ...n, status: 'RESOLVED', read: true, resolvedAt: data.resolvedAt || new Date().toISOString() };
           }
           return n;
@@ -166,14 +173,15 @@ export const NotificationProvider = ({ children }) => {
 
     const handleSafetyWarning = (data) => {
       if (String(data.senderId || data.userId) === String(userId)) return;
+      const alertType = data.notificationType || 'FEELING_UNSAFE';
       const warning = {
-        id: data.notificationId || data.tripId || `warning_${Date.now()}`,
+        id: data.notificationId || `warning_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         emergencyId: data.notificationId,
         tripId: data.tripId,
         type: 'WARNING',
-        alertType: 'MANUAL_UNSAFE',
-        title: data.title || 'Traveler marked journey unsafe',
-        message: `${data.commuterName || 'A traveler'} needs attention on the journey to ${data.destination || 'their destination'}.`,
+        alertType: alertType,
+        title: data.title || (alertType === 'FEELING_UNSAFE' ? `⚠️ Commuter Feeling Unsafe: ${data.commuterName}` : 'Safety warning alert'),
+        message: data.message || `${data.commuterName || 'A commuter'} is feeling unsafe. Check out on them with their location.`,
         user: { id: data.senderId || data.userId, name: data.commuterName },
         location: data.location,
         timestamp: data.timestamp || new Date().toISOString(),
@@ -183,12 +191,25 @@ export const NotificationProvider = ({ children }) => {
       setNotifications((prev) => (prev.some((item) => item.id === warning.id) ? prev : [warning, ...prev]));
     };
 
+    const handleCommuterMarkedSafe = (data) => {
+      setNotifications((prev) =>
+        prev.map((item) => {
+          if (item.user?.id === data.userId || String(item.senderId) === String(data.userId)) {
+            return { ...item, status: 'RESOLVED', resolvedAt: data.timestamp || new Date().toISOString() };
+          }
+          return item;
+        })
+      );
+    };
+
     socket.on('connect', handleConnect);
     socket.on('EMERGENCY_ALERT', handleEmergencyAlert);
     socket.on('EMERGENCY_ALERT_BROADCAST', handleEmergencyAlertBroadcast);
     socket.on('EMERGENCY_RESOLVED', handleEmergencyResolved);
     socket.on('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
     socket.on('SAFETY_WARNING', handleSafetyWarning);
+    socket.on('COMMUTER_FEELING_UNSAFE', handleSafetyWarning);
+    socket.on('COMMUTER_MARKED_SAFE', handleCommuterMarkedSafe);
 
     return () => {
       console.log('[NotificationContext] Cleaning up Socket.IO listeners');
@@ -198,6 +219,8 @@ export const NotificationProvider = ({ children }) => {
       socket.off('EMERGENCY_RESOLVED', handleEmergencyResolved);
       socket.off('EMERGENCY_DURESS_ESCALATED', handleDuressEscalated);
       socket.off('SAFETY_WARNING', handleSafetyWarning);
+      socket.off('COMMUTER_FEELING_UNSAFE', handleSafetyWarning);
+      socket.off('COMMUTER_MARKED_SAFE', handleCommuterMarkedSafe);
     };
   }, [user?._id]);
 

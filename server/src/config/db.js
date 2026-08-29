@@ -1,4 +1,10 @@
 import mongoose from 'mongoose';
+import dns from 'dns';
+
+// Reliable DNS resolution fallback for Windows Node querySrv ESERVFAIL
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {}
 
 export const connectDB = async () => {
   try {

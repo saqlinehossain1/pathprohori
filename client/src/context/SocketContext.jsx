@@ -85,10 +85,17 @@ export const SocketProvider = ({ children }) => {
     };
 
     const handleEmergencyResolved = (data) => {
-      if (!data.userId) return;
-      setLatestEmergencyAlert((current) => (
-        current && String(current.commuterId) === String(data.userId) ? null : current
-      ));
+      setLatestEmergencyAlert((current) => {
+        if (!current) return null;
+        const resolvedIds = (data?.emergencyIds || [data?.emergencyId]).map(String).filter(Boolean);
+        const isMatch =
+          resolvedIds.includes(String(current.emergencyId)) ||
+          resolvedIds.includes(String(current._id)) ||
+          resolvedIds.includes(String(current.id)) ||
+          (data?.tripId && String(data.tripId) === String(current.tripId)) ||
+          (data?.userId && String(data.userId) === String(current.commuterId));
+        return isMatch ? null : current;
+      });
       setShowGuardianModal(false);
     };
 

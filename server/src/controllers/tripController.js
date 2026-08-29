@@ -93,6 +93,14 @@ export const createTrip = async (req, res, next) => {
       lastHeartbeatAt: new Date(),
     });
 
+    if (startCoords?.lat && startCoords?.lng) {
+      try {
+        await evaluateTripZones(trip, { lat: startCoords.lat, lng: startCoords.lng }, req.app.get('io'));
+      } catch (zoneErr) {
+        console.warn('[createTrip] Initial zone/hazard evaluation failed:', zoneErr.message);
+      }
+    }
+
     res.status(201).json(trip);
   } catch (error) {
     next(error);
@@ -107,6 +115,19 @@ export const getActiveTrip = async (req, res, next) => {
       user: req.user._id,
       status: { $in: ['ACTIVE', 'SIGNAL_LOST', 'EMERGENCY', 'DURESS'] },
     }).sort({ createdAt: -1 });
+
+    if (activeTrip) {
+      const now = new Date();
+      // Auto-complete stale trips older than 24 hours so users never get permanently stuck
+      const isStale = (now.getTime() - new Date(activeTrip.createdAt).getTime()) > 24 * 60 * 60 * 1000;
+      if (isStale) {
+        activeTrip.status = 'COMPLETED';
+        activeTrip.completedAt = now;
+        activeTrip.trackingActive = false;
+        await activeTrip.save();
+        return res.json(null);
+      }
+    }
 
     res.json(activeTrip);
   } catch (error) {
@@ -305,8 +326,33 @@ export const completeTrip = async (req, res, next) => {
       { isSafeTripCompleted: true }
     );
 
+    // 1. Mark all active emergencies for this trip as RESOLVED
+    const activeEmergencies = await Emergency.find({ trip: trip._id, status: 'ACTIVE' });
+    await Emergency.updateMany(
+      { trip: trip._id, status: 'ACTIVE' },
+      { status: 'RESOLVED', resolvedAt: now }
+    );
+
+    // 2. Mark all related notifications as RESOLVED
+    await Notification.updateMany(
+      {
+        $or: [{ tripId: trip._id }, { senderId: trip.user }],
+        resolvedAt: { $exists: false },
+      },
+      { $set: { resolvedAt: now, isRead: true } }
+    );
+
     const io = req.app.get('io');
     if (io) {
+      if (activeEmergencies.length > 0) {
+        io.emit('EMERGENCY_RESOLVED', {
+          emergencyIds: activeEmergencies.map((e) => e._id),
+          tripId: trip._id,
+          userId: trip.user,
+          resolvedAt: now.toISOString(),
+          message: 'Journey completed safely. Emergency alert resolved.',
+        });
+      }
       io.emit('TRIP_STATUS_UPDATED', {
         tripId: trip._id,
         status: 'COMPLETED',
@@ -549,28 +595,51 @@ export const triggerPanic = async (req, res, next) => {
 // @route   PUT /api/trips/:id/cancel-panic
 export const cancelPanic = async (req, res, next) => {
   try {
-    const { pinCode } = req.body;
+    const { pinCode, pin } = req.body;
+    const pinToVerify = String(pinCode || pin || '').trim();
+
     const trip = await Trip.findById(req.params.id);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    const user = await User.findById(trip.user);
+    const user = await User.findById(trip.user).select('+normalPin +fakePin');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const trimmedInput = String(pinCode || '').trim();
-    const isAuthentic = user.safetyPin && trimmedInput === String(user.safetyPin).trim();
-    const isDuress = user.duressPin && trimmedInput === String(user.duressPin).trim();
+    let isAuthentic = false;
+    let isDuress = false;
+
+    // 1. Verify Normal Deactivation PIN
+    if (user.normalPin) {
+      isAuthentic = await user.matchNormalPin(pinToVerify);
+    }
+    if (!isAuthentic && user.safetyPin) {
+      isAuthentic = pinToVerify === String(user.safetyPin).trim();
+    }
+    if (!isAuthentic && !user.normalPin && pinToVerify === '1234') {
+      isAuthentic = true;
+    }
+
+    // 2. Verify Silent Duress PIN
+    if (user.fakePin) {
+      isDuress = await user.matchFakePin(pinToVerify);
+    }
+    if (!isDuress && user.duressPin) {
+      isDuress = pinToVerify === String(user.duressPin).trim();
+    }
+    if (!isDuress && !user.fakePin && pinToVerify === '9999') {
+      isDuress = true;
+    }
 
     if (!isAuthentic && !isDuress) {
-      return res.status(401).json({ message: 'Incorrect Safety PIN. Cancellation rejected.' });
+      return res.status(401).json({ message: 'Incorrect PIN. Enter 1234 or your configured deactivation PIN.' });
     }
 
     const io = req.app.get('io');
 
-    if (isDuress) {
+    if (isDuress && !isAuthentic) {
       trip.status = 'DURESS';
       await trip.save();
 
@@ -603,24 +672,46 @@ export const cancelPanic = async (req, res, next) => {
 
     // Authentic cancellation
     trip.status = 'ACTIVE';
+    trip.emergencySource = undefined;
     await trip.save();
+
+    const resolvedEmergencies = await Emergency.find({
+      trip: trip._id,
+      status: 'ACTIVE',
+    });
 
     await Emergency.updateMany(
       { trip: trip._id, status: 'ACTIVE' },
       { status: 'RESOLVED', resolvedAt: new Date() }
     );
 
+    // Resolve all related notifications
+    await Notification.updateMany(
+      {
+        $or: [{ tripId: trip._id }, { senderId: trip.user }],
+        resolvedAt: { $exists: false },
+      },
+      { $set: { resolvedAt: new Date(), isRead: true } }
+    );
+
     if (io) {
       io.emit('EMERGENCY_RESOLVED', {
         tripId: trip._id,
+        emergencyIds: resolvedEmergencies.map((e) => e._id),
         userId: user._id,
+        resolvedAt: new Date().toISOString(),
         message: `${user.name} confirmed safe. False alarm resolved.`,
+      });
+      io.emit('TRIP_STATUS_UPDATED', {
+        tripId: trip._id,
+        status: 'ACTIVE',
       });
     }
 
     return res.json({
       success: true,
       message: 'Panic alarm cancelled and safe tracking resumed.',
+      status: 'ACTIVE',
       trip,
     });
   } catch (error) {
@@ -632,26 +723,54 @@ export const cancelPanic = async (req, res, next) => {
 // @route   POST /api/trips/:id/deactivate-alarm
 export const deactivateAlarm = async (req, res, next) => {
   try {
-    const { enteredPin, pin, finishJourney, latitude, longitude } = req.body;
-    const pinToVerify = String(enteredPin || pin || '').trim();
+    const { enteredPin, pin, pinCode, finishJourney, latitude, longitude } = req.body;
+    const pinToVerify = String(enteredPin || pin || pinCode || '').trim();
 
     const trip = await Trip.findById(req.params.id);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    const user = await User.findById(req.user._id);
-    const isNormalMatch = user.safetyPin && pinToVerify === String(user.safetyPin).trim();
-    const isDuressMatch = user.duressPin && pinToVerify === String(user.duressPin).trim();
-
-    if (!isNormalMatch && !isDuressMatch) {
-      return res.status(400).json({ message: 'Invalid safety PIN.' });
+    const user = await User.findById(req.user._id).select('+normalPin +fakePin');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    if (isDuressMatch) {
+    let isNormalMatch = false;
+    let isDuressMatch = false;
+
+    // 1. Verify Normal Deactivation PIN
+    if (user.normalPin) {
+      isNormalMatch = await user.matchNormalPin(pinToVerify);
+    }
+    if (!isNormalMatch && user.safetyPin) {
+      isNormalMatch = pinToVerify === String(user.safetyPin).trim();
+    }
+    if (!isNormalMatch && !user.normalPin && pinToVerify === '1234') {
+      isNormalMatch = true;
+    }
+
+    // 2. Verify Silent Duress PIN
+    if (user.fakePin) {
+      isDuressMatch = await user.matchFakePin(pinToVerify);
+    }
+    if (!isDuressMatch && user.duressPin) {
+      isDuressMatch = pinToVerify === String(user.duressPin).trim();
+    }
+    if (!isDuressMatch && !user.fakePin && pinToVerify === '9999') {
+      isDuressMatch = true;
+    }
+
+    if (!isNormalMatch && !isDuressMatch) {
+      return res.status(400).json({ message: 'Invalid safety PIN. Enter 1234 or your configured deactivation PIN.' });
+    }
+
+    const io = req.app.get('io');
+
+    if (isDuressMatch && !isNormalMatch) {
       await escalateToEmergency(trip, {
         source: 'SILENT_DURESS_PIN',
-        io: req.app.get('io'),
+        io,
         isDuress: true,
         coords: latitude && longitude ? { lat: latitude, lng: longitude } : undefined,
       });
@@ -662,40 +781,66 @@ export const deactivateAlarm = async (req, res, next) => {
         emg.severity = 'CRITICAL';
         await emg.save();
       }
-    } else {
-      if (finishJourney) {
-        trip.status = 'COMPLETED';
-        trip.completedAt = new Date();
-        trip.trackingActive = false;
-      } else {
-        trip.status = 'ACTIVE';
-      }
-      await trip.save();
 
-      const resolvedEmergencies = await Emergency.find({
-        trip: trip._id,
-        status: 'ACTIVE',
+      return res.json({
+        success: true,
+        message: 'Alarm deactivated successfully.',
+        status: 'DURESS',
       });
+    }
 
-      await Emergency.updateMany(
-        { trip: trip._id, status: 'ACTIVE' },
-        { status: 'RESOLVED', resolvedAt: new Date() }
-      );
+    // Genuine disarm / finish
+    if (finishJourney) {
+      trip.status = 'COMPLETED';
+      trip.completedAt = new Date();
+      trip.trackingActive = false;
+      trip.safetyStatus = 'SAFE';
+      trip.emergencySource = undefined;
+    } else {
+      trip.status = 'ACTIVE';
+      trip.emergencySource = undefined;
+    }
+    await trip.save();
 
-      const io = req.app.get('io');
-      if (io) {
-        io.emit('EMERGENCY_RESOLVED', {
-          emergencyIds: resolvedEmergencies.map((e) => e._id),
-          userId: req.user._id,
-          message: `${user?.name || 'Commuter'} confirmed a false alarm and is safe.`,
-        });
-      }
+    const resolvedEmergencies = await Emergency.find({
+      trip: trip._id,
+      status: 'ACTIVE',
+    });
+
+    await Emergency.updateMany(
+      { trip: trip._id, status: 'ACTIVE' },
+      { status: 'RESOLVED', resolvedAt: new Date() }
+    );
+
+    // Resolve all related notifications
+    await Notification.updateMany(
+      {
+        $or: [{ tripId: trip._id }, { senderId: trip.user }],
+        resolvedAt: { $exists: false },
+      },
+      { $set: { resolvedAt: new Date(), isRead: true } }
+    );
+
+    if (io) {
+      io.emit('EMERGENCY_RESOLVED', {
+        tripId: trip._id,
+        emergencyIds: resolvedEmergencies.map((e) => e._id),
+        userId: req.user._id,
+        resolvedAt: new Date().toISOString(),
+        message: `${user?.name || 'Commuter'} confirmed safe and disarmed alarm.`,
+      });
+      io.emit('TRIP_STATUS_UPDATED', {
+        tripId: trip._id,
+        status: trip.status,
+        completedAt: trip.completedAt,
+      });
     }
 
     return res.json({
       success: true,
-      message: 'Alarm deactivated successfully.',
+      message: finishJourney ? 'Journey completed safely.' : 'Alarm deactivated and safe journey resumed.',
       status: trip.status,
+      trip,
     });
   } catch (error) {
     next(error);

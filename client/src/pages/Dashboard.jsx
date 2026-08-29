@@ -12,6 +12,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { Sparkles, ShieldAlert, CheckCircle2, ArrowRight, ShieldCheck, Bell } from 'lucide-react';
 import tripApi from '../api/tripApi';
 import PanicButton from '../components/emergency/PanicButton';
+import PersonalSafetyStatusCard from '../components/dashboard/PersonalSafetyStatusCard';
 
 export const Dashboard = () => {
   const { user } = useContext(AuthContext);
@@ -101,6 +102,11 @@ export const Dashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* Standalone Personal Safety Status (Safe / Feeling Unsafe) */}
+      {!isResponseRole && (
+        <PersonalSafetyStatusCard />
+      )}
 
       {/* Active Trip Tracking Status Banner (If Active) */}
       {activeTrip && (

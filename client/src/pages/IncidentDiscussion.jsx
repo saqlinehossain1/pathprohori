@@ -271,7 +271,7 @@ export const IncidentDiscussion = () => {
               <Badge variant={incident.severity === 'High Alert' ? 'highAlert' : 'medSeverity'}>
                 {incident.severity}
               </Badge>
-              {incident.isVerified && (
+              {(incident.isVerified || incident.upvotes?.length >= 10) && (
                 <Badge variant="verified">
                   <CheckCircle2 className="w-3 h-3 text-sky-600" />
                   Community Verified

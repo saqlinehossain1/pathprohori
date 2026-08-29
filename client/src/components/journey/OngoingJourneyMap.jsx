@@ -34,7 +34,7 @@ import {
   Timer,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-react';
 import tripApi from '../../api/tripApi';
 
@@ -180,7 +180,7 @@ export const OngoingJourneyMap = ({
   
   // Emergency Modal Popup & Duress PIN State
   const isEmergencyActive = trip.status === 'EMERGENCY' || trip.status === 'DURESS';
-  const [showPanicModal, setShowPanicModal] = useState(isEmergencyActive);
+  const [showPanicModal, setShowPanicModal] = useState(false);
   const [showDuressModal, setShowDuressModal] = useState(false);
   const [isEndingJourneyWithPin, setIsEndingJourneyWithPin] = useState(false);
 
@@ -200,30 +200,15 @@ export const OngoingJourneyMap = ({
     return 100;
   };
 
-  // Auto-start hands-free listening on mount when trip is active
+  // Hands-free voice trigger: only triggers when user explicitly enabled hands-free mic and phrase matches
   useEffect(() => {
-    if (trip && trip.status === 'ACTIVE' && !isListening) {
-      startListening();
-    }
-  }, [trip]);
-
-  // Sync state if trip status turns EMERGENCY externally
-  useEffect(() => {
-    if (isEmergencyActive) {
-      setShowPanicModal(true);
-      playEmergencySirenSound();
-    }
-  }, [isEmergencyActive]);
-
-  // Trigger Panic automatically when hands-free voice keyword matches!
-  useEffect(() => {
-    if (keywordMatched && !panicTriggeredRef.current && !isEmergencyActive) {
+    if (keywordMatched && isListening && !panicTriggeredRef.current && !isEmergencyActive) {
       panicTriggeredRef.current = true;
       console.warn('🎙️ HANDS-FREE VOICE PHRASE DETECTED! INITIATING GRACE COUNTDOWN!');
       handleInitiatePanic(false);
       setKeywordMatched(false);
     }
-  }, [keywordMatched, isEmergencyActive, setKeywordMatched]);
+  }, [keywordMatched, isListening, isEmergencyActive, setKeywordMatched]);
 
   // Fail-Safe Default Coordinates (Dhaka Mohakhali & Gulshan fallback if coordinates are missing/invalid)
   const defaultStart =
@@ -397,14 +382,15 @@ export const OngoingJourneyMap = ({
       setIsEndingJourneyWithPin(false);
     } catch (e) {
       console.error('Alarm PIN verification error:', e);
+      throw e;
     }
   };
 
   useEffect(() => {
-    if (remainingSeconds === 0 && !isEmergencyActive) {
-      handleTriggerPanicClick();
+    if (timerActive && remainingSeconds === 0 && !isEmergencyActive) {
+      handleInitiatePanic(false);
     }
-  }, [remainingSeconds, isEmergencyActive]);
+  }, [remainingSeconds, isEmergencyActive, timerActive]);
 
   // Dual-PIN Silent Duress Deactivation: either PIN closes this screen the same way -
   // only the backend knows whether the alarm was genuinely disarmed or silently escalated.
@@ -443,8 +429,18 @@ export const OngoingJourneyMap = ({
   useEffect(() => {
     if (!trip || !trip._id) return;
 
+    // Send immediate initial ping with starting coords to trigger instant proximity checks
+    const initialCoords = currentPosRef.current || (defaultStart?.lat && defaultStart?.lng ? defaultStart : null);
+    if (initialCoords) {
+      tripApi.sendHeartbeat(trip._id, {
+        latitude: initialCoords.lat,
+        longitude: initialCoords.lng,
+        trackingMode,
+      }).catch((e) => console.warn('Initial heartbeat ping warning:', e.message));
+    }
+
     const interval = setInterval(async () => {
-      const coords = currentPosRef.current;
+      const coords = currentPosRef.current || (defaultStart?.lat && defaultStart?.lng ? defaultStart : null);
       const timestamp = new Date().toISOString();
 
       if (isOfflineRef.current) {
@@ -515,21 +511,21 @@ export const OngoingJourneyMap = ({
       {/* Live Monitoring Command Bar */}
       <Card className={`border transition-all duration-300 ${
         isEmergencyActive
-          ? 'bg-rose-950 text-white border-rose-500/60 shadow-xl ring-2 ring-rose-500/20'
+          ? 'bg-gradient-to-r from-rose-950 via-slate-950 to-rose-950 text-white border-rose-500/60 shadow-2xl ring-2 ring-rose-500/30'
           : 'bg-white text-slate-900 border-slate-200 shadow-card'
-      } p-4 sm:p-4`}>
+      } p-4 sm:p-5`}>
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           {/* Header Info */}
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className={`w-10 h-10 rounded-xl ${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-600 text-white'} flex items-center justify-center shrink-0 shadow-md`}>
+            <div className={`w-11 h-11 rounded-2xl ${isEmergencyActive ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/40 animate-pulse' : 'bg-rose-600 text-white shadow-md'} flex items-center justify-center shrink-0`}>
               {isEmergencyActive ? <Siren className="w-6 h-6" /> : <Activity className="w-5 h-5" />}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-black font-display tracking-tight truncate">
-                  {isEmergencyActive ? 'Emergency alarm active' : `Journey ${trip._id?.slice(-6).toUpperCase() || 'LIVE'}`}
+                <h2 className={`text-base sm:text-lg font-black font-display tracking-tight truncate ${isEmergencyActive ? 'text-white' : 'text-slate-900'}`}>
+                  {isEmergencyActive ? 'Emergency Alarm Active' : `Journey ${trip._id?.slice(-6).toUpperCase() || 'LIVE'}`}
                 </h2>
-                <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-800 border border-rose-200'} border-0 text-[10px] uppercase font-extrabold px-2.5`}>
+                <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-500 text-white shadow-xs' : 'bg-rose-100 text-rose-800 border border-rose-200'} border-0 text-[10px] uppercase font-black px-2.5 py-0.5`}>
                   {trip.status}
                 </Badge>
                 {isOffline && (
@@ -538,9 +534,9 @@ export const OngoingJourneyMap = ({
                   </Badge>
                 )}
               </div>
-              <p className={`text-xs font-medium mt-0.5 truncate ${isEmergencyActive ? 'text-slate-300' : 'text-slate-500'}`}>
+              <p className={`text-xs font-medium mt-0.5 truncate ${isEmergencyActive ? 'text-rose-200/90 font-medium' : 'text-slate-500'}`}>
                 {isEmergencyActive
-                  ? 'Emergency Guardians & Safety Operators notified live. Call emergency hotline immediately.'
+                  ? 'Emergency Guardians & Safety Operators notified live. Covert beacon active.'
                   : isOffline
                     ? 'Connection lost - GPS points are being saved locally and will auto-sync once back online.'
                     : 'Heartbeat ping monitor active • Auto 30s connection sync enabled'}
@@ -553,7 +549,7 @@ export const OngoingJourneyMap = ({
             <button
               onClick={handleSendPing}
               disabled={pingSending}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 whitespace-nowrap ${isEmergencyActive ? 'bg-white/10 hover:bg-white/20 border border-white/20 text-white' : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'}`}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95 whitespace-nowrap ${isEmergencyActive ? 'bg-white/10 hover:bg-white/20 border border-white/20 text-white backdrop-blur-sm' : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'}`}
             >
               <Radio className={`w-4 h-4 ${pingSending ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
               <span>{pingSending ? 'Pinging...' : 'Send Heartbeat Ping'}</span>
@@ -562,18 +558,21 @@ export const OngoingJourneyMap = ({
             <button
               onClick={isEmergencyActive ? () => setShowPanicModal(true) : () => handleInitiatePanic(false)}
               disabled={panicLoading}
-              className={`px-3 py-2.5 ${isEmergencyActive ? 'bg-rose-600 hover:bg-rose-500' : 'bg-rose-600 hover:bg-rose-700'} text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 active:scale-95 whitespace-nowrap`}
+              className={`px-3 py-2.5 ${isEmergencyActive ? 'bg-rose-600 hover:bg-rose-500 ring-2 ring-rose-400/40' : 'bg-rose-600 hover:bg-rose-700'} text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 active:scale-95 whitespace-nowrap`}
             >
-              {isEmergencyActive ? <Siren className="w-4 h-4 text-white" /> : <AlertTriangle className="w-4 h-4" />}
+              {isEmergencyActive ? <Siren className="w-4 h-4 text-white animate-bounce" /> : <AlertTriangle className="w-4 h-4" />}
               <span>{isEmergencyActive ? 'Reopen SOS' : '1-Tap Panic'}</span>
             </button>
 
             <button
-              onClick={() => (isEmergencyActive ? setShowPanicModal(true) : (setIsEndingJourneyWithPin(true), setShowDuressModal(true)))}
+              onClick={() => {
+                setIsEndingJourneyWithPin(true);
+                setShowDuressModal(true);
+              }}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/20 active:scale-95 whitespace-nowrap"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isEmergencyActive ? 'Deactivate & finish' : 'Finish safely'}</span>
+              <span>{isEmergencyActive ? 'Deactivate & Finish' : 'Finish Safely'}</span>
             </button>
           </div>
         </div>
@@ -586,7 +585,7 @@ export const OngoingJourneyMap = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
                 isListening
                   ? isEmergencyActive ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 ring-2 ring-rose-500/30' : 'bg-rose-100 text-rose-800 border-rose-300 ring-2 ring-rose-200'
-                  : isEmergencyActive ? 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/15' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  : isEmergencyActive ? 'bg-white/10 text-slate-200 border-white/15 hover:bg-white/20' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
               }`}
             >
               {isListening ? (
@@ -602,9 +601,9 @@ export const OngoingJourneyMap = ({
               )}
             </button>
 
-            <div className="min-w-0 flex items-center gap-1.5 text-slate-300">
-              <span className={`text-[11px] font-semibold hidden sm:inline ${isEmergencyActive ? 'text-slate-400' : 'text-slate-500'}`}>Secret Phrase:</span>
-              <span className={`font-extrabold px-2.5 py-1 rounded-lg border truncate font-mono text-[11px] ${isEmergencyActive ? 'text-cyan-300 bg-slate-950/60 border-white/10' : 'text-slate-700 bg-slate-100 border-slate-200'}`}>
+            <div className="min-w-0 flex items-center gap-1.5">
+              <span className={`text-[11px] font-semibold hidden sm:inline ${isEmergencyActive ? 'text-rose-200/80' : 'text-slate-500'}`}>Secret Phrase:</span>
+              <span className={`font-extrabold px-2.5 py-1 rounded-lg border truncate font-mono text-[11px] ${isEmergencyActive ? 'text-cyan-300 bg-slate-900/90 border-white/15 shadow-inner' : 'text-slate-700 bg-slate-100 border-slate-200'}`}>
                 "{secretPhrase}"
               </span>
             </div>
@@ -612,27 +611,13 @@ export const OngoingJourneyMap = ({
 
           {/* Live Voice Audio Transcript Feedback */}
           {isListening && (
-            <div className={`flex items-center gap-2 text-[11px] font-mono px-3 py-1 rounded-xl border truncate max-w-full sm:max-w-xs ${isEmergencyActive ? 'text-slate-300 bg-slate-950/80 border-white/10' : 'text-slate-600 bg-slate-100 border-slate-200'}`}>
+            <div className={`flex items-center gap-2 text-[11px] font-mono px-3 py-1 rounded-xl border truncate max-w-full sm:max-w-xs ${isEmergencyActive ? 'text-slate-200 bg-slate-900/90 border-white/15' : 'text-slate-600 bg-slate-100 border-slate-200'}`}>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
               <span className="truncate italic">{transcript || 'Listening...'}</span>
             </div>
           )}
         </div>
       </Card>
-
-      {!isEmergencyActive && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${trip.safetyStatus === 'UNSAFE' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-            <span className="text-xs font-extrabold text-slate-800">Safety status: {trip.safetyStatus || 'SAFE'}</span>
-            <span className="text-[11px] text-slate-500">{trackingMode} tracking · {trackingInterval / 1000}s updates</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:w-auto">
-            <button type="button" disabled={safetySaving || trip.safetyStatus !== 'UNSAFE'} onClick={() => handleSafetyStatusChange('SAFE')} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-extrabold text-emerald-800 disabled:opacity-50 cursor-pointer">Mark Safe</button>
-            <button type="button" disabled={safetySaving || trip.safetyStatus === 'UNSAFE'} onClick={() => handleSafetyStatusChange('UNSAFE')} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-extrabold text-amber-800 disabled:opacity-50 cursor-pointer">Mark Unsafe</button>
-          </div>
-        </div>
-      )}
 
       {/* Main Grid: Interactive Map (8 Cols) & Trip Details (4 Cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -983,7 +968,13 @@ export const OngoingJourneyMap = ({
       {/* DUAL-PIN SILENT DURESS DEACTIVATION MODAL */}
       <DuressPinModal
         isOpen={showDuressModal}
-        onClose={() => setShowDuressModal(false)}
+        onClose={() => {
+          if (!deactivating) {
+            setShowDuressModal(false);
+            setIsEndingJourneyWithPin(false);
+          }
+        }}
+        loading={deactivating}
         onDeactivate={handleDuressDeactivate}
         title={isEndingJourneyWithPin ? 'Finish Journey — Enter PIN' : 'Emergency Mode Active — Enter PIN'}
         description={isEndingJourneyWithPin ? 'Enter your normal PIN to finish this journey safely.' : undefined}

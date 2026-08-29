@@ -80,6 +80,13 @@ const tripSchema = new mongoose.Schema(
         lastAlertAt: Date,
       },
     ],
+    hazardStates: [
+      {
+        hazard: { type: mongoose.Schema.Types.ObjectId, ref: 'Incident' },
+        inside: { type: Boolean, default: false },
+        lastAlertAt: Date,
+      },
+    ],
     lastHeartbeatAt: {
       type: Date,
       default: Date.now,
@@ -132,6 +139,35 @@ const tripSchema = new mongoose.Schema(
     trackingActive: {
       type: Boolean,
       default: true,
+    },
+    evidence: {
+      photos: [
+        {
+          url: { type: String, required: true },
+          public_id: { type: String },
+          capturedAt: { type: Date, default: Date.now },
+          sizeBytes: { type: Number, default: 0 },
+          sequenceIndex: { type: Number, default: 0 },
+        },
+      ],
+      audioClips: [
+        {
+          url: { type: String, required: true },
+          public_id: { type: String },
+          capturedAt: { type: Date, default: Date.now },
+          durationSec: { type: Number, default: 0 },
+          sizeBytes: { type: Number, default: 0 },
+        },
+      ],
+      captureStatus: {
+        type: String,
+        enum: ['PENDING', 'CAPTURING', 'COMPLETED', 'PARTIAL', 'FAILED'],
+        default: 'PENDING',
+      },
+      totalSizeBytes: {
+        type: Number,
+        default: 0,
+      },
     },
   },
   { timestamps: true }

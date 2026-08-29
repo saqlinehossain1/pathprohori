@@ -7,6 +7,7 @@ import {
   updateProfile,
   searchUsers,
   subscribePush,
+  updateUserSafetyStatus,
 } from '../controllers/authController.js';
 
 const router = express.Router();
@@ -17,5 +18,6 @@ router.get('/me', protect, getProfile);
 router.get('/search-users', protect, searchUsers);
 router.put('/profile', protect, updateProfile);
 router.post('/subscribe-push', protect, subscribePush);
+router.post('/safety-status', protect, updateUserSafetyStatus);
 
 export default router;

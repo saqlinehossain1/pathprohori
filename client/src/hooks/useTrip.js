@@ -22,7 +22,7 @@ const getBestEffortCoords = async () => {
 };
 
 export const useTrip = () => {
-  const { activeTrip, setActiveTrip, signalLossAlert } = useContext(SocketContext);
+  const { activeTrip, setActiveTrip, signalLossAlert, socket } = useContext(SocketContext);
   const [loading, setLoading] = useState(true);
   const [panicLoading, setPanicLoading] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
@@ -45,6 +45,44 @@ export const useTrip = () => {
   useEffect(() => {
     fetchActiveTrip();
   }, [fetchActiveTrip]);
+
+  // Real-time trip status and hazard proximity updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTripStatusUpdated = (data) => {
+      if (data.tripId) {
+        setActiveTrip((prev) => {
+          if (!prev || String(prev._id) !== String(data.tripId)) return prev;
+          return {
+            ...prev,
+            status: data.status || prev.status,
+            safetyStatus: data.safetyStatus !== undefined ? data.safetyStatus : prev.safetyStatus,
+          };
+        });
+      }
+    };
+
+    const handleHazardProximity = (data) => {
+      if (data.tripId) {
+        setActiveTrip((prev) => {
+          if (!prev || String(prev._id) !== String(data.tripId)) return prev;
+          return {
+            ...prev,
+            safetyStatus: 'UNSAFE',
+          };
+        });
+      }
+    };
+
+    socket.on('TRIP_STATUS_UPDATED', handleTripStatusUpdated);
+    socket.on('HAZARD_PROXIMITY_DETECTED', handleHazardProximity);
+
+    return () => {
+      socket.off('TRIP_STATUS_UPDATED', handleTripStatusUpdated);
+      socket.off('HAZARD_PROXIMITY_DETECTED', handleHazardProximity);
+    };
+  }, [socket, setActiveTrip]);
 
   const startTrip = async (tripForm) => {
     try {
@@ -104,6 +142,21 @@ export const useTrip = () => {
     }
   };
 
+  // Best-effort current position for the deactivation location snapshot -
+  // never blocks the PIN flow if location is unavailable or denied.
+  const getBestEffortCoords = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: false, timeout: 1000, maximumAge: 60000 }
+      );
+    });
+
+  // Dual-PIN Silent Duress Deactivation: entering either the normal PIN or the
+  // secret fake PIN always resolves the same way here - the backend alone knows
+  // which branch actually ran, and the local trip state is simply reset to ACTIVE.
   const deactivateAlarm = async (pin, finishJourney = false) => {
     if (!activeTrip) return;
     try {
@@ -111,7 +164,11 @@ export const useTrip = () => {
       setDeactivateError('');
       const coords = await getBestEffortCoords();
       const res = await tripApi.deactivateAlarm(activeTrip._id, { pin, finishJourney, ...coords });
-      setActiveTrip((prev) => (finishJourney ? null : (prev ? { ...prev, status: res.status || 'ACTIVE' } : prev)));
+      if (finishJourney || res.status === 'COMPLETED') {
+        setActiveTrip(null);
+      } else {
+        setActiveTrip((prev) => (prev ? { ...prev, status: res.status || 'ACTIVE', emergencySource: undefined } : null));
+      }
       return res;
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to deactivate alarm.';

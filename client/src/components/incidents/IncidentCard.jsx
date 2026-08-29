@@ -98,7 +98,7 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
             <Badge variant={getBadgeVariant(incident.severity)}>
               {incident.severity}
             </Badge>
-            {incident.upvotes?.length >= 10 && (
+            {(incident.isVerified || incident.upvotes?.length >= 10) && (
               <Badge variant="verified">
                 <CheckCircle2 className="w-3 h-3 text-sky-600" />
                 Community Verified
