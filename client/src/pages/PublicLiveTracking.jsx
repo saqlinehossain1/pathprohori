@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import tripApi from '../api/tripApi';
 import { socket } from '../services/socket';
+import EvidenceLockerViewer from '../components/emergency/EvidenceLockerViewer';
 
 // Commuter Avatar Map Marker (Pulsing Radar halo + profile picture)
 const createCommuterAvatarIcon = (commuter, isEmergency, isResolved) => {
@@ -351,20 +352,49 @@ export const PublicLiveTracking = () => {
       {/* Minimal Header */}
       <header className="bg-[#120D1A]/95 border-b border-white/10 backdrop-blur-md px-4 py-2 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
-          {/* Commuter Name & Live Indicator */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white shadow-xs">
-              <Shield className="w-3.5 h-3.5" />
+          {/* Brand Logo & Commuter Identity */}
+          <div className="flex items-center gap-3">
+            {/* PATHPROHORI Brand Logo */}
+            <div className="flex items-center gap-2 pr-3 border-r border-white/15">
+              <img
+                src="/logo.png"
+                alt="PATHPROHORI Logo"
+                className="w-7 h-7 object-contain"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = 'none';
+                  if (e.target.nextSibling) {
+                    e.target.nextSibling.style.display = 'flex';
+                  }
+                }}
+              />
+              <div className="w-7 h-7 rounded-lg bg-slate-900 text-white hidden items-center justify-center">
+                <Shield className="w-3.5 h-3.5 text-rose-500" />
+              </div>
+              <span className="text-xs font-black tracking-tight text-white hidden sm:inline font-display">
+                PATHPROHORI
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xs font-bold text-white tracking-tight">
-                  {commuter.name}'s Live Transit
-                </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  LIVE
-                </span>
+
+            {/* Commuter Avatar & Live Status */}
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-white font-bold text-xs overflow-hidden shrink-0">
+                {commuter.avatarUrl ? (
+                  <img src={commuter.avatarUrl} alt={commuter.name} className="w-full h-full object-cover" />
+                ) : (
+                  commuter.name ? commuter.name.charAt(0).toUpperCase() : 'C'
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xs font-bold text-white tracking-tight">
+                    {commuter.name}'s Live Transit
+                  </h1>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    LIVE
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -621,6 +651,14 @@ export const PublicLiveTracking = () => {
               </a>
             </div>
           </div>
+
+          {/* Low-Bandwidth Hardware Evidence Locker */}
+          <EvidenceLockerViewer
+            emergencyId={sessionData?.trip?._id || trip?._id}
+            initialEvidence={sessionData?.trip?.evidence || trip?.evidence}
+            isLive={!isResolved}
+            dark={true}
+          />
 
           {/* Privacy Note */}
           <div className="bg-[#120D1A]/60 border border-white/5 rounded-xl p-2.5 text-[10px] text-slate-400 space-y-1">

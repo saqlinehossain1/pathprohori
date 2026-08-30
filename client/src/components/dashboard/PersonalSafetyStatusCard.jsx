@@ -3,6 +3,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { SocketContext } from '../../context/SocketContext';
 import API from '../../api/axiosConfig';
 import { ShieldCheck, AlertTriangle, CheckCircle2, MapPin, Loader2, Radio } from 'lucide-react';
+import { GuardianShieldVector } from '../common/DashboardVectors';
 
 export const PersonalSafetyStatusCard = () => {
   const { user, setUser } = useContext(AuthContext);
@@ -114,102 +115,146 @@ export const PersonalSafetyStatusCard = () => {
 
   return (
     <div
-      className={`rounded-3xl p-5 sm:p-6 transition-all duration-300 border shadow-card relative overflow-hidden ${isUnsafe
-          ? 'bg-gradient-to-r from-rose-950 via-slate-900 to-amber-950 border-rose-500/50 text-white shadow-rose-950/20'
-          : 'bg-white/95 backdrop-blur-xl border-slate-200/90 text-slate-900 shadow-sm'
-        }`}
+      className={`rounded-2xl p-5 sm:p-6 transition-all border shadow-soft relative overflow-hidden ${
+        isUnsafe
+          ? 'bg-gradient-to-r from-red-50 via-rose-50 to-red-100/60 border-red-300 text-slate-900 shadow-red-500/10'
+          : 'bg-gradient-to-r from-white via-slate-50/50 to-emerald-50/30 border-slate-200 text-slate-900'
+      }`}
     >
-      {/* Ambient background glow if unsafe */}
-      {isUnsafe && (
-        <div className="absolute top-0 right-0 w-72 h-72 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
         {/* Left Status Info */}
-        <div className="flex items-start sm:items-center gap-3.5">
+        <div className="flex items-start sm:items-center gap-4 flex-1">
           <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md transition-all ${isUnsafe
-                ? 'bg-rose-600 text-white animate-pulse ring-4 ring-rose-500/30'
-                : 'bg-emerald-500 text-white'
-              }`}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all shadow-sm ${
+              isUnsafe
+                ? 'bg-red-600 text-white shadow-md radar-danger'
+                : 'bg-emerald-600 text-white shadow-emerald-600/20'
+            }`}
           >
             {isUnsafe ? (
-              <AlertTriangle className="w-6 h-6 animate-bounce" />
+              <AlertTriangle className="w-7 h-7 animate-pulse" />
             ) : (
-              <ShieldCheck className="w-6 h-6" />
+              <ShieldCheck className="w-7 h-7" />
             )}
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1.5 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest font-display ${isUnsafe
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
-                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                  }`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border shadow-2xs ${
+                  isUnsafe
+                    ? 'bg-red-100 text-red-900 border-red-300'
+                    : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                }`}
               >
-                <span className={`w-2 h-2 rounded-full ${isUnsafe ? 'bg-rose-400 animate-ping' : 'bg-emerald-500'}`} />
-                {isUnsafe ? 'Feeling Unsafe Alert Active' : 'Status: Marked Safe'}
+                <span className={`w-1.5 h-1.5 rounded-full ${isUnsafe ? 'bg-red-600 animate-ping' : 'bg-emerald-600'}`} />
+                {isUnsafe ? 'DISTRESS SIGNAL BROADCAST' : 'TELEMETRY ACTIVE · MARKED SAFE'}
               </span>
 
-              <span className={`text-[10px] font-bold ${isUnsafe ? 'text-slate-300' : 'text-slate-400'}`}>
-                Independent of Journeys
+              <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 font-bold px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Real-time Guardian Sync
               </span>
             </div>
 
-            <h3 className={`text-base sm:text-lg font-black font-display tracking-tight ${isUnsafe ? 'text-white' : 'text-slate-900'}`}>
-              {isUnsafe ? 'You are marked Unsafe' : 'Feeling safe right now?'}
+            <h3 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight font-display">
+              {isUnsafe ? 'Active Alert: Emergency Contacts Notified' : 'Personal Safety Telemetry'}
             </h3>
 
-            <p className={`text-xs font-medium max-w-xl ${isUnsafe ? 'text-rose-200/90' : 'text-slate-500'}`}>
+            <p className="text-xs sm:text-[13px] text-slate-700 font-semibold max-w-2xl leading-relaxed">
               {isUnsafe
-                ? 'Your emergency guardians have received your alert and live GPS location. Keep your phone accessible.'
-                : 'Tap "I Feel Unsafe" at any moment — walking, shopping, or in transit — to silently broadcast a location check-in alert to your guardians.'}
+                ? 'Your linked guardians have received your urgent check-in alert, live reverse-geocoded coordinates, and distress broadcast.'
+                : 'Tap "I Feel Unsafe" at any moment to silently dispatch your real-time GPS location and telemetry check-in to your guardians.'}
             </p>
           </div>
         </div>
 
-        {/* Right Action Button */}
-        <div className="shrink-0 flex items-center gap-2">
-          {isUnsafe ? (
-            <button
-              onClick={() => handleUpdateStatus('SAFE')}
-              disabled={loading}
-              className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 font-display uppercase tracking-wider"
+        {/* Center / Right: Pathao-style Visual Vector Art & Minimal Clean Toggle Button */}
+        <div className="flex items-center justify-between sm:justify-end gap-5 shrink-0">
+          {/* Subtle Vector Art filling the card gap */}
+          <div className="hidden md:flex items-center shrink-0">
+            <GuardianShieldVector className="w-20 h-20 opacity-90 hover:opacity-100 hover:scale-105 transition-all duration-300 drop-shadow-sm" />
+          </div>
+
+          {/* Minimal Clean Symmetric Dual-State Toggle Switch */}
+          <div
+            role="switch"
+            aria-checked={isUnsafe}
+            tabIndex={0}
+            onClick={() => {
+              if (!loading) {
+                handleUpdateStatus(isUnsafe ? 'SAFE' : 'UNSAFE');
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (!loading) handleUpdateStatus(isUnsafe ? 'SAFE' : 'UNSAFE');
+              }
+            }}
+            title={isUnsafe ? 'Click to toggle Safe' : 'Click to toggle Unsafe'}
+            className={`relative h-11 w-52 sm:w-56 rounded-full p-1 transition-all duration-300 cursor-pointer select-none border flex items-center shadow-inner ${
+              isUnsafe
+                ? 'bg-red-100 border-red-300 ring-2 ring-red-400/30'
+                : 'bg-slate-100 border-slate-300 ring-2 ring-emerald-400/20 hover:border-slate-400'
+            }`}
+          >
+            {/* Sliding Active Pill Indicator */}
+            <div
+              className={`absolute h-9 w-[100px] sm:w-[108px] rounded-full shadow-md transition-all duration-300 ease-out flex items-center justify-center gap-1.5 font-black text-xs text-white z-20 ${
+                isUnsafe
+                  ? 'left-[102px] sm:left-[110px] bg-red-600 shadow-red-600/40'
+                  : 'left-1 bg-emerald-600 shadow-emerald-600/30'
+              }`}
             >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+              ) : isUnsafe ? (
+                <>
+                  <AlertTriangle className="w-3.5 h-3.5 text-white animate-pulse" />
+                  <span>UNSAFE</span>
+                </>
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                  <span>SAFE</span>
+                </>
               )}
-              <span>I Am Safe Now (Mark Safe)</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => handleUpdateStatus('UNSAFE')}
-              disabled={loading}
-              className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-extrabold rounded-2xl text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2 font-display uppercase tracking-wider shadow-rose-950/20"
+            </div>
+
+            {/* Left Option: Safe */}
+            <div
+              className={`w-1/2 text-center text-xs font-black transition-colors duration-200 z-10 select-none flex items-center justify-center gap-1 ${
+                !isUnsafe ? 'text-transparent' : 'text-slate-600 hover:text-emerald-700'
+              }`}
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-              ) : (
-                <AlertTriangle className="w-4 h-4 text-amber-200 animate-pulse" />
-              )}
-              <span>I Feel Unsafe · Alert Guardians</span>
-            </button>
-          )}
+              {isUnsafe && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />}
+              <span>Safe</span>
+            </div>
+
+            {/* Right Option: Unsafe */}
+            <div
+              className={`w-1/2 text-center text-xs font-black transition-colors duration-200 z-10 select-none flex items-center justify-center gap-1 ${
+                isUnsafe ? 'text-transparent' : 'text-slate-600 hover:text-red-700'
+              }`}
+            >
+              {!isUnsafe && <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
+              <span>Unsafe</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Real-time Confirmation Toast / Feedback Banner */}
+      {/* Real-time Confirmation Feedback Banner */}
       {statusMessage && (
         <div
-          className={`mt-3.5 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all animate-in fade-in duration-200 ${isUnsafe
-              ? 'bg-rose-900/60 border-rose-500/50 text-rose-100'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            }`}
+          className={`mt-3.5 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border shadow-2xs ${
+            isUnsafe
+              ? 'bg-red-100 border-red-300 text-red-900'
+              : 'bg-emerald-100 border-emerald-300 text-emerald-900'
+          }`}
         >
-          <Radio className={`w-3.5 h-3.5 shrink-0 ${isUnsafe ? 'text-rose-400 animate-spin' : 'text-emerald-600'}`} />
+          <Radio className="w-4 h-4 shrink-0 animate-pulse" />
           <span>{statusMessage}</span>
         </div>
       )}

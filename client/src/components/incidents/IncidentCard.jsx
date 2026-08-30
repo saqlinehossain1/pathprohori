@@ -1,10 +1,19 @@
 import React, { useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import Card from '../common/Card';
-import Badge from '../common/Badge';
 import incidentApi from '../../api/incidentApi';
-import { ThumbsUp, ThumbsDown, MessageSquare, MapPin, CheckCircle2, Trash2, Edit3, User, Clock, FileDown } from 'lucide-react';
+import {
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
+  MapPin,
+  CheckCircle2,
+  Trash2,
+  Edit3,
+  User,
+  Clock,
+  FileDown,
+} from 'lucide-react';
 
 export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
   const { user } = useContext(AuthContext);
@@ -22,15 +31,17 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
     return `${diffDays} days`;
   };
 
-  const getBadgeVariant = (severity) => {
-    if (severity === 'High Alert') return 'highAlert';
-    if (severity === 'Med Severity') return 'medSeverity';
-    return 'lowSeverity';
-  };
-
   const userIdStr = user?._id?.toString() || user?.id?.toString() || '';
-  const reportedByObj = (incident?.reportedBy && typeof incident.reportedBy === 'object') ? incident.reportedBy : null;
-  const reportedByStr = typeof incident.reportedBy === 'string' ? incident.reportedBy : reportedByObj?._id ? reportedByObj._id.toString() : '';
+  const reportedByObj =
+    incident?.reportedBy && typeof incident.reportedBy === 'object'
+      ? incident.reportedBy
+      : null;
+  const reportedByStr =
+    typeof incident.reportedBy === 'string'
+      ? incident.reportedBy
+      : reportedByObj?._id
+      ? reportedByObj._id.toString()
+      : '';
 
   const isOwner = Boolean(userIdStr && reportedByStr && userIdStr === reportedByStr);
   const isAdminOrOperator = ['admin', 'operator'].includes(user?.role);
@@ -48,7 +59,9 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to export incident PDF:', error);
-      window.alert(error.response?.data?.message || 'Unable to export this incident report.');
+      window.alert(
+        error.response?.data?.message || 'Unable to export this incident report.'
+      );
     }
   };
 
@@ -61,124 +74,135 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
 
   const isUpvoted = Boolean(
     userIdStr &&
-    upvoteList.some((id) => {
-      const raw = typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
-      return raw === userIdStr;
-    })
+      upvoteList.some((id) => {
+        const raw =
+          typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
+        return raw === userIdStr;
+      })
   );
 
   const isDownvoted = Boolean(
     userIdStr &&
-    downvoteList.some((id) => {
-      const raw = typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
-      return raw === userIdStr;
-    })
+      downvoteList.some((id) => {
+        const raw =
+          typeof id === 'string' ? id : id?._id ? id._id.toString() : id ? id.toString() : '';
+        return raw === userIdStr;
+      })
   );
 
   const upvotesCount = upvoteList.length;
   const downvotesCount = downvoteList.length;
-  const distanceDisplay = incident.distanceText || (typeof incident.distanceKm === 'number' ? `${incident.distanceKm} km` : '0.8 km');
+  const distanceDisplay =
+    incident.distanceText ||
+    (typeof incident.distanceKm === 'number' ? `${incident.distanceKm} km` : '0.8 km');
 
   const handleCardClick = () => {
     navigate(`/incident/${incident._id}`);
   };
 
   return (
-    <Card
+    <div
       onClick={handleCardClick}
-      className="p-3.5 sm:p-5 space-y-3 sm:space-y-4 hover:border-slate-300 transition-all cursor-pointer group shadow-card hover:shadow-glass relative border-slate-200/80"
+      className="p-4 sm:p-5 space-y-3.5 hover:border-slate-300/90 transition-all cursor-pointer bg-white border border-slate-200/90 rounded-2xl shadow-soft hover-lift relative"
     >
       {/* Header Info */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-1.5 max-w-xl">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <h3 className="font-black text-base sm:text-lg text-slate-900 group-hover:text-rose-600 transition-colors leading-tight font-display">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-extrabold text-sm sm:text-base text-slate-900 hover:text-rose-600 transition-colors leading-snug font-display">
               {incident.title}
             </h3>
-            <Badge variant={getBadgeVariant(incident.severity)}>
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${
+                incident.severity === 'High Alert'
+                  ? 'bg-red-50 text-red-700 border-red-200 shadow-2xs'
+                  : incident.severity === 'Med Severity'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-2xs'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  incident.severity === 'High Alert'
+                    ? 'bg-red-600 animate-ping'
+                    : incident.severity === 'Med Severity'
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`}
+              />
               {incident.severity}
-            </Badge>
+            </span>
+
             {(incident.isVerified || incident.upvotes?.length >= 10) && (
-              <Badge variant="verified">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs">
                 <CheckCircle2 className="w-3 h-3 text-sky-600" />
-                Community Verified
-              </Badge>
+                Verified
+              </span>
             )}
             {incident.expiresAt && (
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 font-display">
-                <Clock className="w-3 h-3 text-amber-600" />
+              <span className="text-[10px] font-semibold text-slate-500 bg-slate-100/80 border border-slate-200 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                <Clock className="w-3 h-3 text-slate-400" />
                 Purges in {getRemainingTime(incident.expiresAt)}
               </span>
             )}
           </div>
 
-          {/* Location & Author Info Banner */}
-          <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs font-semibold text-slate-500">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-              <span>{incident.locationName} ({distanceDisplay} away)</span>
-            </span>
+          <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold overflow-hidden">
+                {reporterAvatar ? (
+                  <img src={reporterAvatar} alt={reporterName} className="w-full h-full object-cover" />
+                ) : (
+                  reporterName.charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="text-slate-700 font-medium">{reporterName}</span>
+            </div>
 
-            <span className="text-slate-300 hidden sm:inline">•</span>
+            <span>•</span>
 
-            <span className="flex items-center gap-1.5 font-extrabold text-slate-800 bg-slate-50 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full border border-slate-200 shadow-xs font-display">
-              {reporterAvatar ? (
-                <img src={reporterAvatar} alt={reporterName} className="w-4 h-4 rounded-full object-cover border border-slate-300 shadow-xs" />
-              ) : (
-                <div className="w-4 h-4 rounded-full bg-slate-900 text-white font-black text-[9px] flex items-center justify-center shadow-xs">
-                  {reporterName ? reporterName.charAt(0).toUpperCase() : 'U'}
-                </div>
-              )}
-              <span>Posted by {reporterName}</span>
-            </span>
-
-            {incident.isEdited && (
-              <span className="text-[10px] text-slate-400 font-normal italic opacity-70 ml-1">(edited)</span>
-            )}
+            <div className="flex items-center gap-1 text-slate-500">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              <span>{incident.location?.areaName || 'General Dhaka Area'}</span>
+              <span className="text-slate-700 font-semibold font-mono">({distanceDisplay})</span>
+            </div>
           </div>
         </div>
 
-        {/* Edit & Delete Action Buttons for Author / Admin */}
         {canManage && (
-          <div className="flex items-center gap-1">
-            {onEdit && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(incident);
-                }}
-                title="Edit report & change/remove photo"
-                className="p-1.5 sm:p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-              >
-                <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-            )}
-
-            {onDelete && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.confirm('Delete this hazard report and its Cloudinary photo asset?')) {
-                    onDelete(incident._id);
-                  }
-                }}
-                title="Delete report & Cloudinary photo asset"
-                className="p-1.5 sm:p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-              >
-                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-            )}
-
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(incident);
+              }}
+              title="Edit Hazard"
+              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm('Are you sure you want to remove this danger report?')) {
+                  onDelete(incident._id);
+                }
+              }}
+              title="Delete Hazard"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
             {isAdminOrOperator && (
               <button
                 type="button"
                 onClick={handleExportPdf}
-                title="Download law-enforcement PDF report"
-                className="p-1.5 sm:p-2 text-sky-700 hover:bg-sky-50 rounded-xl transition-all"
+                title="Export Law Enforcement Incident Dossier"
+                className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors"
               >
-                <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <FileDown className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -186,24 +210,24 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
       </div>
 
       {/* Description */}
-      <p className="text-xs text-slate-600 font-medium leading-relaxed">
+      <p className="text-xs text-slate-600 font-normal leading-relaxed">
         {incident.description}
       </p>
 
-      {/* Full Aspect Ratio Image Attachment */}
+      {/* Image Attachment */}
       {incident.imageUrl && (
-        <div className="rounded-2xl overflow-hidden bg-slate-50 border border-slate-200 flex items-center justify-center max-h-72 sm:max-h-96 p-1">
+        <div className="rounded-xl overflow-hidden bg-slate-50 border border-slate-200 max-h-72 sm:max-h-80 flex items-center justify-center p-1">
           <img
             src={incident.imageUrl}
             alt={incident.title}
-            className="w-full max-h-72 sm:max-h-96 object-contain rounded-xl shadow-xs"
+            className="w-full max-h-72 sm:max-h-80 object-contain rounded-lg"
           />
         </div>
       )}
 
-      {/* Action Footer Bar with Exclusive Icon-Only Upvote/Downvote Pills */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5 sm:pt-3 text-xs font-bold text-slate-700">
-        <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-2xl p-1 gap-1 shadow-xs">
+      {/* Action Footer Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-700">
+        <div className="inline-flex items-center bg-slate-100/90 border border-slate-200 rounded-xl p-0.5 gap-1">
           <button
             type="button"
             onClick={(e) => {
@@ -211,16 +235,19 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
               if (onVote) onVote(incident._id, 'up');
             }}
             title="Confirm / Upvote Hazard Report"
-            className={`p-1.5 sm:p-2 rounded-xl flex items-center gap-1.5 transition-all ${isUpvoted
-              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
-              : 'text-slate-700 hover:bg-slate-200'
-              }`}
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 ${
+              isUpvoted
+                ? 'bg-slate-900 text-white font-bold'
+                : 'text-slate-700 hover:bg-slate-200'
+            }`}
           >
-            <ThumbsUp className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isUpvoted ? 'text-white fill-white' : 'text-slate-700'}`} />
-            <span className="text-xs font-extrabold">{upvotesCount}</span>
+            <ThumbsUp
+              className={`w-3.5 h-3.5 ${isUpvoted ? 'text-white fill-white' : 'text-slate-600'}`}
+            />
+            <span className="text-xs font-semibold">{upvotesCount}</span>
           </button>
 
-          <div className="w-[1px] h-4 bg-slate-200"></div>
+          <div className="w-[1px] h-3.5 bg-slate-300"></div>
 
           <button
             type="button"
@@ -229,26 +256,29 @@ export const IncidentCard = ({ incident, onVote, onEdit, onDelete }) => {
               if (onVote) onVote(incident._id, 'down');
             }}
             title="Downvote / Dispute Report"
-            className={`p-1.5 sm:p-2 rounded-xl flex items-center gap-1.5 transition-all ${isDownvoted
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'text-slate-500 hover:bg-rose-50 hover:text-rose-600'
-              }`}
+            className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 ${
+              isDownvoted
+                ? 'bg-red-600 text-white font-bold'
+                : 'text-slate-500 hover:bg-red-50 hover:text-red-600'
+            }`}
           >
-            <ThumbsDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isDownvoted ? 'text-white fill-white' : 'text-slate-500'}`} />
-            <span className="text-xs font-extrabold">{downvotesCount}</span>
+            <ThumbsDown
+              className={`w-3.5 h-3.5 ${isDownvoted ? 'text-white fill-white' : 'text-slate-500'}`}
+            />
+            <span className="text-xs font-semibold">{downvotesCount}</span>
           </button>
         </div>
 
         <Link
           to={`/incident/${incident._id}`}
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-50 hover:bg-slate-900 hover:text-white border border-slate-200 text-slate-800 rounded-2xl text-xs font-extrabold transition-all shadow-xs"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-all shadow-2xs active:scale-95"
         >
-          <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <MessageSquare className="w-3.5 h-3.5" />
           <span>Discussion ({incident.comments?.length || 0})</span>
         </Link>
       </div>
-    </Card>
+    </div>
   );
 };
 

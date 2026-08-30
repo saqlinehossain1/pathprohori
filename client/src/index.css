@@ -2,60 +2,197 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --brand-primary: #E11D48;
+  --brand-primary-hover: #BE123C;
+  --brand-primary-soft: rgba(225, 29, 72, 0.08);
+  --navy: #0F172A;
+  --navy-soft: #1E293B;
+  --safe: #10B981;
+  --safe-soft: rgba(16, 185, 129, 0.1);
+  --danger: #DC2626;
+  --danger-soft: rgba(220, 38, 38, 0.1);
+  --warning: #F59E0B;
+  --warning-soft: rgba(245, 158, 11, 0.1);
+  --surface: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --surface-glass: rgba(255, 255, 255, 0.85);
+  --border-subtle: rgba(226, 232, 240, 0.9);
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+}
+
 @layer base {
   body {
-    background-color: #FAF4F8;
+    background-color: #FDFBFB;
     color: #0F172A;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-image: 
+      /* Subtle Transit Geo-Coordinate Dot Texture */
+      radial-gradient(circle at center, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+      /* Richer Ambient Safety Gradients */
+      radial-gradient(ellipse 75% 55% at 85% 5%, rgba(225, 29, 72, 0.12) 0%, transparent 65%),
+      radial-gradient(ellipse 65% 50% at 15% 95%, rgba(244, 63, 94, 0.09) 0%, transparent 60%),
+      radial-gradient(circle 650px at 50% 35%, rgba(251, 113, 133, 0.07) 0%, transparent 70%),
+      linear-gradient(180deg, rgba(255, 228, 230, 0.45) 0%, rgba(248, 250, 252, 0.85) 100%);
+    background-size: 24px 24px, auto, auto, auto, auto;
+    background-attachment: fixed;
   }
 }
 
-/* Custom Scrollbar */
+.bg-app-ambient {
+  background-color: #FDFBFB;
+  background-image: 
+    /* Subtle Transit Geo-Coordinate Dot Texture */
+    radial-gradient(circle at center, rgba(15, 23, 42, 0.05) 1px, transparent 1px),
+    /* Richer Ambient Safety Gradients */
+    radial-gradient(ellipse 75% 55% at 85% 5%, rgba(225, 29, 72, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 50% at 15% 95%, rgba(244, 63, 94, 0.09) 0%, transparent 60%),
+    radial-gradient(circle 650px at 50% 35%, rgba(251, 113, 133, 0.07) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(255, 228, 230, 0.45) 0%, rgba(248, 250, 252, 0.85) 100%);
+  background-size: 24px 24px, auto, auto, auto, auto;
+  background-attachment: fixed;
+}
+
+/* Glassmorphism Header & Footer Utilities with high blur and subtle translucency */
+.glass-header {
+  background: rgba(255, 255, 255, 0.76) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+
+.glass-footer {
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border-top: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Glassmorphism Surface Utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Micro-interaction Utilities */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.press-tactile {
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.press-tactile:active {
+  transform: scale(0.98);
+}
+
+/* Radar Beacon Halo for Live Safety States */
+@keyframes radar-beacon-safe {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes radar-beacon-danger {
+  0% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(225, 29, 72, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0);
+  }
+}
+
+.radar-safe {
+  animation: radar-beacon-safe 2.2s infinite cubic-bezier(0.25, 0, 0.2, 1);
+}
+
+.radar-danger {
+  animation: radar-beacon-danger 1.5s infinite cubic-bezier(0.25, 0, 0.2, 1);
+}
+
+/* Reduced Motion Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom Scrollbar - Clean Neutral Slate */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F4EFF2;
+  background: #F1F5F9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D5C2CC;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a84a74;
+  background: #94A3B8;
 }
 
 /* Custom Leaflet Map Container styling */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   z-index: 10;
 }
 
-/* Custom Premium Glassmorphic Leaflet Popups */
+/* Custom Professional Leaflet Popups */
 .custom-leaflet-popup .leaflet-popup-content-wrapper {
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
-  border-radius: 1.25rem;
-  border: 1px solid #EFEAEF;
-  box-shadow: 0 20px 25px -5px rgba(107, 67, 85, 0.25), 0 8px 10px -6px rgba(107, 67, 85, 0.15);
+  background: #FFFFFF;
+  border-radius: 0.75rem;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
   padding: 0;
   overflow: hidden;
 }
 
 .custom-leaflet-popup .leaflet-popup-content {
   margin: 0;
-  width: 250px !important;
+  width: 260px !important;
 }
 
 .custom-leaflet-popup .leaflet-popup-tip {
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  background: #FFFFFF;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06);
 }
 
 /* Leaflet Popup Link Button Overrides */
@@ -68,24 +205,24 @@
 
 .custom-leaflet-popup a.popup-btn:hover {
   color: #FFFFFF !important;
-  background-color: #543343 !important;
+  background-color: #0F172A !important;
   text-decoration: none !important;
 }
 
-/* Background Texture Utilities */
+/* Background Texture Utilities - Neutral Slate */
 .bg-app-texture {
-  background-color: #FAF4F8;
+  background-color: #F8FAFC;
 }
 
 .bg-grid-texture {
   background-size: 32px 32px;
   background-image:
-    linear-gradient(to right, rgba(107, 67, 85, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(107, 67, 85, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
 }
 
 .bg-dots-texture {
-  background-image: radial-gradient(rgba(107, 67, 85, 0.07) 1.5px, transparent 1.5px);
+  background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1.5px, transparent 1.5px);
   background-size: 24px 24px;
 }
 
@@ -157,53 +294,17 @@
   animation: float-slow 6s ease-in-out infinite;
 }
 
-/* MAGIC UI ANIMATED SHINY TEXT & BUTTON SHIMMER EFFECT */
-@keyframes shiny-shimmer {
-  0% {
-    background-position: -250% 0;
-  }
-  100% {
-    background-position: 250% 0;
-  }
-}
-
+/* Clean Professional Button Transitions */
 .btn-shiny-effect {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.btn-shiny-effect::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    110deg,
-    transparent 25%,
-    rgba(255, 255, 255, 0.45) 50%,
-    transparent 75%
-  );
-  background-size: 250% 100%;
-  background-position: -250% 0;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-  border-radius: inherit;
-  z-index: 1;
-}
-
-.btn-shiny-effect:hover::before {
-  opacity: 1;
-  animation: shiny-shimmer 1.4s infinite;
+  transition: all 0.15s ease-in-out;
 }
 
 .btn-shiny-effect:hover {
-  transform: translateY(-1.5px) scale(1.015);
-  box-shadow: 0 12px 25px -5px rgba(225, 29, 72, 0.35), 0 8px 10px -6px rgba(225, 29, 72, 0.2);
+  filter: brightness(1.04);
 }
 
 .btn-shiny-effect:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(0.5px);
 }
 
 /* SMOOTH PAGE NAVIGATION TRANSITION KEYFRAMES */

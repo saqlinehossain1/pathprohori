@@ -75,6 +75,7 @@ export const NotificationProvider = ({ children }) => {
       const newNotification = {
         id: data.emergencyId || data.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         emergencyId: data.emergencyId || data.id,
+        tripId: data.tripId || data.trip?._id || data.trip,
         trackingToken: data.trackingToken,
         trackingUrl: data.trackingUrl,
         type: data.type || 'EMERGENCY',
@@ -88,8 +89,14 @@ export const NotificationProvider = ({ children }) => {
       };
 
       setNotifications((prev) => {
-        const exists = prev.some((n) => n.id === newNotification.id);
-        if (exists) return prev;
+        const existingIdx = prev.findIndex(
+          (n) => String(n.id) === String(newNotification.id) || (newNotification.emergencyId && String(n.emergencyId) === String(newNotification.emergencyId))
+        );
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = newNotification;
+          return updated;
+        }
         return [newNotification, ...prev];
       });
     };
@@ -102,9 +109,14 @@ export const NotificationProvider = ({ children }) => {
 
       setNotifications((prev) =>
         prev.map((n) => {
-          const isIdMatch = resolvedIds.includes(String(n.id)) || resolvedIds.includes(String(n.emergencyId));
-          const isTripMatch = tripIdStr && n.tripId && String(n.tripId) === tripIdStr;
-          const isUserMatch = userIdStr && (String(n.user?.id) === userIdStr || String(n.user?._id) === userIdStr || String(n.senderId) === userIdStr);
+          const notifId = String(n.id || '');
+          const notifEmergencyId = String(n.emergencyId || '');
+          const notifTripId = String(n.tripId || '');
+          const notifUserId = String(n.user?.id || n.user?._id || n.commuterId || n.senderId || '');
+
+          const isIdMatch = resolvedIds.some((id) => id === notifId || id === notifEmergencyId);
+          const isTripMatch = tripIdStr && notifTripId && notifTripId === tripIdStr;
+          const isUserMatch = userIdStr && notifUserId && notifUserId === userIdStr;
 
           if (isIdMatch || isTripMatch || isUserMatch) {
             return { ...n, status: 'RESOLVED', read: true, resolvedAt: data.resolvedAt || new Date().toISOString() };
@@ -120,6 +132,7 @@ export const NotificationProvider = ({ children }) => {
       const newNotif = {
         id: data.emergencyId || data.tripId || `notif_${Date.now()}`,
         emergencyId: data.emergencyId || data.tripId,
+        tripId: data.tripId,
         trackingToken: data.trackingToken,
         trackingUrl: data.trackingUrl,
         type: 'EMERGENCY',
@@ -142,7 +155,14 @@ export const NotificationProvider = ({ children }) => {
       };
 
       setNotifications((prev) => {
-        if (prev.some((n) => n.id === newNotif.id)) return prev;
+        const existingIdx = prev.findIndex(
+          (n) => String(n.id) === String(newNotif.id) || (newNotif.emergencyId && String(n.emergencyId) === String(newNotif.emergencyId))
+        );
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = newNotif;
+          return updated;
+        }
         return [newNotif, ...prev];
       });
     };

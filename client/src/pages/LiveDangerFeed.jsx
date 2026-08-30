@@ -372,56 +372,53 @@ const LiveDangerFeedContent = () => {
   return (
     <div className="space-y-4 sm:space-y-6 h-full pb-16 lg:pb-0">
       {/* Clean Text Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-1">
+      {/* Operations Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-extrabold uppercase tracking-wider font-display">
-              Community Hazard Monitoring
-            </span>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-md text-[11px] font-bold mb-1.5 border border-rose-200 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
+            <span>Real-Time Danger Feed</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
-            Live Danger Feed & Heatmap
+            Hazard Incident Feed & Live Map
           </h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">
-            PATHPROHORI Hyperlocal Danger Feed • Real-time safety warnings & map pin reports
+          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed max-w-2xl">
+            Hyperlocal crowdsourced hazards, street reports, and verified safety telemetry.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {isAdminOrOperator && (
-            <Button
+            <button
               onClick={() => setShowAdminPdfModal(true)}
-              variant="outline"
-              size="md"
-              className="border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold flex items-center gap-1.5 shadow-xs text-xs py-2 px-3.5"
+              className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold flex items-center gap-1.5 shadow-2xs text-xs py-2.5 px-3.5 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
             >
-              <FileText className="w-4 h-4 text-rose-600" />
+              <FileText className="w-4 h-4 text-slate-600" />
               <span>Law Enforcement PDF</span>
-            </Button>
+            </button>
           )}
 
-          <Button
+          <button
             onClick={() => {
               setSelectedCoords(null);
               setShowReportModal(true);
             }}
-            size="sm"
-            className="font-extrabold hidden sm:inline-flex shrink-0 shadow-sm text-xs py-2.5 px-4"
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-xs hover:shadow-rose-600/30 text-xs py-2.5 px-4 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Report Street Hazard
-          </Button>
+            <Plus className="w-4 h-4" />
+            <span>Report Hazard</span>
+          </button>
         </div>
       </div>
 
       {/* Mobile Segmented View Switcher (Feed List vs Interactive Map) */}
-      <div className="flex items-center p-1 bg-white border border-slate-200 rounded-2xl shadow-xs lg:hidden">
+      <div className="flex items-center p-1 bg-white border border-slate-200/90 rounded-xl shadow-2xs lg:hidden">
         <button
           type="button"
           onClick={() => setMobileTab('feed')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
             mobileTab === 'feed'
-              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              ? 'bg-slate-900 text-white shadow-xs'
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
@@ -432,50 +429,9 @@ const LiveDangerFeedContent = () => {
         <button
           type="button"
           onClick={() => setMobileTab('map')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
             mobileTab === 'map'
-              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
-              : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <MapPin className="w-3.5 h-3.5" />
-          <span>Safety Map ({incidents.length} Pins)</span>
-        </button>
-=======
-        <Button
-          onClick={() => {
-            setSelectedCoords(null);
-            setShowReportModal(true);
-          }}
-          size="sm"
-          className="font-extrabold hidden sm:inline-flex shrink-0 shadow-sm text-xs py-2.5 px-4"
-        >
-          <Plus className="w-4 h-4 mr-1.5" />
-          Report Street Hazard
-        </Button>
-      </div>
-
-      {/* Mobile Segmented View Switcher (Feed List vs Interactive Map) */}
-      <div className="flex items-center p-1 bg-white border border-slate-200 rounded-2xl shadow-xs lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileTab('feed')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-            mobileTab === 'feed'
-              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
-              : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5" />
-          <span>Feed List ({incidents.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setMobileTab('map')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-            mobileTab === 'map'
-              ? 'bg-slate-900 text-white shadow-sm ring-2 ring-rose-500/30'
+              ? 'bg-slate-900 text-white shadow-xs'
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
@@ -531,21 +487,21 @@ const LiveDangerFeedContent = () => {
         <div className={`lg:col-span-5 h-[calc(100vh-280px)] min-h-[420px] lg:h-full ${
           mobileTab === 'map' ? 'block' : 'hidden lg:block'
         }`}>
-          <Card className="p-1.5 h-full flex flex-col overflow-hidden relative border-slate-200/80 shadow-card">
-            <div className="px-3.5 py-2.5 bg-white/95 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between gap-2 overflow-hidden">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
-                <span className="text-xs font-extrabold text-slate-900 tracking-tight whitespace-nowrap font-display">
-                  Live Safety Map
+          <div className="bg-white border border-slate-200/90 rounded-2xl h-full flex flex-col overflow-hidden shadow-soft">
+            <div className="px-4 py-3 bg-white/90 border-b border-slate-200/80 flex items-center justify-between gap-2 backdrop-blur-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-bold text-slate-900 tracking-tight font-display">
+                  Safety Incident Telemetry Map
                 </span>
               </div>
 
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[10px] sm:text-[11px] font-extrabold text-white whitespace-nowrap flex-shrink-0 font-display shadow-xs">
+              <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100/90 text-slate-700 border border-slate-200 shadow-2xs font-display">
                 {incidents.length} Active Pins
               </span>
             </div>
 
-            <div className="flex-1 w-full rounded-2xl overflow-hidden relative z-10">
+            <div className="flex-1 w-full overflow-hidden relative z-10">
               {isLocationLoading ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-[#F9F8FA] p-8 text-center space-y-3">
                   <LoadingSpinner label="Fetching your real-time GPS location..." />
@@ -710,7 +666,7 @@ const LiveDangerFeedContent = () => {
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
 

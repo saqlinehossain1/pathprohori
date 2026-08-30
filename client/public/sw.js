@@ -4,7 +4,7 @@ self.addEventListener('push', function (event) {
   let data = {
     title: '🚨 PATHPROHORI Emergency Alert',
     body: 'An emergency signal was detected!',
-    icon: '/favicon.ico',
+    icon: '/logo.png',
     url: '/',
   };
 
@@ -16,16 +16,21 @@ self.addEventListener('push', function (event) {
     }
   }
 
+  const targetUrl = data.data?.url || data.url || '/';
+
   const options = {
     body: data.body,
-    icon: data.icon || '/favicon.ico',
-    badge: data.icon || '/favicon.ico',
-    vibrate: [200, 100, 200, 100, 200],
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/logo.png',
+    tag: data.tag || `emergency-alert-${Date.now()}`,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [300, 100, 300, 100, 300],
     data: {
-      url: data.url || '/',
+      url: targetUrl,
     },
     actions: [
-      { action: 'open_app', title: 'Open Dashboard' },
+      { action: 'open_app', title: 'Open Live Stream' },
     ],
   };
 
@@ -36,19 +41,34 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || '/';
+
+  const rawUrl = event.notification.data?.url || event.notification.data?.data?.url || '/';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+      // 1. If an open tab matches targetUrl exactly, focus it
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url === targetUrl && 'focus' in client) {
           return client.focus();
         }
       }
+
+      // 2. If an open tab from this origin exists, focus and navigate to targetUrl
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if ('navigate' in client && 'focus' in client) {
+          client.focus();
+          return client.navigate(targetUrl);
+        }
+      }
+
+      // 3. Otherwise open new window at targetUrl
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(targetUrl);
       }
     })
   );
 });
+

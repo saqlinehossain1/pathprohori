@@ -20,7 +20,9 @@ import { sendPushNotification } from './pushService.js';
  */
 export const dispatchMultiChannelEmergencyAlert = async ({ user = {}, emergency = {}, recipients = [], location = {} }) => {
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-  const trackingUrl = emergency?._id ? `${clientUrl}/notifications` : clientUrl;
+  const token = emergency?.trackingToken || (emergency?.trip && emergency.trip.trackingToken);
+  const relativeTrackingPath = token ? `/track/${token}` : (emergency?._id ? `/notifications` : '/');
+  const trackingUrl = `${clientUrl}${relativeTrackingPath}`;
   const addressStr = location.address || emergency?.location?.address || 'GPS Location Attached';
 
   const smsBody = buildEmergencySMSBody({
@@ -78,8 +80,11 @@ export const dispatchMultiChannelEmergencyAlert = async ({ user = {}, emergency 
         sendPushNotification(sub, {
           title: '🚨 SOS Emergency Alert',
           body: `${user.name || 'Commuter'} launched panic near ${addressStr}`,
-          icon: '/pwa-192x192.png',
-          data: { url: trackingUrl },
+          icon: '/logo.png',
+          url: relativeTrackingPath,
+          data: { url: relativeTrackingPath },
+          tag: `emergency-alert-${Date.now()}`,
+          renotify: true,
         })
       );
     });

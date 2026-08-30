@@ -5,13 +5,9 @@ import { useTrip } from '../hooks/useTrip';
 import ActiveTripBanner from '../components/dashboard/ActiveTripBanner';
 import StatsOverview from '../components/dashboard/StatsOverview';
 import QuickActionsCard from '../components/dashboard/QuickActionsCard';
-import LiveCommunityMarquee from '../components/dashboard/LiveCommunityMarquee';
-import AnimatedBentoGrid from '../components/dashboard/AnimatedBentoGrid';
-import InteractiveHoverButton from '../components/ui/InteractiveHoverButton';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { Sparkles, ShieldAlert, CheckCircle2, ArrowRight, ShieldCheck, Bell } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, ArrowRight, ShieldCheck, Bell } from 'lucide-react';
 import tripApi from '../api/tripApi';
-import PanicButton from '../components/emergency/PanicButton';
 import PersonalSafetyStatusCard from '../components/dashboard/PersonalSafetyStatusCard';
 
 export const Dashboard = () => {
@@ -52,63 +48,65 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-8 relative pb-12">
-      {/* Clean Text Welcome Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
+    <div className="space-y-6 pb-8 animate-page-enter">
+      {/* Clean Operations Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-extrabold mb-2 border border-emerald-200 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-display">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100/90 text-emerald-950 rounded-md text-[11px] font-black mb-1.5 border border-emerald-300 shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            <span>
               {isResponseRole
-                ? 'PATHPROHORI Control Room & Operator Dispatch Center'
-                : 'PATHPROHORI Safety Engine Active'}
+                ? 'Control Room & Safety Operations Dispatch'
+                : 'Safety Telemetry Loop Active'}
             </span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 ml-1" />
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight font-display">
-            Welcome back, {user?.name || (isResponseRole ? 'System Monitor' : 'Commuter')}!
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight font-display">
+            Welcome back, {user?.name || (isResponseRole ? 'System Monitor' : 'Commuter')}
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-700 mt-1 font-semibold leading-relaxed max-w-2xl">
             {isResponseRole
-              ? 'Monitoring real-time emergency signals, high-alert transit telemetry, and safety notifications across all commuter routes.'
-              : 'Your signal heartbeat is monitored in real-time. Historical coordinates automatically purge after 48 hours per privacy guidelines.'}
+              ? 'Monitoring real-time emergency signals, transit telemetry, and safety feeds across active commuter corridors.'
+              : 'Continuous heartbeat telemetry active. GPS coordinates automatically purged after 48 hours.'}
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-shrink-0">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2.5 flex-shrink-0">
           {!isResponseRole && (
-            <InteractiveHoverButton onClick={() => navigate('/log-journey')} className="w-full sm:w-auto whitespace-nowrap">
-              Log New Journey
-            </InteractiveHoverButton>
+            <button
+              onClick={() => navigate('/log-journey')}
+              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all flex items-center gap-2 shadow-xs hover:shadow-rose-600/30 active:scale-[0.98] cursor-pointer"
+            >
+              <span>Log New Journey</span>
+            </button>
           )}
 
           <button
-            onClick={() => navigate('/notifications')}
-            className="order-3 w-full sm:w-auto px-4 py-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap font-display"
+            onClick={() => navigate('/live-danger-feed')}
+            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-2xs hover:border-slate-400 active:scale-[0.98] cursor-pointer"
           >
-            <Bell className="w-4 h-4 text-rose-600 flex-shrink-0" />
-            <span className="whitespace-nowrap">Notifications</span>
+            <ShieldAlert className="w-4 h-4 text-rose-600" />
+            <span>Live Danger Feed</span>
           </button>
 
           <button
-            onClick={() => navigate('/live-danger-feed')}
-            className="order-2 w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-2xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap flex-shrink-0 font-display"
+            onClick={() => navigate('/notifications')}
+            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-xl text-xs font-black transition-all flex items-center justify-center shadow-2xs hover:border-slate-400 active:scale-[0.98] cursor-pointer"
+            title="Emergency Notifications"
           >
-            <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0" />
-            <span className="whitespace-nowrap">Live Danger Feed</span>
+            <Bell className="w-4 h-4 text-slate-700" />
           </button>
         </div>
       </div>
 
-      {/* Standalone Personal Safety Status (Safe / Feeling Unsafe) */}
+      {/* 1. Primary Personal Safety Status Panel */}
       {!isResponseRole && (
         <PersonalSafetyStatusCard />
       )}
 
-      {/* Active Trip Tracking Status Banner (If Active) */}
+      {/* 2. Active Transit Tracking Status (If In-Transit) */}
       {activeTrip && (
         <ActiveTripBanner
           activeTrip={activeTrip}
@@ -122,45 +120,44 @@ export const Dashboard = () => {
         />
       )}
 
-      {/* Recent Safe Journey 1-Liner Banner (If No Active Trip & Recent Safe Journey Exists) */}
+      {/* 3. Recent Safe Journey Summary (If Idle) */}
       {!activeTrip && recentSafeTrip && (
-        <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-emerald-50 to-white border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+        <div className="p-4 bg-gradient-to-r from-emerald-50/90 via-white to-white border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-soft">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-600/20">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black text-slate-900 font-display truncate">
-                🎉 Safe Arrival Confirmed: Last journey to <span className="text-emerald-700 font-extrabold">{recentSafeTrip.destination}</span> via {recentSafeTrip.vehicleType} arrived safely.
-              </p>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Location telemetry & check-in photos will auto-purge in 48 hours for privacy.
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs sm:text-sm font-black text-slate-950 truncate">
+                  Safe Arrival Confirmed: Last journey to <span className="text-emerald-700 font-black underline decoration-emerald-300 underline-offset-2">{recentSafeTrip.destination}</span> arrived safely.
+                </p>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 shrink-0">
+                  ⏱️ 48h Auto-Purge
+                </span>
+              </div>
+              <p className="text-xs text-slate-700 font-semibold mt-0.5">
+                Transit telemetry & GPS breadcrumbs will automatically purge in 48 hours for commuter privacy.
               </p>
             </div>
           </div>
 
           <button
             onClick={() => navigate('/log-journey')}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs active:scale-95 font-display"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs hover:shadow-md active:scale-95"
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>View Safe Journeys</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Trip History</span>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
           </button>
         </div>
       )}
 
-      {/* High Level Stats Overview Metrics */}
+      {/* 4. High-Level Telemetry & Operational Metrics */}
       <StatsOverview />
 
-      {/* Magic Bento Grid Showcase */}
-      <AnimatedBentoGrid />
-
-      {/* Quick Action Navigation Grid */}
+      {/* 5. Quick Operational Shortcuts */}
       <QuickActionsCard />
-
-      {/* Infinite Scrolling Safety Marquee & Testimonials */}
-      <LiveCommunityMarquee />
     </div>
   );
 };

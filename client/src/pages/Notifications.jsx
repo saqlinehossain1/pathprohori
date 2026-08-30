@@ -269,19 +269,19 @@ export const Notifications = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Clean Minimal Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 animate-page-enter">
+      {/* Clean Incident Operations Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs font-display">
-            <Bell className="w-3.5 h-3.5 text-rose-600" />
-            <span>Emergency Guardian Feed</span>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-red-50 text-red-700 rounded-md text-[11px] font-bold mb-1.5 border border-red-200 shadow-2xs">
+            <Siren className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+            <span>Emergency Dispatch Feed</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
-            Emergency SOS Notifications
+            Incident Alerts & SOS Signals
           </h1>
-          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
-            Real-time emergency distress signals, GPS location telemetry, and vehicle details from commuters
+          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed max-w-2xl">
+            Real-time distress events, reverse-geocoded coordinates, and continuous guardian notifications.
           </p>
         </div>
 
@@ -291,74 +291,74 @@ export const Notifications = () => {
             <button
               onClick={handleMarkAllAsRead}
               disabled={markingAllRead}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-2xl transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95 font-display"
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs active:scale-[0.98] flex items-center gap-1.5 cursor-pointer"
             >
               <CheckCheck className="w-4 h-4 text-emerald-400" />
-              <span>{markingAllRead ? 'Marking...' : 'Mark All as Read'}</span>
+              <span>{markingAllRead ? 'Marking...' : 'Mark All Read'}</span>
             </button>
           </div>
         )}
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 bg-white/70 border border-slate-200/80 rounded-2xl p-1.5 text-xs font-display overflow-x-auto shadow-xs">
-          <button
-            onClick={() => setActiveFilter('ALL')}
-            className={`px-4 py-2 rounded-xl font-extrabold transition-all cursor-pointer ${
-              activeFilter === 'ALL'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            All Alerts ({notifications.length})
-          </button>
+      <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 text-xs overflow-x-auto shadow-2xs">
+        <button
+          onClick={() => setActiveFilter('ALL')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer active:scale-95 font-display ${
+            activeFilter === 'ALL'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          All Alerts ({notifications.length})
+        </button>
 
-          <button
-            onClick={() => setActiveFilter('UNREAD')}
-            className={`px-4 py-2 rounded-xl font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'UNREAD'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-            <span>Active SOS ({activeCount})</span>
-          </button>
+        <button
+          onClick={() => setActiveFilter('UNREAD')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 font-display ${
+            activeFilter === 'UNREAD'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+          <span>Active SOS ({activeCount})</span>
+        </button>
 
-          <button
-            onClick={() => setActiveFilter('RESOLVED')}
-            className={`px-4 py-2 rounded-xl font-extrabold transition-all cursor-pointer ${
-              activeFilter === 'RESOLVED'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Resolved ({resolvedCount})
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveFilter('RESOLVED')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer active:scale-95 font-display ${
+            activeFilter === 'RESOLVED'
+              ? 'bg-emerald-700 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          Resolved ({resolvedCount})
+        </button>
+      </div>
 
       {/* Notifications List or Empty State */}
       {filteredNotifications.length === 0 ? (
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-10 text-center space-y-4 shadow-card">
-          <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center border-2 border-emerald-200 shadow-2xs">
-            <ShieldCheck className="w-8 h-8" />
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-12 text-center space-y-3.5 shadow-soft">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center border border-emerald-200/80 shadow-2xs">
+            <ShieldCheck className="w-7 h-7" />
           </div>
 
-          <div className="space-y-1 max-w-sm mx-auto">
-            <h2 className="text-lg font-black text-slate-900 font-display">
-              {activeFilter === 'RESOLVED' ? 'No Resolved Alerts Yet' : activeFilter === 'UNREAD' ? 'No Active SOS Alerts' : 'All Monitored Commuters Are Safe'}
+          <div className="space-y-1.5 max-w-sm mx-auto">
+            <h2 className="text-lg font-extrabold text-slate-900 font-display">
+              {activeFilter === 'RESOLVED' ? 'No Resolved Alerts' : activeFilter === 'UNREAD' ? 'No Active Emergency Signals' : 'All Monitored Commuters Are Safe'}
             </h2>
             <p className="text-xs text-slate-500 font-medium leading-relaxed">
               {activeFilter === 'RESOLVED'
-                ? 'Resolved false alarms and completed emergency responses will be kept here for reference.'
+                ? 'Resolved false alarms and concluded emergency responses will be logged here.'
                 : activeFilter === 'UNREAD'
-                  ? 'There are no active emergency signals requiring attention right now.'
-                  : 'Emergency history and live SOS signals will appear here as they are received.'}
+                  ? 'There are no active emergency signals requiring intervention at this time.'
+                  : 'Emergency history and live SOS signals will appear here automatically.'}
             </p>
           </div>
         </div>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-4">
           {filteredNotifications.map((notif) => {
             const isUnread = !notif.read;
             const lat = notif.location?.latitude ?? notif.location?.lat ?? notif.latitude;
@@ -368,159 +368,158 @@ export const Notifications = () => {
 
             const commuterName = notif.user?.name || 'Commuter';
             const commuterPhone = notif.user?.phone || '';
+            const isResolved = notif.status === 'RESOLVED';
 
             return (
               <div
                 key={notif.id}
                 className={`p-5 rounded-2xl border transition-all relative overflow-hidden ${
-                  notif.status !== 'RESOLVED'
-                    ? notif.alertType === 'SILENT_DURESS'
-                      ? 'bg-red-50 border-red-400 shadow-md shadow-red-100'
-                      : 'bg-rose-50 border-rose-300 shadow-sm'
-                    : 'bg-white border-slate-200/90 shadow-card hover:border-slate-300'
+                  !isResolved
+                    ? 'bg-white border-2 border-red-300 shadow-soft hover-lift'
+                    : 'bg-white/80 border border-slate-200/90 shadow-2xs'
                 }`}
               >
-                {/* Visual Unread Accent Indicator */}
-                {isUnread && (
-                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-rose-600 rounded-l-2xl" />
+                {/* Unread Indicator Bar */}
+                {isUnread && !isResolved && (
+                  <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-red-600 rounded-l-2xl" />
                 )}
 
                 <div className="space-y-3">
-                  {/* Top Status & Date */}
+                  {/* Top Status & Timestamp Header */}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wide font-display ${
-                          notif.status !== 'RESOLVED'
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
+                          !isResolved
                             ? notif.alertType === 'SILENT_DURESS'
-                              ? 'bg-red-700 text-white shadow-xs'
+                              ? 'bg-red-700 text-white'
                               : notif.alertType === 'FEELING_UNSAFE'
-                              ? 'bg-amber-500 text-slate-950 shadow-xs'
-                              : notif.alertType === 'HAZARD_PROXIMITY'
-                              ? 'bg-orange-600 text-white shadow-xs'
-                              : 'bg-rose-600 text-white shadow-xs'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : 'bg-red-600 text-white'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         }`}
                       >
-                        {notif.status !== 'RESOLVED' ? (
-                          notif.alertType === 'FEELING_UNSAFE' ? <AlertTriangle className="w-3.5 h-3.5" /> : <Siren className="w-3.5 h-3.5" />
+                        {!isResolved ? (
+                          notif.alertType === 'FEELING_UNSAFE' ? (
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                          ) : (
+                            <Siren className="w-3.5 h-3.5 text-white" />
+                          )
                         ) : (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         )}
-                        <span>{notif.status !== 'RESOLVED'
-                          ? notif.alertType === 'SILENT_DURESS'
-                            ? 'SILENT DURESS - CONTACT POLICE'
+                        <span>
+                          {!isResolved
+                            ? notif.alertType === 'SILENT_DURESS'
+                              ? 'SILENT DURESS'
+                              : notif.alertType === 'FEELING_UNSAFE'
+                              ? 'FEELING UNSAFE'
+                              : 'ACTIVE SOS ALERT'
                             : notif.alertType === 'FEELING_UNSAFE'
-                            ? 'COMMUTER FEELING UNSAFE'
-                            : notif.alertType === 'HAZARD_PROXIMITY'
-                            ? 'NEAR VERIFIED HAZARD (500M)'
-                            : 'ACTIVE SOS ALERT'
-                          : notif.alertType === 'FEELING_UNSAFE'
-                          ? 'COMMUTER MARKED SAFE'
-                          : notif.alertType === 'SILENT_DURESS'
-                          ? 'DURESS RESPONSE RESOLVED'
-                          : 'FALSE ALARM RESOLVED'}</span>
+                            ? 'COMMUTER MARKED SAFE'
+                            : 'FALSE ALARM RESOLVED'}
+                        </span>
                       </span>
 
-                      {isUnread && (
-                        <span className="px-2 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-black rounded-full uppercase tracking-wider font-display">
+                      {isUnread && !isResolved && (
+                        <span className="px-1.5 py-0.2 bg-red-100 text-red-800 text-[10px] font-bold rounded">
                           NEW
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
                       <span>{formatDate(notif.timestamp)}</span>
                     </div>
                   </div>
 
-                  {/* Details Card Grid */}
+                  {/* Official Commuter & Signal Data Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 bg-white/80 rounded-xl border border-slate-200/80 space-y-0.5">
-                      <span className="text-[10px] font-extrabold uppercase text-slate-400 block font-display">
-                        Commuter Name
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
+                        Commuter Details
                       </span>
-                      <p className="font-extrabold text-slate-900 text-sm font-display flex items-center gap-1.5">
+                      <p className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
                         {notif.user?.avatarUrl ? (
-                          <img src={notif.user.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover border border-rose-200" />
+                          <img src={notif.user.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
                         ) : (
-                          <User className="w-4 h-4 text-rose-600" />
+                          <User className="w-4 h-4 text-slate-500" />
                         )}
                         <span>{commuterName}</span>
                       </p>
                       {commuterPhone && (
-                        <p className="text-slate-600 font-mono text-[11px]">Phone: {commuterPhone}</p>
+                        <p className="text-slate-600 font-mono text-xs mt-0.5">Contact: {commuterPhone}</p>
                       )}
                     </div>
 
-                    <div className="p-3 bg-white/80 rounded-xl border border-slate-200/80 space-y-0.5">
-                      <span className="text-[10px] font-extrabold uppercase text-slate-400 block font-display">
-                        Signal Message
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
+                        Incident Signal
                       </span>
-                      <p className="text-slate-700 font-medium leading-snug">
+                      <p className="text-slate-700 font-normal leading-snug">
                         {notif.message || 'Emergency trigger initiated by commuter.'}
                       </p>
                     </div>
                   </div>
 
-                  {/* Detailed Location & Coordinates Strip */}
-                  <div className="p-3 bg-white/90 rounded-xl border border-slate-200 space-y-2 text-xs shadow-2xs">
+                  {/* Precise Location & Landmark Strip */}
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5 text-xs">
                     <div className="flex items-start gap-2.5 text-slate-800">
-                      <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5">
-                        <MapPin className="w-4 h-4 text-rose-600" />
+                      <div className="w-6 h-6 rounded-md bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5">
+                        <MapPin className="w-3.5 h-3.5 text-rose-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block font-display tracking-wider">
-                          Incident Location (Place & Landmark)
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
+                          Incident Location & Coordinates
                         </span>
-                        <div className="text-slate-900 font-extrabold text-sm leading-snug mt-0.5">
+                        <div className="text-slate-900 font-bold text-xs leading-snug mt-0.5">
                           {hasCoords ? (
                             <LocationName lat={lat} lng={lng} address={notif.location?.address} />
                           ) : (
-                            <span className="text-slate-400 font-normal">GPS coordinates unavailable</span>
+                            <span className="text-slate-400 font-normal">Coordinates unavailable</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {hasCoords && (
-                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px] text-slate-500 font-mono">
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200 text-[11px] text-slate-500 font-mono">
                         <div className="flex items-center gap-1.5">
-                          <Navigation className="w-3 h-3 text-rose-500 shrink-0" />
-                          <span>Exact GPS: <strong className="text-slate-700 font-bold">{lat.toFixed(5)}° N, {lng.toFixed(5)}° E</strong></span>
+                          <Navigation className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>Coordinates: <strong className="text-slate-700">{lat.toFixed(5)}° N, {lng.toFixed(5)}° E</strong></span>
                         </div>
-                        <span className="text-[10px] text-slate-400 font-sans font-medium">Auto-Reverse Geocoded</span>
+                        <span className="text-[10px] text-slate-400 font-sans">OpenStreetMap</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Action Buttons Bar */}
-                  <div className="pt-3 border-t border-slate-200/80 flex flex-wrap items-center gap-2 text-xs">
-                    {/* Live Tracking Link Button */}
-                    {notif.trackingToken && (
+                  {/* Action Controls Bar with Clear Visual Hierarchy */}
+                  <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center gap-2 text-xs">
+                    {/* PRIMARY ACTION: Live Tracking Stream Link */}
+                    {notif.trackingToken && !isResolved && (
                       <a
                         href={`/track/${notif.trackingToken}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-2.5 px-4 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95 font-display whitespace-nowrap"
+                        className="py-2 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                       >
-                        <Radio className="w-3.5 h-3.5 animate-pulse text-yellow-300 shrink-0" />
-                        <span>Open Live Tracking Stream</span>
-                        <ExternalLink className="w-3 h-3 ml-0.5 shrink-0" />
+                        <Radio className="w-3.5 h-3.5 text-white animate-pulse shrink-0" />
+                        <span>Open Live Tracking</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
                       </a>
                     )}
 
-                    {/* Evidence Locker Toggle Button */}
+                    {/* SECONDARY ACTIONS: Neutral / Outlined Styles */}
                     <button
                       type="button"
                       onClick={() => {
                         const emergencyId = String(notif.emergencyId || notif.id);
                         setExpandedEvidenceId(expandedEvidenceId === emergencyId ? null : emergencyId);
                       }}
-                      className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs active:scale-95 font-display cursor-pointer whitespace-nowrap"
+                      className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                     >
-                      <HardDrive className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <HardDrive className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                       <span>Evidence Locker</span>
                       {expandedEvidenceId === String(notif.emergencyId || notif.id) ? (
                         <ChevronUp className="w-3.5 h-3.5 shrink-0" />
@@ -529,20 +528,22 @@ export const Notifications = () => {
                       )}
                     </button>
 
-                    <a
-                      href="tel:999"
-                      className="py-2.5 px-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 uppercase font-display whitespace-nowrap"
-                    >
-                      <PhoneCall className="w-3.5 h-3.5 shrink-0" />
-                      <span>Call 999</span>
-                    </a>
+                    {!isResolved && (
+                      <a
+                        href="tel:999"
+                        className="py-2 px-3 bg-white hover:bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                        <span>Call 999</span>
+                      </a>
+                    )}
 
-                    {commuterPhone && (
+                    {commuterPhone && !isResolved && (
                       <a
                         href={`tel:${commuterPhone}`}
-                        className="py-2.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display whitespace-nowrap"
+                        className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                       >
-                        <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+                        <PhoneCall className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                         <span>Call Commuter</span>
                       </a>
                     )}
@@ -552,22 +553,22 @@ export const Notifications = () => {
                         href={mapUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-2.5 px-3.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display whitespace-nowrap"
+                        className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                       >
-                        <Navigation className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <Navigation className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <span>Google Map</span>
-                        <ExternalLink className="w-3 h-3 ml-0.5 shrink-0" />
+                        <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
                       </a>
                     )}
 
-                    {notif.status !== 'RESOLVED' && user && (
+                    {!isResolved && user && (
                       <button
                         type="button"
                         onClick={() => resolveAlert(notif)}
                         disabled={resolvingId === String(notif.emergencyId || notif.id)}
-                        className="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 font-display cursor-pointer whitespace-nowrap sm:ml-auto"
+                        className="py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer sm:ml-auto"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                         <span>{resolvingId === String(notif.emergencyId || notif.id) ? 'Resolving...' : 'Mark Resolved'}</span>
                       </button>
                     )}
@@ -575,10 +576,10 @@ export const Notifications = () => {
 
                   {/* Expandable Evidence Locker Section */}
                   {expandedEvidenceId === String(notif.emergencyId || notif.id) && (
-                    <div className="pt-3 mt-3 border-t border-slate-200/80 animate-fadeIn">
+                    <div className="pt-3 mt-3 border-t border-slate-200">
                       <EvidenceLockerViewer
                         emergencyId={notif.emergencyId || notif.id}
-                        isLive={notif.status !== 'RESOLVED'}
+                        isLive={!isResolved}
                       />
                     </div>
                   )}

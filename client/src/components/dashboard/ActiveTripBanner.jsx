@@ -89,33 +89,35 @@ export const ActiveTripBanner = ({
   };
 
   return (
-    <Card className="border-rose-200 bg-gradient-to-br from-white via-rose-50/30 to-amber-50/20 shadow-lg relative overflow-hidden">
+    <div className={`border rounded-xl p-5 shadow-xs transition-colors ${
+      isEmergencyActive ? 'border-red-300 bg-red-50/40' : 'border-slate-200/90 bg-white'
+    }`}>
       {/* Top Banner Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-rose-100 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center animate-pulse">
-            <Activity className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center">
+            <Activity className="w-5 h-5 text-rose-500" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-slate-900 font-display">
-                Active Transit Tracking Live
+              <h2 className="text-base font-bold text-slate-900">
+                Active Transit Tracking
               </h2>
-              <Badge variant="highAlert">{activeTrip.status}</Badge>
+              <Badge variant={isEmergencyActive ? 'highAlert' : 'default'}>{activeTrip.status}</Badge>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
-              Heartbeat monitor checking connection & location telemetry
+            <p className="text-xs text-slate-500 font-normal">
+              15s telemetry heartbeat connected · linked to guardians
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => navigate('/log-journey')}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer font-display"
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
-            <MapPin className="w-4 h-4 text-rose-400" />
-            <span>View Live Journey Map</span>
+            <MapPin className="w-3.5 h-3.5 text-rose-400" />
+            <span>View Live Map</span>
           </button>
 
           {!isResponseRole && (
@@ -124,10 +126,10 @@ export const ActiveTripBanner = ({
               size="sm"
               onClick={handlePanic}
               loading={panicLoading}
-              className="px-4 py-2 text-xs font-black shadow-md shadow-rose-950/20"
+              className="px-3.5 py-2 text-xs font-bold"
             >
-              <AlertTriangle className="w-4 h-4 mr-1" />
-              1-TAP PANIC
+              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+              1-Tap Panic
             </Button>
           )}
 
@@ -135,40 +137,40 @@ export const ActiveTripBanner = ({
             variant="secondary"
             size="sm"
             onClick={() => (isEmergencyActive ? setShowDeactivateModal(true) : setShowFinishPinModal(true))}
-            className="text-xs font-extrabold px-4 py-2"
+            className="text-xs font-semibold px-3.5 py-2"
           >
-            <CheckCircle2 className="w-4 h-4 mr-1 text-emerald-500" />
-            {isEmergencyActive ? 'Deactivate Alarm to Finish' : 'End Trip Safely'}
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+            {isEmergencyActive ? 'Deactivate Alarm' : 'Complete Trip Safely'}
           </Button>
         </div>
       </div>
 
       {signalLossAlert && (
-        <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-bold animate-bounce shadow-xs">
-          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-amber-900 text-xs font-semibold shadow-xs">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
           <span>
-            CRITICAL WARNING: Signal lost for active trip #{activeTrip._id?.substring(0, 6)}! Emergency protocols countdown active.
+            CRITICAL WARNING: Signal lost for active journey #{activeTrip._id?.substring(0, 6)}! Emergency protocols countdown active.
           </span>
         </div>
       )}
 
       {/* Trip Details Grid */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold">
-        <div className="bg-white/95 p-3 rounded-2xl border border-rose-200/60 shadow-xs">
-          <span className="text-slate-500 block text-[10px] uppercase font-display font-extrabold">Vehicle</span>
-          <span className="text-slate-900 font-black text-sm font-display">{activeTrip.vehicleType}</span>
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Vehicle</span>
+          <span className="text-slate-900 font-bold text-sm">{activeTrip.vehicleType}</span>
         </div>
-        <div className="bg-white/95 p-3 rounded-2xl border border-rose-200/60 shadow-xs">
-          <span className="text-slate-500 block text-[10px] uppercase font-display font-extrabold">Number Plate</span>
-          <span className="text-slate-900 font-black text-sm font-display">{activeTrip.numberPlate || 'N/A'}</span>
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Number Plate</span>
+          <span className="text-slate-900 font-bold text-sm font-mono">{activeTrip.numberPlate || 'N/A'}</span>
         </div>
-        <div className="bg-white/95 p-3 rounded-2xl border border-rose-200/60 shadow-xs">
-          <span className="text-slate-500 block text-[10px] uppercase font-display font-extrabold">Destination</span>
-          <span className="text-slate-900 font-black text-sm truncate block font-display">{activeTrip.destination || 'Unspecified'}</span>
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Destination</span>
+          <span className="text-slate-900 font-bold text-sm truncate block">{activeTrip.destination || 'Unspecified'}</span>
         </div>
-        <div className="bg-white/95 p-3 rounded-2xl border border-rose-200/60 shadow-xs">
-          <span className="text-slate-500 block text-[10px] uppercase font-display font-extrabold">Est. Duration</span>
-          <span className="text-slate-900 font-black text-sm font-display">{activeTrip.estimatedTimeMinutes} Mins</span>
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Est. Duration</span>
+          <span className="text-slate-900 font-bold text-sm">{activeTrip.estimatedTimeMinutes} Mins</span>
         </div>
       </div>
 
@@ -227,7 +229,7 @@ export const ActiveTripBanner = ({
           </button>
         </div>
       </Modal>
-    </Card>
+    </div>
   );
 };
 

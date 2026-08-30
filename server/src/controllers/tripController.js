@@ -522,8 +522,11 @@ export const triggerPanic = async (req, res, next) => {
         sendPushNotification(pushUser.pushSubscription, {
           title: emergencyTitle,
           body: `🚨 4h live emergency tracking stream! Vehicle: ${vehicleInfo} | Destination: ${trip.destination || 'Destination'}`,
-          icon: '/pwa-192x192.png',
+          icon: '/logo.png',
           url: `/track/${trip.trackingToken}`,
+          data: { url: `/track/${trip.trackingToken}` },
+          tag: `emergency-alert-${Date.now()}`,
+          renotify: true,
         }).catch((e) => console.error('Push notification error:', e));
       }
     }
@@ -708,6 +711,27 @@ export const cancelPanic = async (req, res, next) => {
       });
     }
 
+    // Dispatch resolution push notification to guardians
+    try {
+      const targetPushUsers = await User.find({
+        _id: { $ne: req.user._id },
+        'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
+      });
+      for (const pushUser of targetPushUsers) {
+        if (pushUser.pushSubscription) {
+          sendPushNotification(pushUser.pushSubscription, {
+            title: '✅ FALSE ALARM RESOLVED',
+            body: `${user.name} entered safety PIN and confirmed safe. False alarm resolved.`,
+            icon: '/logo.png',
+            url: `/notifications`,
+            data: { url: `/notifications` },
+            tag: `emergency-resolved-${Date.now()}`,
+            renotify: true,
+          }).catch((e) => console.error('Push notification resolve error:', e));
+        }
+      }
+    } catch (_) {}
+
     return res.json({
       success: true,
       message: 'Panic alarm cancelled and safe tracking resumed.',
@@ -835,6 +859,27 @@ export const deactivateAlarm = async (req, res, next) => {
         completedAt: trip.completedAt,
       });
     }
+
+    // Dispatch resolution push notification to guardians
+    try {
+      const targetPushUsers = await User.find({
+        _id: { $ne: req.user._id },
+        'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
+      });
+      for (const pushUser of targetPushUsers) {
+        if (pushUser.pushSubscription) {
+          sendPushNotification(pushUser.pushSubscription, {
+            title: '✅ FALSE ALARM RESOLVED',
+            body: `${user?.name || 'Commuter'} entered safety PIN and confirmed safe. Alarm is resolved.`,
+            icon: '/logo.png',
+            url: `/notifications`,
+            data: { url: `/notifications` },
+            tag: `emergency-resolved-${Date.now()}`,
+            renotify: true,
+          }).catch((e) => console.error('Push notification resolve error:', e));
+        }
+      }
+    } catch (_) {}
 
     return res.json({
       success: true,

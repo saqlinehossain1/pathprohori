@@ -128,39 +128,37 @@ export const LogJourney = () => {
   }
 
   return (
-    <div className="space-y-5 pb-8">
-      {/* Compact journey workspace header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-slate-200/70 pb-4">
+    <div className="space-y-6 pb-8 animate-page-enter">
+      {/* Clean journey workspace header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <div className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-rose-700 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-md text-[11px] font-bold mb-1.5 border border-rose-200 shadow-2xs">
             <Navigation className="w-3.5 h-3.5 text-rose-600" />
-            <span>
-              {activeTrip ? 'Active Live Monitoring' : 'Journey Safety Logger'}
-            </span>
+            <span>{activeTrip ? 'Active Live Monitoring' : 'Transit Safety Logger'}</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display leading-none">
-            {activeTrip ? 'Live Journey Tracking Progress' : 'Log New Journey'}
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-display">
+            {activeTrip ? 'Live Journey Tracking' : 'Log New Journey'}
           </h1>
-          <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed max-w-2xl">
+          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed max-w-2xl">
             {activeTrip
-              ? 'Your journey is currently monitored by PATHPROHORI emergency guardians. Keep your phone connected.'
-              : 'Keep your commute secure. Search starting & destination map locations before starting your trip.'}
+              ? 'Your transit path is actively monitored by connected guardians. Telemetry pings every 15 seconds.'
+              : 'Record your transport details and route to ensure continuous guardian and control-room monitoring.'}
           </p>
         </div>
 
         <div className="shrink-0">
           <button
             onClick={handleOpenHistoryModal}
-            className="w-full sm:w-auto px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 text-xs font-extrabold rounded-xl transition-all border border-slate-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 font-display"
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold rounded-xl transition-all border border-slate-300 shadow-2xs hover:border-slate-400 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
           >
-            <History className="w-4 h-4 text-emerald-400" />
-            <span>My Safe Journeys</span>
+            <History className="w-4 h-4 text-emerald-600" />
+            <span>Trip History</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="p-3.5 bg-rose-50 text-rose-700 text-xs font-semibold rounded-2xl border border-rose-200 shadow-xs">
+        <div className="p-3.5 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200 shadow-2xs">
           {error}
         </div>
       )}
@@ -168,16 +166,16 @@ export const LogJourney = () => {
       {/* Render Ongoing Journey Map if activeTrip exists */}
       {activeTrip ? (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3.5 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl shadow-xs">
-            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
-              <Navigation className="w-4 h-4" />
+          <div className="flex items-center gap-3 p-4 bg-amber-50/90 border border-amber-200/80 rounded-2xl shadow-soft">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+              <Navigation className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-black text-amber-950 font-display">
-                Journey in progress ({activeTrip.startingLocation || 'Start'} → {activeTrip.destination || 'Destination'})
+              <p className="text-xs font-bold text-amber-950 font-display">
+                Transit in progress: {activeTrip.startingLocation || 'Origin'} → {activeTrip.destination || 'Destination'}
               </p>
-              <p className="text-[11px] text-amber-800 font-medium">
-                Live monitoring active. You can finish this journey safely using your PIN below.
+              <p className="text-[11px] text-amber-800 font-medium mt-0.5">
+                Live monitoring is active. You can complete this trip safely using your PIN below.
               </p>
             </div>
           </div>
@@ -195,61 +193,60 @@ export const LogJourney = () => {
         </div>
       ) : (
         /* Render Journey Log Form if no activeTrip */
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Main setup panel */}
-          <Card className="lg:col-span-8 shadow-card border-slate-200/80 p-4 sm:p-5">
+          <div className="lg:col-span-8 bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-soft">
             <JourneyForm
               formData={formData}
               setFormData={setFormData}
               onSubmit={handleSubmit}
               loading={starting}
             />
-          </Card>
+          </div>
 
-          {/* Journey summary rail */}
+          {/* Journey contextual summary rail */}
           <div className="lg:col-span-4 space-y-4">
-            <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200/80 space-y-4 shadow-card p-4 sm:p-5">
-              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm font-display">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <span>What gets monitored</span>
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-soft space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider border-b border-slate-100 pb-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="font-display">Monitoring Protocols</span>
               </div>
 
               <ul className="space-y-3 text-xs text-slate-600 font-medium">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span>Map place search & automatic coordinate mapping for operators & guardians.</span>
+                <li className="flex items-start gap-2.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>Interactive OpenStreetMap coordinate mapping for guardians & operators.</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span>Optional Cloudinary photo check-in for vehicle & number plate verification.</span>
+                <li className="flex items-start gap-2.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>Optional Cloudinary photo check-in for number plate & driver verification.</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span>Automated 48-hour privacy purge: Safe journey logs & photos auto-delete after 48 hours.</span>
+                <li className="flex items-start gap-2.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>15-second heartbeat loop detecting sudden offline disconnection.</span>
                 </li>
               </ul>
-            </Card>
 
-            <Card className="space-y-3 shadow-card border-slate-200/80 p-4 sm:p-5">
-              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm font-display">
-                <Lightbulb className="w-5 h-5 text-amber-500" />
-                <span>Commuter Safety Tip</span>
+              <div className="pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Auto-Purge Lifespan</span>
+                  <span className="font-extrabold text-slate-900 font-mono">48 Hours</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1 font-normal leading-relaxed">
+                  GPS coordinates and evidence photos automatically delete after the retention period.
+                </p>
               </div>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                Always verify vehicle number plates match before boarding CNGs, buses, or ride-share cars.
-              </p>
-            </Card>
-
-            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-wider font-extrabold text-rose-700">Privacy window</span>
-                <Clock className="w-4 h-4 text-rose-600" />
-              </div>
-              <p className="text-xl font-black text-slate-900 font-display">48 hours</p>
-              <p className="text-[11px] leading-relaxed text-slate-600">Location logs and check-in photos are automatically removed after your safety window.</p>
             </div>
-          </div>
+
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-2xs">
+              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="font-display">Commuter Safety Advice</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed font-medium">
+                Confirm vehicle license plates match your recorded details prior to boarding any CNG, shuttle, or cab.
+              </p>
+            </div>
           </div>
         </div>
       )}

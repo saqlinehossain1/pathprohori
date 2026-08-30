@@ -43,14 +43,18 @@ export const sendPushNotification = async (subscription, payload = {}) => {
   }
 
   try {
+    const targetUrl = payload.url || (payload.data && payload.data.url) || '/notifications';
     const payloadString = typeof payload === 'string' ? payload : JSON.stringify({
       title: payload.title || '🚨 PATHPROHORI EMERGENCY ALERT',
       body: payload.body || 'A high-priority emergency alert requires your attention.',
-      icon: payload.icon || '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
-      tag: 'emergency-alert',
+      icon: payload.icon || '/logo.png',
+      badge: payload.badge || '/logo.png',
+      tag: payload.tag || `emergency-alert-${Date.now()}`,
+      renotify: true,
+      requireInteraction: true,
       vibrate: [300, 100, 300, 100, 300],
-      data: payload.data || { url: payload.url || '/notifications' },
+      url: targetUrl,
+      data: { url: targetUrl, ...(payload.data || {}) },
     });
 
     await webpush.sendNotification(subscription, payloadString);
