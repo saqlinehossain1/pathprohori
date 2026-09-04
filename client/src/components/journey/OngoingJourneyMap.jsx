@@ -167,15 +167,14 @@ export const OngoingJourneyMap = ({
       : `${minutes}:${String(remaining).padStart(2, '0')}`;
   };
 
-  // Voice-Activated Hands-Free Hook
+  // Voice-Activated Hands-Free Hook (Global Context)
   const {
     isListening,
     transcript,
-    keywordMatched,
-    setKeywordMatched,
-    startListening,
-    stopListening,
     handsFreeActive,
+    setHandsFreeActive,
+    triggerAlarmTimer,
+    emergencyPhraseInput,
   } = useVoice();
   
   // Emergency Modal Popup & Duress PIN State
@@ -183,11 +182,6 @@ export const OngoingJourneyMap = ({
   const [showPanicModal, setShowPanicModal] = useState(false);
   const [showDuressModal, setShowDuressModal] = useState(false);
   const [isEndingJourneyWithPin, setIsEndingJourneyWithPin] = useState(false);
-
-  // 10-Second Grace Period Countdown State
-  const [showGraceModal, setShowGraceModal] = useState(false);
-  const [graceCountdown, setGraceCountdown] = useState(10);
-  const graceTimerRef = React.useRef(null);
 
   // HTML5 Battery Status API Helper
   const getBatteryLevel = async () => {
@@ -199,16 +193,6 @@ export const OngoingJourneyMap = ({
     }
     return 100;
   };
-
-  // Hands-free voice trigger: only triggers when user explicitly enabled hands-free mic and phrase matches
-  useEffect(() => {
-    if (keywordMatched && isListening && !panicTriggeredRef.current && !isEmergencyActive) {
-      panicTriggeredRef.current = true;
-      console.warn('🎙️ HANDS-FREE VOICE PHRASE DETECTED! INITIATING GRACE COUNTDOWN!');
-      handleInitiatePanic(false);
-      setKeywordMatched(false);
-    }
-  }, [keywordMatched, isListening, isEmergencyActive, setKeywordMatched]);
 
   // Fail-Safe Default Coordinates (Dhaka Mohakhali & Gulshan fallback if coordinates are missing/invalid)
   const defaultStart =
@@ -325,36 +309,7 @@ export const OngoingJourneyMap = ({
       executePanicTrigger(true);
       return;
     }
-    setGraceCountdown(10);
-    setShowGraceModal(true);
-  };
-
-  // 10-Second Grace Countdown Effect
-  useEffect(() => {
-    if (!showGraceModal) return;
-
-    if (graceCountdown <= 0) {
-      setShowGraceModal(false);
-      executePanicTrigger(false);
-      return;
-    }
-
-    graceTimerRef.current = setTimeout(() => {
-      setGraceCountdown((prev) => prev - 1);
-    }, 1000);
-
-    return () => {
-      if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
-    };
-  }, [showGraceModal, graceCountdown]);
-
-  // Cancel False Alarm during 10s Grace Period
-  const handleCancelGracePeriod = () => {
-    if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
-    setShowGraceModal(false);
-    setGraceCountdown(10);
-    panicTriggeredRef.current = false;
-    console.log('🛡️ Accidental Panic Trigger Cancelled during 10s Grace Period.');
+    triggerAlarmTimer(false);
   };
 
   // Execute Backend Panic Broadcast
@@ -403,11 +358,7 @@ export const OngoingJourneyMap = ({
 
   // Toggle Hands-Free Mic Listening
   const handleToggleVoiceMic = () => {
-    if (isListening || handsFreeActive) {
-      stopListening();
-    } else {
-      startListening();
-    }
+    setHandsFreeActive((prev) => !prev);
   };
 
   const trackingMode = isEmergencyActive ? 'EMERGENCY' : trip.safetyStatus === 'UNSAFE' ? 'UNSAFE' : 'NORMAL';
@@ -854,111 +805,6 @@ export const OngoingJourneyMap = ({
                   <span>End Journey Safely (PIN Required)</span>
                 </button>
               </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* HIGH-TECH 10-SECOND ACCIDENTAL PANIC GRACE PERIOD COUNTDOWN MODAL */}
-      {showGraceModal && createPortal(
-        <div className="fixed inset-0 z-[10000] bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950 border border-amber-500/40 rounded-3xl p-7 text-center space-y-6 shadow-[0_0_60px_rgba(245,158,11,0.2)] text-white animate-in zoom-in-95 duration-300 relative overflow-hidden">
-            {/* Ambient Top Glow Halo */}
-            <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-
-            {/* Top Status Pill */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-amber-500/15 border border-amber-500/30 rounded-full text-[11px] font-black text-amber-300 uppercase tracking-widest font-display shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              <span>Safety Grace Period Active</span>
-            </div>
-
-            {/* Circular SVG Progress Ring with Sonar Pulse Effect */}
-            <div className="relative w-36 h-36 mx-auto flex items-center justify-center my-2">
-              {/* Outer Pulsing Sonar Ring */}
-              <div className="absolute inset-0 rounded-full bg-amber-500/10 animate-ping opacity-60 pointer-events-none" />
-              <div className="absolute inset-2 rounded-full border border-amber-500/20 pointer-events-none" />
-
-              {/* SVG Ring */}
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                {/* Background Ring Track */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  className="text-slate-800"
-                  strokeWidth="7"
-                  stroke="currentColor"
-                  fill="transparent"
-                />
-                {/* Progress Ring Stroke */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  stroke="url(#amber-gradient)"
-                  strokeWidth="7"
-                  strokeLinecap="round"
-                  fill="transparent"
-                  strokeDasharray={263.89}
-                  strokeDashoffset={263.89 * (1 - graceCountdown / 10)}
-                  style={{ transition: 'stroke-dashoffset 1s linear' }}
-                />
-                <defs>
-                  <linearGradient id="amber-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#F59E0B" />
-                    <stop offset="100%" stopColor="#EF4444" />
-                  </linearGradient>
-                </defs>
-              </svg>
-
-              {/* Center Countdown Number Display */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-black font-display tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-amber-200 via-amber-400 to-rose-500 leading-none">
-                  {graceCountdown}
-                </span>
-                <span className="text-[10px] font-extrabold text-amber-300/80 uppercase tracking-widest mt-0.5 font-display">
-                  Seconds
-                </span>
-              </div>
-            </div>
-
-            {/* Header Text */}
-            <div className="space-y-1">
-              <h3 className="text-xl font-black text-white font-display tracking-tight">
-                Emergency SOS Dispatching
-              </h3>
-              <p className="text-xs text-slate-300 font-medium leading-relaxed max-w-xs mx-auto">
-                Live GPS coordinates, vehicle details, and SMS notifications will broadcast to your guardians when the timer hits zero.
-              </p>
-            </div>
-
-            {/* Callout Notice Card */}
-            <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-[11px] text-amber-200 font-semibold leading-snug flex items-center justify-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Triggered by mistake? Tap below to abort immediately.</span>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-2.5 pt-1">
-              <button
-                onClick={handleCancelGracePeriod}
-                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl text-xs transition-all shadow-lg shadow-emerald-950/50 active:scale-95 cursor-pointer font-display uppercase tracking-wider flex items-center justify-center gap-2 text-sm"
-              >
-                <CheckCircle2 className="w-5 h-5 text-emerald-200" />
-                <span>Cancel False Alarm (I'm Safe)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowGraceModal(false);
-                  executePanicTrigger(false);
-                }}
-                className="w-full py-2.5 bg-slate-800/80 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 font-extrabold rounded-xl text-[11px] transition-all cursor-pointer font-display border border-slate-700/50 flex items-center justify-center gap-1.5"
-              >
-                <Siren className="w-3.5 h-3.5" />
-                <span>Skip Timer & Trigger Alarm Now ({graceCountdown}s)</span>
-              </button>
             </div>
           </div>
         </div>,

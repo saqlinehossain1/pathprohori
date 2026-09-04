@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { PageTransition } from './components/layout/PageTransition';
 import { GuardianEmergencyModal } from './components/emergency/GuardianEmergencyModal';
+import { GlobalVoiceAlarmModal } from './components/voice/GlobalVoiceAlarmModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 import { Login } from './pages/Login';
@@ -41,6 +42,7 @@ export const App = () => {
       {user && (
         <ErrorBoundary>
           <GuardianEmergencyModal />
+          <GlobalVoiceAlarmModal />
         </ErrorBoundary>
       )}
 

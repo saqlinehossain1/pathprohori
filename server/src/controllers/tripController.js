@@ -813,6 +813,14 @@ export const deactivateAlarm = async (req, res, next) => {
       });
     }
 
+    // Check if panic mode or active emergency was actually active before disarming
+    const wasInPanicMode = trip.status === 'EMERGENCY' || trip.status === 'DURESS';
+    const activeEmergencies = await Emergency.find({
+      trip: trip._id,
+      status: 'ACTIVE',
+    });
+    const hadActiveAlarm = wasInPanicMode || activeEmergencies.length > 0;
+
     // Genuine disarm / finish
     if (finishJourney) {
       trip.status = 'COMPLETED';
@@ -826,60 +834,88 @@ export const deactivateAlarm = async (req, res, next) => {
     }
     await trip.save();
 
-    const resolvedEmergencies = await Emergency.find({
-      trip: trip._id,
-      status: 'ACTIVE',
-    });
+    if (hadActiveAlarm) {
+      await Emergency.updateMany(
+        { trip: trip._id, status: 'ACTIVE' },
+        { status: 'RESOLVED', resolvedAt: new Date() }
+      );
 
-    await Emergency.updateMany(
-      { trip: trip._id, status: 'ACTIVE' },
-      { status: 'RESOLVED', resolvedAt: new Date() }
-    );
+      // Resolve all related notifications
+      await Notification.updateMany(
+        {
+          $or: [{ tripId: trip._id }, { senderId: trip.user }],
+          resolvedAt: { $exists: false },
+        },
+        { $set: { resolvedAt: new Date(), isRead: true } }
+      );
 
-    // Resolve all related notifications
-    await Notification.updateMany(
-      {
-        $or: [{ tripId: trip._id }, { senderId: trip.user }],
-        resolvedAt: { $exists: false },
-      },
-      { $set: { resolvedAt: new Date(), isRead: true } }
-    );
+      if (io) {
+        io.emit('EMERGENCY_RESOLVED', {
+          tripId: trip._id,
+          emergencyIds: activeEmergencies.map((e) => e._id),
+          userId: req.user._id,
+          resolvedAt: new Date().toISOString(),
+          message: finishJourney
+            ? `${user?.name || 'Commuter'} confirmed safe, false alarm resolved, and journey finished.`
+            : `${user?.name || 'Commuter'} confirmed safe and disarmed alarm.`,
+        });
+      }
+
+      // Dispatch resolution push notification to guardians ONLY when an alarm was active
+      try {
+        const targetPushUsers = await User.find({
+          _id: { $ne: req.user._id },
+          'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
+        });
+        for (const pushUser of targetPushUsers) {
+          if (pushUser.pushSubscription) {
+            sendPushNotification(pushUser.pushSubscription, {
+              title: '✅ FALSE ALARM RESOLVED',
+              body: finishJourney
+                ? `${user?.name || 'Commuter'} entered safety PIN. False alarm resolved and journey completed safely.`
+                : `${user?.name || 'Commuter'} entered safety PIN and confirmed safe. False alarm resolved.`,
+              icon: '/logo.png',
+              url: `/notifications`,
+              data: { url: `/notifications` },
+              tag: `emergency-resolved-${Date.now()}`,
+              renotify: true,
+            }).catch((e) => console.error('Push notification resolve error:', e));
+          }
+        }
+      } catch (_) {}
+    } else {
+      // Normal journey finish (no panic mode was active)
+      // Do NOT send any "FALSE ALARM RESOLVED" notification!
+      if (finishJourney) {
+        try {
+          const targetPushUsers = await User.find({
+            _id: { $ne: req.user._id },
+            'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
+          });
+          for (const pushUser of targetPushUsers) {
+            if (pushUser.pushSubscription) {
+              sendPushNotification(pushUser.pushSubscription, {
+                title: '🏁 JOURNEY COMPLETED SAFELY',
+                body: `${user?.name || 'Commuter'} arrived safely and completed their journey.`,
+                icon: '/logo.png',
+                url: `/log-journey`,
+                data: { url: `/log-journey` },
+                tag: `journey-completed-${trip._id}`,
+                renotify: false,
+              }).catch((e) => console.error('Push notification completion error:', e));
+            }
+          }
+        } catch (_) {}
+      }
+    }
 
     if (io) {
-      io.emit('EMERGENCY_RESOLVED', {
-        tripId: trip._id,
-        emergencyIds: resolvedEmergencies.map((e) => e._id),
-        userId: req.user._id,
-        resolvedAt: new Date().toISOString(),
-        message: `${user?.name || 'Commuter'} confirmed safe and disarmed alarm.`,
-      });
       io.emit('TRIP_STATUS_UPDATED', {
         tripId: trip._id,
         status: trip.status,
         completedAt: trip.completedAt,
       });
     }
-
-    // Dispatch resolution push notification to guardians
-    try {
-      const targetPushUsers = await User.find({
-        _id: { $ne: req.user._id },
-        'pushSubscription.endpoint': { $exists: true, $ne: null, $ne: '' },
-      });
-      for (const pushUser of targetPushUsers) {
-        if (pushUser.pushSubscription) {
-          sendPushNotification(pushUser.pushSubscription, {
-            title: '✅ FALSE ALARM RESOLVED',
-            body: `${user?.name || 'Commuter'} entered safety PIN and confirmed safe. Alarm is resolved.`,
-            icon: '/logo.png',
-            url: `/notifications`,
-            data: { url: `/notifications` },
-            tag: `emergency-resolved-${Date.now()}`,
-            renotify: true,
-          }).catch((e) => console.error('Push notification resolve error:', e));
-        }
-      }
-    } catch (_) {}
 
     return res.json({
       success: true,

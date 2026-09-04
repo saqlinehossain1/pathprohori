@@ -218,7 +218,8 @@ export const triggerEmergency = async (req, res, next) => {
 // @route   PUT /api/emergency/resolve
 export const resolveEmergency = async (req, res, next) => {
     try {
-        const { emergencyId } = req.body;
+        const { emergencyId, pin, pinCode } = req.body;
+        const pinToVerify = String(pin || pinCode || '').trim();
 
         let emergency;
         if (emergencyId) {
@@ -226,6 +227,53 @@ export const resolveEmergency = async (req, res, next) => {
         }
         if (!emergency) {
             emergency = await Emergency.findOne({ user: req.user._id, status: 'ACTIVE' }).sort({ createdAt: -1 });
+        }
+
+        // Check PIN if provided
+        if (pinToVerify) {
+            const user = await User.findById(req.user._id).select('+normalPin +fakePin');
+            let isNormalMatch = false;
+            let isDuressMatch = false;
+
+            if (user?.normalPin) {
+                isNormalMatch = await user.matchNormalPin(pinToVerify);
+            }
+            if (!isNormalMatch && user?.safetyPin) {
+                isNormalMatch = pinToVerify === String(user.safetyPin).trim();
+            }
+            if (!isNormalMatch && !user?.normalPin && pinToVerify === '1234') {
+                isNormalMatch = true;
+            }
+
+            if (user?.fakePin) {
+                isDuressMatch = await user.matchFakePin(pinToVerify);
+            }
+            if (!isDuressMatch && user?.duressPin) {
+                isDuressMatch = pinToVerify === String(user.duressPin).trim();
+            }
+            if (!isDuressMatch && !user?.fakePin && pinToVerify === '9999') {
+                isDuressMatch = true;
+            }
+
+            if (!isNormalMatch && !isDuressMatch) {
+                return res.status(400).json({ message: 'Invalid safety PIN. Enter 1234 or your configured deactivation PIN.' });
+            }
+
+            if (isDuressMatch && !isNormalMatch) {
+                const io = getIO();
+                io.emit('EMERGENCY_DURESS_ESCALATED', {
+                    emergencyId: emergency?._id || emergencyId,
+                    userId: req.user._id,
+                    commuterId: req.user._id,
+                    message: `🚨 COVERT DURESS ALERT: ${req.user.name} entered silent duress PIN under potential coercion.`,
+                    escalatedAt: new Date().toISOString(),
+                });
+                return res.json({
+                    success: true,
+                    message: 'Emergency resolved successfully.',
+                    status: 'DURESS',
+                });
+            }
         }
 
         if (emergency) {

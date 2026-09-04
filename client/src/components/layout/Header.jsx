@@ -1,7 +1,8 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { SocketContext } from '../../context/SocketContext';
-import { Shield, User, LogOut, Activity, Bell, BellRing, CheckCircle2, Siren, PhoneCall, Radio, Check, Info } from 'lucide-react';
+import { useVoice } from '../../hooks/useVoice';
+import { Shield, User, LogOut, Activity, Bell, BellRing, CheckCircle2, Siren, PhoneCall, Radio, Check, Info, Mic, MicOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { subscribeToWebPushNotifications } from '../../utils/pushNotifications';
 
@@ -14,6 +15,17 @@ export const Header = () => {
     reopenGuardianEmergencyModal,
   } = useContext(SocketContext);
   const navigate = useNavigate();
+
+  // Hands-free Voice System State
+  const {
+    isListening,
+    handsFreeActive,
+    setHandsFreeActive,
+    permissionDenied,
+    emergencyPhraseInput,
+    startListening,
+    stopListening,
+  } = useVoice();
 
   // Web Push Notification State
   const [pushStatus, setPushStatus] = useState(() => {
@@ -140,6 +152,49 @@ export const Header = () => {
               {isConnected ? 'Network Active' : 'Connecting...'}
             </span>
           </div>
+
+          {/* Hands-Free Voice Mic Active Indicator / Quick Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              if (permissionDenied) {
+                alert('Microphone permission is blocked in your browser. Click the lock or site settings icon in your address bar and set Microphone to Allow.');
+              } else {
+                setHandsFreeActive((prev) => !prev);
+              }
+            }}
+            title={
+              permissionDenied
+                ? 'Microphone blocked: Allow microphone in browser settings'
+                : isListening
+                ? `Hands-Free Voice Mic Active (Listening for: "${emergencyPhraseInput || 'Lavender Moonlight'}"). Click to toggle.`
+                : 'Hands-Free Voice Mic Off. Click to enable continuous voice monitoring.'
+            }
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95 border ${
+              permissionDenied
+                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                : isListening
+                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+            }`}
+          >
+            {permissionDenied ? (
+              <>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden sm:inline text-[11px] font-extrabold text-amber-800">Mic Blocked</span>
+              </>
+            ) : isListening ? (
+              <>
+                <Mic className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                <span className="hidden sm:inline text-[11px] font-extrabold text-rose-700">Mic Active</span>
+              </>
+            ) : (
+              <>
+                <MicOff className="w-3.5 h-3.5 text-slate-400" />
+                <span className="hidden sm:inline text-[11px] font-bold text-slate-600">Mic Off</span>
+              </>
+            )}
+          </button>
 
           {/* Web Push Notification Active Status (Does NOT navigate to /notifications) */}
           <div className="relative" ref={pushDropdownRef}>
