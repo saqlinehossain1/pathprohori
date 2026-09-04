@@ -52,5 +52,6 @@ const locationLogSchema = new mongoose.Schema(
 
 locationLogSchema.index({ location: '2dsphere' });
 locationLogSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+locationLogSchema.index({ trip: 1, createdAt: -1 });
 
 export const LocationLog = mongoose.model('LocationLog', locationLogSchema);

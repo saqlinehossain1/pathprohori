@@ -9,7 +9,8 @@ import AlarmDeactivationForm from '../trip/AlarmDeactivationForm';
 import { AuthContext } from '../../context/AuthContext';
 import { useVoice } from '../../hooks/useVoice';
 import { useBatteryEmergency } from '../../hooks/useBatteryEmergency';
-import { enqueueLocationPoint } from '../../utils/offlineLocationQueueDb';
+import { useSafetyCheck } from '../../hooks/useSafetyCheck';
+import SafetyCheckModal from '../trip/SafetyCheckModal';
 import {
   Activity,
   AlertTriangle,
@@ -124,8 +125,6 @@ export const OngoingJourneyMap = ({
   const { user } = useContext(AuthContext);
   const [currentPos, setCurrentPos] = useState(null);
   const currentPosRef = useRef(null);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const isOfflineRef = useRef(isOffline);
   const [pingSending, setPingSending] = useState(false);
   const [roadRoutePoints, setRoadRoutePoints] = useState([]);
   const estimatedDurationSeconds = Math.max(1, Number(trip.estimatedTimeMinutes) || 30) * 60;
@@ -226,9 +225,9 @@ export const OngoingJourneyMap = ({
     fetchRoadRoute();
   }, [defaultStart.lat, defaultStart.lng, defaultDest.lat, defaultDest.lng]);
 
-  // Watch Live GPS Location - the single geolocation watcher for this trip. Both the
-  // Dead-Battery Emergency Blast and the Offline Queue read from currentPos/currentPosRef
-  // instead of opening their own navigator.geolocation.watchPosition().
+  // Watch Live GPS Location - the single geolocation watcher for this trip. The
+  // Dead-Battery Emergency Blast reads from currentPos/currentPosRef instead of
+  // opening its own navigator.geolocation.watchPosition().
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -253,28 +252,10 @@ export const OngoingJourneyMap = ({
   // trip is active and reuses currentPosRef above for the emergency payload's coordinates.
   useBatteryEmergency(trip, currentPosRef, user);
 
-  // Offline Memory Storage Queue - navigator.onLine can be unreliable on flaky networks,
-  // so the 'offline' event and a failed heartbeat call (below) are treated as the
-  // authoritative signal that connectivity is actually lost, not the onLine flag alone.
-  useEffect(() => {
-    const handleOffline = () => {
-      console.warn(`[Offline Queue] Network OFFLINE event detected for trip ${trip._id} - queuing GPS points locally.`);
-      isOfflineRef.current = true;
-      setIsOffline(true);
-    };
-    const handleOnline = () => {
-      console.log(`[Offline Queue] Network ONLINE event detected for trip ${trip._id} - queued points will now be flushed.`);
-      isOfflineRef.current = false;
-      setIsOffline(false);
-    };
-
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('online', handleOnline);
-    return () => {
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, [trip._id]);
+  // Route Deviation & Unexpected Stop Detection - the server does the actual detection
+  // (routeMonitorService.js); this just listens for its safety-check prompt and answer.
+  const { pendingCheck: pendingSafetyCheck, respondSafe: respondSafetyCheckSafe, responding: safetyCheckResponding } =
+    useSafetyCheck(trip);
 
   // Send Manual Heartbeat Ping
   const handleSendPing = async () => {
@@ -324,13 +305,18 @@ export const OngoingJourneyMap = ({
     }
   };
 
+<<<<<<< Updated upstream
   // AUTOMATIC Heartbeat Ping Interval (Every 30 Seconds) - also the cadence the
   // Offline Queue captures points at while connectivity is down, so it reuses this
   // same interval/GPS reading instead of a separate loop.
+=======
+  // One adaptive location upload loop.
+>>>>>>> Stashed changes
   useEffect(() => {
     if (!trip || !trip._id) return;
 
     const interval = setInterval(async () => {
+<<<<<<< Updated upstream
       const coords = currentPos;
       const timestamp = new Date().toISOString();
 
@@ -348,10 +334,18 @@ export const OngoingJourneyMap = ({
       }
 
       const payload = coords ? { latitude: coords.lat, longitude: coords.lng } : {};
+=======
+      const coords = currentPosRef.current || (defaultStart?.lat && defaultStart?.lng ? defaultStart : null);
+      const batteryLevel = await getBatteryLevel();
+      const payload = coords
+        ? { latitude: coords.lat, longitude: coords.lng, batteryLevel, trackingMode }
+        : { batteryLevel, trackingMode };
+>>>>>>> Stashed changes
       try {
         await tripApi.sendHeartbeat(trip._id, payload);
       } catch (err) {
         console.error('Auto heartbeat ping error:', err);
+<<<<<<< Updated upstream
         // A failed call while onLine still reads true (flaky network / captive portal)
         // is treated as the authoritative offline signal, same as the 'offline' event.
         console.warn(`[Offline Queue] Heartbeat request failed for trip ${trip._id} - treating as offline.`);
@@ -360,6 +354,8 @@ export const OngoingJourneyMap = ({
         if (coords) {
           await enqueueLocationPoint({ lat: coords.lat, lng: coords.lng, timestamp, tripId: trip._id });
         }
+=======
+>>>>>>> Stashed changes
       }
     }, 30000);
 
@@ -406,18 +402,18 @@ export const OngoingJourneyMap = ({
                 <Badge variant="highAlert" className={`${isEmergencyActive ? 'bg-rose-600 animate-pulse' : 'bg-rose-500'} text-white border-0 text-[10px] uppercase font-extrabold px-2.5`}>
                   {trip.status}
                 </Badge>
-                {isOffline && (
-                  <Badge variant="highAlert" className="bg-amber-500 text-white border-0 text-[10px] uppercase font-extrabold px-2.5 animate-pulse">
-                    Offline • Queuing Locally
-                  </Badge>
-                )}
               </div>
               <p className="text-xs text-slate-300 font-medium mt-0.5 truncate">
                 {isEmergencyActive
+<<<<<<< Updated upstream
                   ? 'Emergency Guardians & Safety Operators notified live. Call emergency hotline immediately.'
                   : isOffline
                     ? 'Connection lost - GPS points are being saved locally and will auto-sync once back online.'
                     : 'Heartbeat ping monitor active • Auto 30s connection sync enabled'}
+=======
+                  ? 'Emergency Guardians & Safety Operators notified live. Covert beacon active.'
+                  : 'Heartbeat ping monitor active • Auto 30s connection sync enabled'}
+>>>>>>> Stashed changes
               </p>
             </div>
           </div>
@@ -738,6 +734,31 @@ export const OngoingJourneyMap = ({
         </div>,
         document.body
       )}
+<<<<<<< Updated upstream
+=======
+
+      {/* DUAL-PIN SILENT DURESS DEACTIVATION MODAL */}
+      <DuressPinModal
+        isOpen={showDuressModal}
+        onClose={() => {
+          if (!deactivating) {
+            setShowDuressModal(false);
+            setIsEndingJourneyWithPin(false);
+          }
+        }}
+        loading={deactivating}
+        onDeactivate={handleDuressDeactivate}
+        title={isEndingJourneyWithPin ? 'Finish Journey — Enter PIN' : 'Emergency Mode Active — Enter PIN'}
+        description={isEndingJourneyWithPin ? 'Enter your normal PIN to finish this journey safely.' : undefined}
+      />
+
+      {/* ROUTE DEVIATION / UNEXPECTED STOP SAFETY CHECK MODAL */}
+      <SafetyCheckModal
+        pendingCheck={pendingSafetyCheck}
+        onConfirmSafe={respondSafetyCheckSafe}
+        responding={safetyCheckResponding}
+      />
+>>>>>>> Stashed changes
     </div>
   );
 };

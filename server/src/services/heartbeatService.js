@@ -1,7 +1,8 @@
 import { Trip } from '../models/Trip.js';
 
 export const startHeartbeatMonitor = (io) => {
-  const SIGNAL_LOSS_TIMEOUT_MS = 2 * 60 * 1000; // 2 Minutes (120,000ms)
+  // *** QA-TEST-MODE: temporarily shrunk for a real-time QA pass, PROD value = 2 * 60 * 1000 ***
+  const SIGNAL_LOSS_TIMEOUT_MS = 20 * 1000;
 
   setInterval(async () => {
     try {
@@ -57,5 +58,5 @@ export const startHeartbeatMonitor = (io) => {
     } catch (error) {
       console.error('[Heartbeat Monitor Error]', error.message);
     }
-  }, 15000); // Check every 15 seconds
+  }, 3000); // QA-TEST-MODE, PROD value = 15000
 };
