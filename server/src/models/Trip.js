@@ -110,7 +110,7 @@ const tripSchema = new mongoose.Schema(
     // dead-battery final blast). Lets guardian notifications explain why the alert fired.
     emergencySource: {
       type: String,
-      enum: ['PANIC', 'BATTERY_CRITICAL'],
+      enum: ['PANIC', 'BATTERY_CRITICAL', 'ROUTE_DEVIATION', 'UNEXPECTED_STOP'],
     },
     batteryCriticalTriggeredAt: {
       type: Date,
@@ -126,6 +126,44 @@ const tripSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Route Deviation & Unexpected Stop Detection: a one-time OSRM road-route snapshot
+    // captured from startCoords/destinationCoords at trip creation (see createTrip) - not a
+    // separate route-planning system, just a persisted copy of the same lookup the client
+    // already does to draw the live map.
+    plannedRoute: [
+      {
+        lat: { type: Number },
+        lng: { type: Number },
+        _id: false,
+      },
+    ],
+    deviationTracking: {
+      outOfBoundsSince: { type: Date, default: null },
+    },
+    stopTracking: {
+      anchorLat: { type: Number },
+      anchorLng: { type: Number },
+      stationarySince: { type: Date },
+    },
+    safetyCheck: {
+      active: { type: Boolean, default: false },
+      reason: { type: String, enum: ['ROUTE_DEVIATION', 'UNEXPECTED_STOP'] },
+      triggeredAt: { type: Date },
+      expiresAt: { type: Date },
+      location: {
+        lat: { type: Number },
+        lng: { type: Number },
+      },
+    },
+    safetyCheckHistory: [
+      {
+        reason: { type: String, enum: ['ROUTE_DEVIATION', 'UNEXPECTED_STOP'] },
+        triggeredAt: { type: Date },
+        resolvedAt: { type: Date },
+        outcome: { type: String, enum: ['CONFIRMED_SAFE', 'ESCALATED', 'TRIP_COMPLETED'] },
+        _id: false,
+      },
+    ],
     // Self-Destructing Tracking Link token & expiration for Guardians
     trackingToken: {
       type: String,

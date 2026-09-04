@@ -15,11 +15,16 @@ import { sendEmergencyEmail } from '../services/emailService.js';
 import { getReverseGeocodedAddress } from './emergencyController.js';
 import Notification from '../models/Notification.js';
 import { evaluateTripZones } from '../services/geofenceService.js';
+import { cancelPendingSafetyCheck } from '../services/emergencyEscalationService.js';
+import { fetchPlannedRoute } from '../services/routeMonitorService.js';
 
 // Shared guardian-escalation pathway for anything that raises a trip to EMERGENCY
 // priority - the 1-tap panic button, silent duress, and the dead-battery final blast
 // all funnel through here.
 const escalateToEmergency = async (trip, { source, io, batteryLevel, coords, isDuress } = {}) => {
+  // A bigger emergency supersedes any pending safety check for this trip.
+  cancelPendingSafetyCheck(trip, 'ESCALATED', `superseded by ${source || 'an emergency'} escalation`);
+
   trip.status = isDuress ? 'DURESS' : 'EMERGENCY';
   if (batteryLevel !== undefined) trip.batteryLevel = batteryLevel;
   await trip.save();
@@ -98,6 +103,18 @@ export const createTrip = async (req, res, next) => {
         await evaluateTripZones(trip, { lat: startCoords.lat, lng: startCoords.lng }, req.app.get('io'));
       } catch (zoneErr) {
         console.warn('[createTrip] Initial zone/hazard evaluation failed:', zoneErr.message);
+      }
+    }
+
+    // Route Deviation & Unexpected Stop Detection: best-effort planned-route snapshot.
+    // A failed/empty OSRM lookup just leaves plannedRoute empty - deviation checks skip
+    // trips with no planned route rather than blocking trip creation on it.
+    if (startCoords?.lat && startCoords?.lng && destinationCoords?.lat && destinationCoords?.lng) {
+      try {
+        trip.plannedRoute = await fetchPlannedRoute(startCoords, destinationCoords);
+        await trip.save();
+      } catch (routeErr) {
+        console.warn('[createTrip] Planned route snapshot failed:', routeErr.message);
       }
     }
 
@@ -311,6 +328,9 @@ export const completeTrip = async (req, res, next) => {
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+    // Don't let a pending Route Deviation / Unexpected Stop safety check outlive the trip.
+    cancelPendingSafetyCheck(trip, 'TRIP_COMPLETED', 'trip completed');
 
     trip.status = 'COMPLETED';
     trip.safetyStatus = 'SAFE';
@@ -823,6 +843,7 @@ export const deactivateAlarm = async (req, res, next) => {
 
     // Genuine disarm / finish
     if (finishJourney) {
+      cancelPendingSafetyCheck(trip, 'TRIP_COMPLETED', 'journey finished via PIN');
       trip.status = 'COMPLETED';
       trip.completedAt = new Date();
       trip.trackingActive = false;
@@ -1166,6 +1187,49 @@ export const reportDeadBattery = async (req, res, next) => {
   }
 };
 
+// @desc    Route Deviation / Unexpected Stop safety check: commuter confirms "I'm Safe"
+//          before the automatic guardian-escalation timeout fires
+// @route   POST /api/trips/:id/safety-check/respond
+export const respondToSafetyCheck = async (req, res, next) => {
+  try {
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found.' });
+    }
+    if (trip.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized for this trip.' });
+    }
+    if (!trip.safetyCheck?.active) {
+      return res.status(400).json({ message: 'No pending safety check for this trip.' });
+    }
+
+    const { reason } = trip.safetyCheck;
+    cancelPendingSafetyCheck(trip, 'CONFIRMED_SAFE', "commuter confirmed I'm Safe");
+    // Give deviation/stop monitoring a clean slate so it can catch a second, unrelated
+    // incident later in the same trip instead of instantly re-flagging the same spot.
+    trip.deviationTracking = { outOfBoundsSince: null };
+    trip.stopTracking = { anchorLat: undefined, anchorLng: undefined, stationarySince: undefined };
+    await trip.save();
+
+    console.log(
+      `[Route Monitor] COMMUTER RESPONDED - trip ${trip._id} confirmed "I'm Safe" (reason: ${reason}). ` +
+      'Safety check resolved, resuming normal monitoring.'
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      const payload = { tripId: trip._id, reason, outcome: 'CONFIRMED_SAFE', resolvedAt: new Date() };
+      io.to(`user_${trip.user}`).emit('SAFETY_CHECK_RESOLVED', payload);
+      io.to(`user:${trip.user}`).emit('SAFETY_CHECK_RESOLVED', payload);
+    }
+
+    res.json({ success: true, message: "Thanks for confirming you're safe.", trip });
+  } catch (error) {
+    console.error('[Respond Safety Check Error]', error);
+    next(error);
+  }
+};
+
 // @desc    Update battery telemetry
 // @route   PUT /api/trips/:id/battery
 export const updateBatteryTelemetry = async (req, res, next) => {
@@ -1416,6 +1480,7 @@ export default {
   addCoordinateBatch,
   reportDeadBattery,
   handleBatteryCriticalEmergency,
+  respondToSafetyCheck,
   updateBatteryTelemetry,
   uploadEvidencePhoto,
   uploadEvidenceAudio,

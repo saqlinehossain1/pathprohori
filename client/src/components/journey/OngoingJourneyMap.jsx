@@ -11,6 +11,8 @@ import { useVoice } from '../../hooks/useVoice';
 import DuressPinModal from '../voice/DuressPinModal';
 import { useBatteryEmergency } from '../../hooks/useBatteryEmergency';
 import { enqueueLocationPoint } from '../../utils/offlineLocationQueueDb';
+import { useSafetyCheck } from '../../hooks/useSafetyCheck';
+import SafetyCheckModal from '../trip/SafetyCheckModal';
 import {
   Activity,
   AlertTriangle,
@@ -284,6 +286,11 @@ export const OngoingJourneyMap = ({
       window.removeEventListener('online', handleOnline);
     };
   }, [trip._id]);
+
+  // Route Deviation & Unexpected Stop Detection - the server does the actual detection
+  // (routeMonitorService.js); this just listens for its safety-check prompt and answer.
+  const { pendingCheck: pendingSafetyCheck, respondSafe: respondSafetyCheckSafe, responding: safetyCheckResponding } =
+    useSafetyCheck(trip);
 
   // Send Manual Heartbeat Ping with Battery Status Telemetry
   const handleSendPing = async () => {
@@ -824,6 +831,13 @@ export const OngoingJourneyMap = ({
         onDeactivate={handleDuressDeactivate}
         title={isEndingJourneyWithPin ? 'Finish Journey — Enter PIN' : 'Emergency Mode Active — Enter PIN'}
         description={isEndingJourneyWithPin ? 'Enter your normal PIN to finish this journey safely.' : undefined}
+      />
+
+      {/* ROUTE DEVIATION / UNEXPECTED STOP SAFETY CHECK MODAL */}
+      <SafetyCheckModal
+        pendingCheck={pendingSafetyCheck}
+        onConfirmSafe={respondSafetyCheckSafe}
+        responding={safetyCheckResponding}
       />
     </div>
   );

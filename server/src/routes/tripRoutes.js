@@ -11,6 +11,7 @@ import {
   getUserTripHistory,
   handleBatteryCriticalEmergency,
   addCoordinateBatch,
+  respondToSafetyCheck,
   getPublicTrackingData,
   updateSafetyStatus,
   uploadEvidencePhoto,
@@ -33,6 +34,10 @@ router.put('/:id/complete', protect, completeTrip);
 router.post('/:id/trigger-panic', protect, triggerPanic);
 router.put('/:id/cancel-panic', protect, cancelPanic);
 router.post('/:id/deactivate-alarm', protect, deactivateAlarm);
+
+// Route Deviation & Unexpected Stop Detection: commuter confirms "I'm Safe" in response
+// to an automatic safety check before it escalates to guardians.
+router.post('/:id/safety-check/respond', protect, respondToSafetyCheck);
 
 // sendBeacon() cannot set an Authorization header, so this route accepts the JWT
 // from the body instead (see protectFromHeaderOrBody).

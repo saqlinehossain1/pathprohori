@@ -40,7 +40,7 @@ const emergencySchema = new mongoose.Schema(
 
         alertType: {
             type: String,
-            enum: ['PANIC', 'FALSE_ALARM', 'SILENT_DURESS'],
+            enum: ['PANIC', 'FALSE_ALARM', 'SILENT_DURESS', 'ROUTE_DEVIATION', 'UNEXPECTED_STOP'],
             default: 'PANIC',
         },
 

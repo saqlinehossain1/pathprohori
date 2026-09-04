@@ -21,6 +21,13 @@ export const tripApi = {
     return data;
   },
 
+  // Route Deviation & Unexpected Stop Detection: commuter confirms "I'm Safe" in response
+  // to an automatic safety check before it escalates to guardians.
+  respondToSafetyCheck: async (tripId) => {
+    const { data } = await API.post(`/trips/${tripId}/safety-check/respond`);
+    return data;
+  },
+
   completeTrip: async (tripId) => {
     const { data } = await API.put(`/trips/${tripId}/complete`);
     return data;
@@ -52,11 +59,13 @@ export const tripApi = {
     return data;
   },
 
-  // Dead-Battery Final Emergency Blast: navigator.sendBeacon()
+  // Dead-Battery Final Emergency Blast: navigator.sendBeacon() (not axios/fetch) so the
+  // request reliably completes even as the page unloads.
   sendBatteryEmergencyBeacon: (tripId, payload) => {
     try {
       const token = localStorage.getItem('pathprohori_token');
       const body = JSON.stringify({ ...payload, token });
+      const blob = new Blob([body], { type: 'application/json' });
       const rawApiUrl = import.meta.env.VITE_API_URL || '';
       const apiPrefix = rawApiUrl ? `${rawApiUrl.replace(/\/$/, '')}/api` : '/api';
       return navigator.sendBeacon(`${apiPrefix}/trips/${tripId}/battery-emergency`, blob);

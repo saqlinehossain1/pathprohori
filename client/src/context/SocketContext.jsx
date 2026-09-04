@@ -1,7 +1,6 @@
 import React, { createContext, useEffect, useState, useContext } from 'react';
 import { socket } from '../services/socket';
 import { AuthContext } from './AuthContext';
-import { initOfflineQueueAutoFlush } from '../services/offlineQueueService';
 
 export const SocketContext = createContext();
 
@@ -10,13 +9,6 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [activeTrip, setActiveTrip] = useState(null);
   const [signalLossAlert, setSignalLossAlert] = useState(null);
-
-  // Offline Memory Storage Queue: registered once at the app root (not inside
-  // OngoingJourneyMap) so a leftover queue still auto-flushes on the very next load
-  // even if the trip ended, or the app was fully closed, while offline.
-  useEffect(() => {
-    initOfflineQueueAutoFlush();
-  }, []);
 
   useEffect(() => {
     const onConnect = () => setIsConnected(true);

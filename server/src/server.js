@@ -11,6 +11,7 @@ import tripRoutes from './routes/tripRoutes.js';
 import incidentRoutes from './routes/incidentRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import { startHeartbeatMonitor } from './services/heartbeatService.js';
+import { startRouteDeviationMonitor } from './services/routeMonitorService.js';
 import { startPrivacyCron } from './services/privacyCron.js';
 import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 
@@ -142,6 +143,7 @@ io.on('connection', (socket) => {
 
 // Start Background Services
 startHeartbeatMonitor(io);
+startRouteDeviationMonitor(io);
 startPrivacyCron();
 
 const PORT = process.env.PORT || 5000;

@@ -488,14 +488,24 @@ export const getEmergencies = async (req, res, next) => {
             tripId: e.trip,
             type: e.alertType,
             severity: e.severity,
-            title: e.alertType === 'SILENT_DURESS' ? '🚨 SILENT DURESS ALERT' : '🚨 Emergency Alert',
+            title: e.alertType === 'SILENT_DURESS'
+                ? '🚨 SILENT DURESS ALERT'
+                : e.alertType === 'ROUTE_DEVIATION'
+                    ? '🚨 Route Deviation Detected'
+                    : e.alertType === 'UNEXPECTED_STOP'
+                        ? '🚨 Unexpected Stop Detected'
+                        : '🚨 Emergency Alert',
             message: e.status === 'RESOLVED'
                 ? e.alertType === 'SILENT_DURESS'
                     ? `Duress response for ${e.user?.name || 'Commuter'} was marked resolved by a response user.`
                     : `${e.user?.name || 'Commuter'} confirmed safe. False alarm resolved and journey resumed.`
                 : e.alertType === 'SILENT_DURESS'
                     ? `${e.user?.name || 'Commuter'} entered a silent duress PIN. Contact police immediately. Last seen coordinates are attached.`
-                    : `${e.user?.name || 'Commuter'} has an active emergency alert.`,
+                    : e.alertType === 'ROUTE_DEVIATION'
+                        ? `${e.user?.name || 'Commuter'} deviated from their planned route and did not respond to an automatic safety check.`
+                        : e.alertType === 'UNEXPECTED_STOP'
+                            ? `${e.user?.name || 'Commuter'} has been stationary unexpectedly and did not respond to an automatic safety check.`
+                            : `${e.user?.name || 'Commuter'} has an active emergency alert.`,
             user: {
                 id: e.user?._id,
                 name: e.user?.name || 'Commuter',

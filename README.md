@@ -67,12 +67,12 @@ If a traveler encounters a threat, loses internet connection, or faces an emerge
 - **One-Tap Instant Panic Button**: Emergency button putting the app into critical alert mode instantly.
 - **Voice-Activated Hands-Free Trigger**: Local microphone listener for user's secret emergency phrase (*e.g., "Lavender Moonlight"*).
 - **Dual-PIN Silent Duress Deactivation**: "Fake PIN" interface that secretly upgrades alert priority to max level while appearing to disarm on-screen.
+- **Route Deviation & Unexpected Stop Detection**: Compares live GPS against the trip's planned route; an off-route or stationary commuter first gets an in-app "I'm Safe" check, then guardians are alerted only if they don't respond in time.
 
 ### Module 3: Guardian Broadcasting & Emergency Operations
 - **Self-Destructing Tracking Links**: Live map streaming links for guardians expiring after 4 hours or trip completion.
 - **Low-Bandwidth Evidence Locker**: Silent background capture of compressed photos/audio during panic states.
 - **Dead-Battery Emergency Blast**: Automatic coordinate broadcast when battery drops to 5% before shutdown.
-- **Offline Memory Storage Queue**: Stores travel coordinates in local storage when offline and uploads upon reconnecting.
 - **Admin Law-Enforcement PDF Export**: One-click structured PDF crime report generator for police dispatch.
 
 ---

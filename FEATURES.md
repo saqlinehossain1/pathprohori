@@ -74,6 +74,18 @@
 - Separate real PIN for actual deactivation
 - Admin notification for duress attempts
 
+#### 2.5 Route Deviation & Unexpected Stop Detection
+- Continuously compares live GPS position against the trip's planned route
+- Flags a route deviation if the commuter stays >150m off-route for 30+ seconds
+- Flags an unexpected stop if position doesn't change beyond 20m for 5+ minutes
+- Sends an in-app safety check ("I'm Safe" button, 2-minute countdown) before ever alerting guardians
+- Automatically escalates to guardians and the safety operator dashboard through the same
+  panic-button pathway (Emergency record, Twilio SMS/voice, email, push, Socket.io) if the
+  commuter doesn't respond in time, tagged with the triggering reason
+- Distinct from GPS/connectivity gaps, which remain owned by the Signal Loss Heartbeat Tracker
+- **Known limitation:** there is no way to pre-mark a stop as an intentional pickup/errand -
+  a genuinely planned stop still triggers a safety check, resolved with one tap
+
 ---
 
 ### **Module 3: Guardian Broadcasting & Emergency Operations**
