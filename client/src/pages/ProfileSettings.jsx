@@ -231,8 +231,8 @@ export const ProfileSettings = () => {
 
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Clean Text Page Header */}
-      <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-extrabold mb-2 border border-slate-200 shadow-2xs">
+      <div className="mobile-page-header">
+        <div className="page-header-kicker inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-extrabold mb-2 border border-slate-200 shadow-2xs">
           <User className="w-3.5 h-3.5 text-rose-600" />
           <span className="font-display">Commuter Safety Account</span>
         </div>

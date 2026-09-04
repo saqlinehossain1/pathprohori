@@ -293,7 +293,7 @@ export const JourneyForm = ({
         <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
           Transport Type
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5">
           {vehicleOptions.map((v) => {
             const Icon = v.icon;
             const isSelected = formData.vehicleType === v.value;
@@ -302,7 +302,7 @@ export const JourneyForm = ({
                 type="button"
                 key={v.value}
                 onClick={() => setFormData((prev) => ({ ...prev, vehicleType: v.value }))}
-                className={`p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all duration-150 cursor-pointer relative ${
+                className={`p-2.5 sm:p-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all duration-150 cursor-pointer relative last:col-span-2 sm:last:col-span-1 ${
                   isSelected
                     ? 'bg-slate-950 text-white border-slate-900 shadow-md ring-2 ring-rose-500/60 -translate-y-0.5'
                     : 'bg-white text-slate-700 border-slate-200/90 shadow-2xs hover:bg-slate-50 hover:-translate-y-0.5 hover:border-slate-300'

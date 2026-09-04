@@ -83,12 +83,12 @@ export const QuickActionsCard = () => {
             <Link
               key={idx}
               to={act.path}
-              className="bg-white rounded-2xl p-5 border border-slate-200 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card hover:border-slate-300 group cursor-pointer flex flex-col justify-between relative overflow-hidden"
+              className="min-w-0 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card hover:border-slate-300 group cursor-pointer flex flex-col justify-between relative overflow-hidden"
             >
               {/* Top Meta info */}
               <div>
                 <div className="flex items-center justify-between gap-1 mb-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 font-display">
+                  <span className="min-w-0 break-words text-[10px] font-black uppercase tracking-wider text-slate-700 font-display">
                     {act.category}
                   </span>
                   <span className="text-xs font-bold text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 transition-all">
@@ -117,7 +117,7 @@ export const QuickActionsCard = () => {
               <div className="space-y-2.5 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-start">
                   <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border shadow-2xs ${act.tagColor}`}
+                    className={`inline-flex max-w-full items-center gap-1 truncate px-2.5 py-0.5 rounded-full text-[10px] font-black border shadow-2xs ${act.tagColor}`}
                   >
                     {act.tag}
                   </span>

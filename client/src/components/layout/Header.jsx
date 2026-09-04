@@ -108,7 +108,7 @@ export const Header = () => {
       <div className="w-full h-14 flex items-center">
         {/* Brand Identity - Exact width of sidebar (w-64 = 256px) on clean white background */}
         <div
-          className="w-auto md:w-64 h-full shrink-0 flex items-center gap-3 px-4 md:px-5 bg-white text-slate-950 md:border-r border-slate-200/90 cursor-pointer select-none group"
+          className="w-auto md:w-64 h-full shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-5 bg-white text-slate-950 md:border-r border-slate-200/90 cursor-pointer select-none group"
           onClick={() => navigate('/')}
           title="PathProhori Dashboard"
         >
@@ -116,7 +116,7 @@ export const Header = () => {
             <img
               src="/logo.png"
               alt="PATHPROHORI Logo"
-              className="w-8 h-8 object-contain transition-transform duration-200 group-hover:scale-105"
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain transition-transform duration-200 group-hover:scale-105"
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.style.display = 'none';
@@ -125,22 +125,22 @@ export const Header = () => {
                 }
               }}
             />
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white hidden items-center justify-center shadow-xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-900 text-white hidden items-center justify-center shadow-xs">
               <Shield className="w-4 h-4 text-rose-500" />
             </div>
           </div>
 
-          <span className="text-base sm:text-lg font-black tracking-tight text-slate-950 leading-none font-display truncate">
+          <span className="text-sm sm:text-base md:text-lg font-black tracking-tight text-slate-950 leading-none font-display truncate">
             PATHPROHORI
           </span>
         </div>
 
         {/* Right Header Navigation & Telemetry Status Bar */}
-        <div className="flex-1 h-full px-4 sm:px-6 flex items-center justify-end gap-2 sm:gap-3">
+        <div className="flex-1 h-full px-2.5 sm:px-6 flex items-center justify-end gap-1.5 sm:gap-3">
           {/* Socket Heartbeat Live Indicator */}
           <div
             title={isConnected ? 'Heartbeat Monitor Active (Live 15s telemetry stream)' : 'Connecting to Safety Network...'}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50/90 border border-emerald-200 text-xs font-medium text-emerald-800 cursor-help shadow-2xs"
+            className="hidden items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50/90 border border-emerald-200 text-xs font-medium text-emerald-800 cursor-help shadow-2xs sm:flex"
           >
             <span className="relative flex h-2 w-2">
               {isConnected && (
@@ -170,7 +170,7 @@ export const Header = () => {
                 ? `Hands-Free Voice Mic Active (Listening for: "${emergencyPhraseInput || 'Lavender Moonlight'}"). Click to toggle.`
                 : 'Hands-Free Voice Mic Off. Click to enable continuous voice monitoring.'
             }
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95 border ${
+            className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95 border sm:h-auto sm:w-auto sm:gap-1.5 sm:px-2.5 sm:py-1 ${
               permissionDenied
                 ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
                 : isListening
@@ -181,17 +181,17 @@ export const Header = () => {
             {permissionDenied ? (
               <>
                 <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden sm:inline text-[11px] font-extrabold text-amber-800">Mic Blocked</span>
+                <span className="hidden text-[11px] font-extrabold text-amber-800 sm:inline">Mic Blocked</span>
               </>
             ) : isListening ? (
               <>
                 <Mic className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
-                <span className="hidden sm:inline text-[11px] font-extrabold text-rose-700">Mic Active</span>
+                <span className="hidden text-[11px] font-extrabold text-rose-700 sm:inline">Mic Active</span>
               </>
             ) : (
               <>
                 <MicOff className="w-3.5 h-3.5 text-slate-400" />
-                <span className="hidden sm:inline text-[11px] font-bold text-slate-600">Mic Off</span>
+                <span className="hidden text-[11px] font-bold text-slate-600 sm:inline">Mic Off</span>
               </>
             )}
           </button>
@@ -230,7 +230,7 @@ export const Header = () => {
 
             {/* Push Notification Info Popover */}
             {showPushInfo && (
-              <div className="absolute right-0 top-full mt-2 w-72 p-3.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in-95">
+              <div className="absolute right-0 top-full mt-2 w-[calc(100vw-32px)] max-w-xs sm:w-72 p-3.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 animate-in fade-in zoom-in-95">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                   <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${isPushActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                     {isPushActive ? <Check className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
@@ -270,7 +270,7 @@ export const Header = () => {
             <div
               onClick={() => navigate('/log-journey')}
               title={`Active Journey: ${activeTrip.vehicleType}`}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 cursor-pointer hover:bg-rose-100 transition-colors shadow-2xs"
+              className="hidden items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 cursor-pointer hover:bg-rose-100 transition-colors shadow-2xs sm:flex"
             >
               <Activity className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
               <span className="hidden sm:inline">Trip Live</span>

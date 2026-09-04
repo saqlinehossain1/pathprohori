@@ -50,7 +50,7 @@ export const App = () => {
         {user && <Sidebar />}
 
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <main className="flex-1 p-4 sm:p-6 md:p-8 pb-24 md:pb-16 overflow-y-auto min-h-0 bg-transparent custom-scrollbar">
+          <main className="flex-1 min-w-0 overflow-y-auto bg-transparent p-3 pb-28 sm:p-6 sm:pb-28 md:p-8 md:pb-16 custom-scrollbar">
             <PageTransition>
               <Routes>
                 <Route path="/track/:token" element={<PublicLiveTracking />} />

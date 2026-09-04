@@ -373,9 +373,9 @@ const LiveDangerFeedContent = () => {
     <div className="space-y-4 sm:space-y-6 h-full pb-16 lg:pb-0">
       {/* Clean Text Page Header */}
       {/* Operations Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-md text-[11px] font-bold mb-1.5 border border-rose-200 shadow-2xs">
+      <div className="mobile-page-header flex min-w-0 flex-col gap-4 pb-4 border-b border-slate-200/80 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="page-header-kicker inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-md text-[11px] font-bold mb-1.5 border border-rose-200 shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
             <span>Real-Time Danger Feed</span>
           </div>
@@ -387,11 +387,11 @@ const LiveDangerFeedContent = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           {isAdminOrOperator && (
             <button
               onClick={() => setShowAdminPdfModal(true)}
-              className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold flex items-center gap-1.5 shadow-2xs text-xs py-2.5 px-3.5 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+              className="min-w-0 flex-1 justify-center border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold flex items-center gap-1.5 shadow-2xs text-xs py-2.5 px-3 rounded-xl transition-all active:scale-[0.98] cursor-pointer sm:flex-none sm:px-3.5"
             >
               <FileText className="w-4 h-4 text-slate-600" />
               <span>Law Enforcement PDF</span>
@@ -403,7 +403,7 @@ const LiveDangerFeedContent = () => {
               setSelectedCoords(null);
               setShowReportModal(true);
             }}
-            className="bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-xs hover:shadow-rose-600/30 text-xs py-2.5 px-4 rounded-xl transition-all active:scale-[0.98] cursor-pointer"
+            className="min-w-0 flex-1 justify-center bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-xs hover:shadow-rose-600/30 text-xs py-2.5 px-3 rounded-xl transition-all active:scale-[0.98] cursor-pointer sm:flex-none sm:px-4"
           >
             <Plus className="w-4 h-4" />
             <span>Report Hazard</span>
@@ -668,22 +668,6 @@ const LiveDangerFeedContent = () => {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Floating Action Button for Mobile Users */}
-      <div className="fixed bottom-20 right-4 lg:hidden z-40">
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedCoords(null);
-            setShowReportModal(true);
-          }}
-          className="p-3.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-700 text-white rounded-full shadow-2xl active:scale-95 transition-all flex items-center gap-2 font-extrabold text-xs border-2 border-white cursor-pointer font-display"
-          title="Report Street Hazard"
-        >
-          <Plus className="w-5 h-5 text-white" />
-          <span className="pr-1">Report Hazard</span>
-        </button>
       </div>
 
       {/* New Incident Report Modal */}

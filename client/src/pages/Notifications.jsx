@@ -271,9 +271,9 @@ export const Notifications = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12 animate-page-enter">
       {/* Clean Incident Operations Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+      <div className="mobile-page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-red-50 text-red-700 rounded-md text-[11px] font-bold mb-1.5 border border-red-200 shadow-2xs">
+          <div className="page-header-kicker inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-red-50 text-red-700 rounded-md text-[11px] font-bold mb-1.5 border border-red-200 shadow-2xs">
             <Siren className="w-3.5 h-3.5 text-red-600 animate-pulse" />
             <span>Emergency Dispatch Feed</span>
           </div>
@@ -495,14 +495,14 @@ export const Notifications = () => {
                   </div>
 
                   {/* Action Controls Bar with Clear Visual Hierarchy */}
-                  <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center gap-2 text-xs">
+                  <div className="pt-2 border-t border-slate-200 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 text-xs">
                     {/* PRIMARY ACTION: Live Tracking Stream Link */}
                     {notif.trackingToken && !isResolved && (
                       <a
                         href={`/track/${notif.trackingToken}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-2 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                        className="col-span-2 sm:col-span-1 py-2.5 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                       >
                         <Radio className="w-3.5 h-3.5 text-white animate-pulse shrink-0" />
                         <span>Open Live Tracking</span>
@@ -517,7 +517,7 @@ export const Notifications = () => {
                         const emergencyId = String(notif.emergencyId || notif.id);
                         setExpandedEvidenceId(expandedEvidenceId === emergencyId ? null : emergencyId);
                       }}
-                      className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      className="py-2.5 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                     >
                       <HardDrive className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                       <span>Evidence Locker</span>
@@ -531,7 +531,7 @@ export const Notifications = () => {
                     {!isResolved && (
                       <a
                         href="tel:999"
-                        className="py-2 px-3 bg-white hover:bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                        className="py-2.5 px-3 bg-white hover:bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                       >
                         <PhoneCall className="w-3.5 h-3.5 text-red-600 shrink-0" />
                         <span>Call 999</span>
@@ -541,7 +541,7 @@ export const Notifications = () => {
                     {commuterPhone && !isResolved && (
                       <a
                         href={`tel:${commuterPhone}`}
-                        className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                        className="py-2.5 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                       >
                         <PhoneCall className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                         <span>Call Commuter</span>
@@ -553,7 +553,7 @@ export const Notifications = () => {
                         href={mapUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-2 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                        className="py-2.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                       >
                         <Navigation className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         <span>Google Map</span>
@@ -566,7 +566,7 @@ export const Notifications = () => {
                         type="button"
                         onClick={() => resolveAlert(notif)}
                         disabled={resolvingId === String(notif.emergencyId || notif.id)}
-                        className="py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer sm:ml-auto"
+                        className="col-span-2 sm:col-span-1 py-2.5 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer sm:ml-auto"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                         <span>{resolvingId === String(notif.emergencyId || notif.id) ? 'Resolving...' : 'Mark Resolved'}</span>

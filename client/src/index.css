@@ -86,6 +86,45 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+/* Keep fixed mobile navigation clear of page content and device safe areas. */
+.mobile-bottom-nav {
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 639px) {
+  .mobile-page-header {
+    gap: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .mobile-page-header h1 {
+    font-size: 1.45rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .mobile-page-header .page-header-kicker {
+    font-size: 10px !important;
+    padding: 2px 8px !important;
+  }
+
+  .mobile-page-header > div > p,
+  .mobile-page-header > p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin-top: 2px !important;
+  }
+
+  .mobile-bottom-nav {
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+  }
+
+  button,
+  a {
+    max-width: 100%;
+  }
+}
+
 /* Micro-interaction Utilities */
 .hover-lift {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;

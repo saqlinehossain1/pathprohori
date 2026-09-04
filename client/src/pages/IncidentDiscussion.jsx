@@ -213,8 +213,8 @@ export const IncidentDiscussion = () => {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Clean Text Page Header matching other pages */}
-      <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
+      <div className="mobile-page-header">
+        <div className="page-header-kicker inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
           <MessageSquare className="w-3.5 h-3.5 text-rose-600" />
           <span className="font-display">Community Safety Discussion</span>
         </div>
@@ -231,7 +231,7 @@ export const IncidentDiscussion = () => {
 
           <Link
             to="/live-danger-feed"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-md shadow-slate-950/10 cursor-pointer font-display shrink-0"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-md shadow-slate-950/10 cursor-pointer font-display shrink-0"
           >
             <ArrowLeft className="w-4 h-4 text-rose-400" />
             <span>Back to Live Feed</span>
@@ -241,11 +241,11 @@ export const IncidentDiscussion = () => {
 
       {/* Author Actions Bar */}
       {canManage && (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
           <button
             type="button"
             onClick={() => setShowEditModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-xs cursor-pointer"
           >
             <Edit3 className="w-3.5 h-3.5" />
             <span>Edit Incident Report</span>
@@ -254,10 +254,10 @@ export const IncidentDiscussion = () => {
           <button
             type="button"
             onClick={handleDeleteIncident}
-            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-2xl text-xs font-extrabold transition-all cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-2xl text-xs font-extrabold transition-all border border-rose-200 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete Incident Report</span>
+            <span>Delete Report</span>
           </button>
         </div>
       )}

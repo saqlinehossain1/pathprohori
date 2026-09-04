@@ -47,7 +47,7 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#FAF4F8] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 md:p-8 bg-[#FAF4F8] relative overflow-hidden">
       {/* Background Soft Glow Orbs */}
       <div className="absolute top-1/4 -left-20 w-96 h-96 bg-[#FDE8EC] rounded-full blur-3xl opacity-60 animate-pulse"></div>
       <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-[#EAD9E3] rounded-full blur-3xl opacity-50 animate-pulse"></div>
@@ -100,7 +100,7 @@ export const Login = () => {
                   48-Hour Privacy Eraser
                 </h5>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  Automated daily safe log purge
+                  Zero permanent GPS logs
                 </p>
               </div>
             </div>
@@ -111,10 +111,10 @@ export const Login = () => {
               </div>
               <div>
                 <h5 className="text-xs font-extrabold text-slate-900 font-display">
-                  Live Localized Danger Feed
+                  Crowdsourced Danger Feed
                 </h5>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  Radius threat mapping & discussion
+                  Verified safety heatmap
                 </p>
               </div>
             </div>
@@ -122,15 +122,15 @@ export const Login = () => {
         </div>
 
         {/* Right Column: Aesthetic Glassmorphism Login Card (7 Cols) */}
-        <div className="lg:col-span-7 bg-white/95 backdrop-blur-xl rounded-3xl p-8 md:p-10 border border-slate-200/80 shadow-card hover:shadow-2xl transition-all">
+        <div className="lg:col-span-7 bg-white/95 backdrop-blur-xl rounded-3xl p-5 sm:p-8 md:p-10 border border-slate-200/80 shadow-card hover:shadow-2xl transition-all">
           {/* Header Icon */}
           <div className="flex flex-col items-center text-center mb-6">
             <img
               src="/logo.png"
               alt="PATHPROHORI Logo"
-              className="w-20 h-20 object-contain mb-2 drop-shadow-md transform hover:scale-105 transition-transform"
+              className="w-16 h-16 sm:w-20 sm:h-20 object-contain mb-2 drop-shadow-md transform hover:scale-105 transition-transform"
             />
-            <h2 className="text-2xl font-extrabold text-slate-900 font-display">Welcome Back</h2>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-display">Welcome Back</h2>
             <p className="text-xs font-semibold text-slate-500 mt-1">
               Access your PATHPROHORI Commuter Safety Ecosystem
             </p>

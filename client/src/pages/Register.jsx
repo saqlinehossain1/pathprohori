@@ -41,19 +41,19 @@ export const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 md:p-8 bg-[#FAF4F8] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 md:p-8 bg-[#FAF4F8] relative overflow-hidden">
       {/* Background Gradient Orbs */}
       <div className="absolute top-1/4 -right-20 w-96 h-96 bg-[#FDE8EC] rounded-full blur-3xl opacity-60 animate-pulse"></div>
       <div className="absolute bottom-1/4 -left-20 w-96 h-96 bg-[#EAD9E3] rounded-full blur-3xl opacity-50 animate-pulse"></div>
 
-      <div className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl p-8 border border-[#EFEAEB] shadow-card relative z-10">
+      <div className="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl p-5 sm:p-8 border border-[#EFEAEB] shadow-card relative z-10">
         <div className="flex flex-col items-center text-center mb-6">
           <img
             src="/logo.png"
             alt="PATHPROHORI Logo"
             className="w-16 h-16 object-contain mb-2 drop-shadow-md transform hover:scale-105 transition-transform"
           />
-          <h2 className="text-2xl font-extrabold text-[#2D2329]">Create Account</h2>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#2D2329]">Create Account</h2>
           <p className="text-xs font-semibold text-[#8C8289] mt-1">
             Join the PATHPROHORI Commuter Protection Network
           </p>

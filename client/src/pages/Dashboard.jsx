@@ -50,9 +50,9 @@ export const Dashboard = () => {
   return (
     <div className="space-y-6 pb-8 animate-page-enter">
       {/* Clean Operations Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      <div className="mobile-page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100/90 text-emerald-950 rounded-md text-[11px] font-black mb-1.5 border border-emerald-300 shadow-2xs">
+          <div className="page-header-kicker inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100/90 text-emerald-950 rounded-md text-[11px] font-black mb-1.5 border border-emerald-300 shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
             <span>
               {isResponseRole
@@ -73,27 +73,27 @@ export const Dashboard = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
+        <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-nowrap sm:flex-shrink-0">
           {!isResponseRole && (
             <button
               onClick={() => navigate('/log-journey')}
-              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all flex items-center gap-2 shadow-xs hover:shadow-rose-600/30 active:scale-[0.98] cursor-pointer"
+              className="min-w-0 flex-1 px-3 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs hover:shadow-rose-600/30 active:scale-[0.98] cursor-pointer sm:flex-none sm:px-4"
             >
-              <span>Log New Journey</span>
+              <span className="truncate">Log Journey</span>
             </button>
           )}
 
           <button
             onClick={() => navigate('/live-danger-feed')}
-            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-2xs hover:border-slate-400 active:scale-[0.98] cursor-pointer"
+            className="min-w-0 flex-1 px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:border-slate-400 active:scale-[0.98] cursor-pointer sm:flex-none sm:px-3.5"
           >
-            <ShieldAlert className="w-4 h-4 text-rose-600" />
-            <span>Live Danger Feed</span>
+            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+            <span className="truncate">Danger Feed</span>
           </button>
 
           <button
             onClick={() => navigate('/notifications')}
-            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-xl text-xs font-black transition-all flex items-center justify-center shadow-2xs hover:border-slate-400 active:scale-[0.98] cursor-pointer"
+            className="px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-xl text-xs font-black transition-all flex items-center justify-center shadow-2xs hover:border-slate-400 active:scale-[0.98] cursor-pointer shrink-0"
             title="Emergency Notifications"
           >
             <Bell className="w-4 h-4 text-slate-700" />
@@ -122,21 +122,21 @@ export const Dashboard = () => {
 
       {/* 3. Recent Safe Journey Summary (If Idle) */}
       {!activeTrip && recentSafeTrip && (
-        <div className="p-4 bg-gradient-to-r from-emerald-50/90 via-white to-white border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-soft">
-          <div className="flex items-center gap-3.5 min-w-0">
+        <div className="min-w-0 p-4 bg-gradient-to-r from-emerald-50/90 via-white to-white border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-soft">
+          <div className="flex min-w-0 items-start gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-600/20">
               <CheckCircle2 className="w-5 h-5" />
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs sm:text-sm font-black text-slate-950 truncate">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <p className="min-w-0 break-words text-xs font-black leading-relaxed text-slate-950 sm:text-sm">
                   Safe Arrival Confirmed: Last journey to <span className="text-emerald-700 font-black underline decoration-emerald-300 underline-offset-2">{recentSafeTrip.destination}</span> arrived safely.
                 </p>
                 <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 shrink-0">
                   ⏱️ 48h Auto-Purge
                 </span>
               </div>
-              <p className="text-xs text-slate-700 font-semibold mt-0.5">
+              <p className="break-words text-xs text-slate-700 font-semibold mt-0.5 leading-relaxed">
                 Transit telemetry & GPS breadcrumbs will automatically purge in 48 hours for commuter privacy.
               </p>
             </div>
@@ -144,7 +144,7 @@ export const Dashboard = () => {
 
           <button
             onClick={() => navigate('/log-journey')}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs hover:shadow-md active:scale-95"
+            className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs hover:shadow-md active:scale-95"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>Trip History</span>

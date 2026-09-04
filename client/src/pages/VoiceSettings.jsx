@@ -48,8 +48,8 @@ export const VoiceSettings = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Clean Text Page Header */}
-      <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
+      <div className="mobile-page-header">
+        <div className="page-header-kicker inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">
           <Mic className="w-3.5 h-3.5 text-rose-600" />
           <span className="font-display">Hands-Free Emergency System</span>
         </div>

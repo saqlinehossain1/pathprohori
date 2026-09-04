@@ -56,8 +56,8 @@ export const StatsOverview = () => {
             className={`bg-white rounded-2xl p-5 border border-slate-200 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card group cursor-default relative overflow-hidden flex flex-col justify-between ${item.accentGlow}`}
           >
             {/* Top Row: Category + Status Badge */}
-            <div className="flex items-start justify-between gap-2 z-10">
-              <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider font-display">
+            <div className="flex min-w-0 flex-col items-start gap-2 z-10 sm:flex-row sm:items-start sm:justify-between">
+              <span className="min-w-0 break-words text-[11px] font-extrabold text-slate-700 uppercase tracking-wider font-display">
                 {item.title}
               </span>
               <span
@@ -80,7 +80,7 @@ export const StatsOverview = () => {
               </div>
 
               {/* Pathao-Style Vector Illustration Graphic */}
-              <div className="shrink-0 flex items-center justify-end -mr-1">
+              <div className="hidden shrink-0 items-center justify-end -mr-1 sm:flex">
                 <Vector className={item.vectorClass} />
               </div>
             </div>
@@ -88,7 +88,7 @@ export const StatsOverview = () => {
             {/* Bottom Row: Pathao-style Feature Pill Tag */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between z-10">
               <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black border shadow-2xs ${item.tagColor}`}
+                className={`inline-flex max-w-[65%] items-center gap-1 truncate px-2.5 py-0.5 rounded-full text-[11px] font-black border shadow-2xs ${item.tagColor}`}
               >
                 {item.tag}
               </span>
