@@ -57,8 +57,9 @@ export const tripApi = {
     try {
       const token = localStorage.getItem('pathprohori_token');
       const body = JSON.stringify({ ...payload, token });
-      const blob = new Blob([body], { type: 'application/json' });
-      return navigator.sendBeacon(`/api/trips/${tripId}/battery-emergency`, blob);
+      const rawApiUrl = import.meta.env.VITE_API_URL || '';
+      const apiPrefix = rawApiUrl ? `${rawApiUrl.replace(/\/$/, '')}/api` : '/api';
+      return navigator.sendBeacon(`${apiPrefix}/trips/${tripId}/battery-emergency`, blob);
     } catch (err) {
       console.error('[Battery Emergency] sendBeacon threw an error:', err);
       return false;

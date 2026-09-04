@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const rawApiUrl = import.meta.env.VITE_API_URL || '';
+const API_BASE = rawApiUrl ? `${rawApiUrl.replace(/\/$/, '')}/api` : '/api';
+
 const API = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
 });
 
 // Request interceptor to attach JWT token
