@@ -370,7 +370,7 @@ const LiveDangerFeedContent = () => {
   const isAdminOrOperator = ['admin', 'operator'].includes(user?.role);
 
   return (
-    <div className="space-y-4 sm:space-y-6 h-full pb-16 lg:pb-0">
+    <div className="space-y-4 sm:space-y-6 min-h-full pb-28 lg:pb-6 page-bottom-clearance">
       {/* Clean Text Page Header */}
       {/* Operations Header */}
       <div className="mobile-page-header flex min-w-0 flex-col gap-4 pb-4 border-b border-slate-200/80 sm:flex-row sm:items-center sm:justify-between">

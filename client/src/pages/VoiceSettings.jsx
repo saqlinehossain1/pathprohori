@@ -46,7 +46,7 @@ export const VoiceSettings = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto pb-28 md:pb-12 page-bottom-clearance">
       {/* Clean Text Page Header */}
       <div className="mobile-page-header">
         <div className="page-header-kicker inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-extrabold mb-2 border border-rose-200 shadow-2xs">

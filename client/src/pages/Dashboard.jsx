@@ -48,7 +48,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6 pb-8 animate-page-enter">
+    <div className="space-y-6 pb-28 md:pb-8 animate-page-enter page-bottom-clearance">
       {/* Clean Operations Header */}
       <div className="mobile-page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>

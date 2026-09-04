@@ -269,7 +269,7 @@ export const Notifications = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 animate-page-enter">
+    <div className="space-y-6 max-w-5xl mx-auto pb-28 md:pb-12 animate-page-enter page-bottom-clearance">
       {/* Clean Incident Operations Header */}
       <div className="mobile-page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>

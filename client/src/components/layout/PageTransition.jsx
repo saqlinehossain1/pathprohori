@@ -7,7 +7,7 @@ export const PageTransition = ({ children }) => {
   return (
     <div
       key={location.pathname}
-      className="animate-page-enter w-full h-full min-h-0 flex-1 flex flex-col"
+      className="animate-page-enter w-full min-h-full flex flex-col"
     >
       {children}
     </div>

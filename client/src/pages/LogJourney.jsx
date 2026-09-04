@@ -128,7 +128,7 @@ export const LogJourney = () => {
   }
 
   return (
-    <div className="space-y-6 pb-8 animate-page-enter">
+    <div className="space-y-6 pb-28 md:pb-8 animate-page-enter page-bottom-clearance">
       {/* Clean journey workspace header */}
       <div className="mobile-page-header flex min-w-0 flex-col gap-4 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
